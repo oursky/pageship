@@ -6,3 +6,5 @@
 *.test
 *.out
 go.work
+
+*.local
