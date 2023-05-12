@@ -15,7 +15,7 @@ type Config struct {
 	Prefix  string `mapstructure:"prefix"`
 }
 
-var config Config
+var cmdConfig Config
 var logger *zap.Logger
 
 func init() {
@@ -32,22 +32,22 @@ func initConfig() {
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 
-	if err := viper.Unmarshal(&config); err != nil {
+	if err := viper.Unmarshal(&cmdConfig); err != nil {
 		log.Fatalf("failed to initialize config: %s", err)
 	}
 
-	if config.Prefix == "" {
+	if cmdConfig.Prefix == "" {
 		cwd, err := os.Getwd()
 		if err != nil {
 			log.Fatalf("failed to get current directory: %s", err)
 		}
-		config.Prefix = cwd
+		cmdConfig.Prefix = cwd
 	}
 }
 
 func initLogger() {
 	var cfg zap.Config
-	if config.DevMode {
+	if cmdConfig.DevMode {
 		cfg = zap.NewDevelopmentConfig()
 	} else {
 		cfg = zap.NewProductionConfig()
