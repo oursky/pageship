@@ -1,5 +1,7 @@
 package config
 
+const SitesConfigName = "sites"
+
 type SitesConfig struct {
 	HostPattern string
 	DefaultSite string

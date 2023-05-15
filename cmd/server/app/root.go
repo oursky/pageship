@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
-	"path"
 	"path/filepath"
 	"time"
 
@@ -15,84 +14,61 @@ import (
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/handler/server"
 	"github.com/oursky/pageship/internal/handler/sites"
-	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
-type ConfigFS struct {
-	fs.FS
+type handler struct {
+	defaultSite *sites.Descriptor
 }
 
-func (fs ConfigFS) Open(name string) (fs.File, error) {
-	if path.IsAbs(name) {
-		// Translate abs path to raw path name to workaround viper AddConfigPath absify the path.
-		name = name[1:]
+func NewHandler(defaultSite *sites.Descriptor) *handler {
+	return &handler{
+		defaultSite: defaultSite,
 	}
-	return fs.FS.Open(name)
 }
 
-type ServerHandler struct {
-	fs fs.FS
-}
-
-func (*ServerHandler) LoadConfig(fsys fs.FS) (*config.ServerConfig, error) {
-	v := viper.NewWithOptions(viper.KeyDelimiter("/"))
-
-	v.SetConfigName("pageship")
-	v.SetFs(afero.FromIOFS{FS: ConfigFS{FS: fsys}})
-	v.AddConfigPath("/")
-	if err := v.ReadInConfig(); err != nil {
-		return nil, err
-	}
+func (h *handler) LoadHandler(desc *sites.Descriptor) (http.Handler, error) {
+	loader := config.NewLoader(config.SiteConfigName)
 
 	conf := config.DefaultServerConfig()
-	if err := v.Unmarshal(conf); err != nil {
-		return nil, err
+	if err := loader.Load(desc.FS, conf); err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	return conf, nil
+	return server.NewHandler(conf, desc.FS)
 }
 
-func (h *ServerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	fsys := h.fs
+func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	desc, ok := sites.SiteFromContext(r.Context())
-	if ok {
-		fsys = desc.FS
+	if !ok {
+		desc = h.defaultSite
 	}
 
-	serverConf, err := h.LoadConfig(fsys)
+	if desc == nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	handler, err := h.LoadHandler(desc)
 	if errors.As(err, &viper.ConfigFileNotFoundError{}) {
 		http.NotFound(w, r)
 		return
 	} else if err != nil {
-		logger.Error("failed to load config", zap.Error(err))
-		http.Error(w, "failed to load config", http.StatusInternalServerError)
+		logger.Error("failed to load site", zap.Error(err))
+		http.Error(w, "failed to load site", http.StatusInternalServerError)
 		return
 	}
 
-	handler, err := server.NewHandler(serverConf, fsys)
-	if err != nil {
-		logger.Error("failed to load config", zap.Error(err))
-		http.Error(w, "failed to load config", http.StatusInternalServerError)
-		return
-	}
 	handler.ServeHTTP(w, r)
 }
 
 func loadSitesConfig(fsys fs.FS) (*config.SitesConfig, error) {
-	v := viper.NewWithOptions(viper.KeyDelimiter("/"))
-
-	v.SetConfigName("sites")
-	v.SetFs(afero.FromIOFS{FS: ConfigFS{FS: fsys}})
-	v.AddConfigPath("/")
-	if err := v.ReadInConfig(); err != nil {
-		return nil, err
-	}
+	loader := config.NewLoader(config.SitesConfigName)
 
 	conf := config.DefaultSitesConfig()
-	if err := v.Unmarshal(conf); err != nil {
+	if err := loader.Load(fsys, conf); err != nil {
 		return nil, err
 	}
 
@@ -106,9 +82,8 @@ func makeHandler(prefix string) (http.Handler, error) {
 	}
 
 	fsys := os.DirFS(prefixDir)
-	serverHandler := &ServerHandler{fs: fsys}
 	sitesConf, err := loadSitesConfig(fsys)
-	if errors.As(err, &viper.ConfigFileNotFoundError{}) {
+	if errors.Is(err, config.ErrConfigNotFound) {
 		// If multi-site config not found: continue in single-site mode.
 		err = nil
 	}
@@ -116,19 +91,32 @@ func makeHandler(prefix string) (http.Handler, error) {
 		return nil, err
 	}
 
+	var handler http.Handler
 	if sitesConf != nil {
 		logger.Info("running in multi-sites mode")
-		return sites.NewHandler(logger, fsys, sitesConf, serverHandler)
+		handler, err = sites.NewHandler(logger, fsys, sitesConf, NewHandler(nil))
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		logger.Debug("running in single-site mode")
+		desc := &sites.Descriptor{
+			Site: config.DefaultSite,
+			FS:   fsys,
+		}
+
+		h := NewHandler(desc)
+
+		// Check config on startup.
+		_, err = h.LoadHandler(desc)
+		if err != nil {
+			return nil, err
+		}
+
+		handler = h
 	}
 
-	logger.Debug("running in single-site mode")
-	// Check config on startup.
-	_, err = serverHandler.LoadConfig(fsys)
-	if err != nil {
-		return nil, err
-	}
-
-	return serverHandler, nil
+	return handler, nil
 }
 
 func start(ctx context.Context) error {
@@ -139,7 +127,7 @@ func start(ctx context.Context) error {
 	}
 
 	server := http.Server{
-		Addr:    ":8000",
+		Addr:    cmdConfig.Addr,
 		Handler: handler,
 	}
 
@@ -152,6 +140,8 @@ func start(ctx context.Context) error {
 		server.Shutdown(ctx)
 		close(shutdown)
 	}()
+
+	logger.Info("server starting", zap.String("addr", server.Addr))
 
 	err = server.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {

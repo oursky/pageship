@@ -13,6 +13,7 @@ import (
 type Config struct {
 	DebugMode bool   `mapstructure:"debug"`
 	Prefix    string `mapstructure:"prefix"`
+	Addr      string `mapstructure:"addr"`
 }
 
 var cmdConfig Config
@@ -21,6 +22,7 @@ var logger *zap.Logger
 func init() {
 	rootCmd.PersistentFlags().Bool("debug", false, "debug mode")
 	rootCmd.PersistentFlags().String("prefix", "", "base directory")
+	rootCmd.PersistentFlags().String("addr", ":8001", "listen address")
 
 	cobra.OnInitialize(initConfig)
 	cobra.OnInitialize(initLogger)
