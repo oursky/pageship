@@ -11,16 +11,16 @@ import (
 )
 
 type Config struct {
-	DevMode bool   `mapstructure:"dev"`
-	Prefix  string `mapstructure:"prefix"`
+	DebugMode bool   `mapstructure:"debug"`
+	Prefix    string `mapstructure:"prefix"`
 }
 
 var cmdConfig Config
 var logger *zap.Logger
 
 func init() {
-	rootCmd.PersistentFlags().Bool("dev", false, "development mode")
-	rootCmd.PersistentFlags().String("prefix", "", "config directory prefix")
+	rootCmd.PersistentFlags().Bool("debug", false, "debug mode")
+	rootCmd.PersistentFlags().String("prefix", "", "base directory")
 
 	cobra.OnInitialize(initConfig)
 	cobra.OnInitialize(initLogger)
@@ -47,7 +47,7 @@ func initConfig() {
 
 func initLogger() {
 	var cfg zap.Config
-	if cmdConfig.DevMode {
+	if cmdConfig.DebugMode {
 		cfg = zap.NewDevelopmentConfig()
 	} else {
 		cfg = zap.NewProductionConfig()
