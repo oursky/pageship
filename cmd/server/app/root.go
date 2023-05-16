@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/oursky/pageship/internal/command"
 	"github.com/oursky/pageship/internal/config"
@@ -126,31 +125,12 @@ func start(ctx context.Context) error {
 		return err
 	}
 
-	server := http.Server{
+	server := &command.HTTPServer{
 		Addr:    cmdConfig.Addr,
 		Handler: handler,
 	}
 
-	shutdown := make(chan struct{})
-	go func() {
-		<-ctx.Done()
-
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		server.Shutdown(ctx)
-		close(shutdown)
-	}()
-
-	logger.Info("server starting", zap.String("addr", server.Addr))
-
-	err = server.ListenAndServe()
-	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		logger.Error("failed to start server", zap.Error(err))
-		return fmt.Errorf("failed to start server: %w", err)
-	}
-	<-shutdown
-
-	return nil
+	return server.Run(ctx)
 }
 
 var rootCmd = &cobra.Command{
