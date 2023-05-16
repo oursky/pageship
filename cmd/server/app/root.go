@@ -94,7 +94,7 @@ func makeHandler(prefix string) (http.Handler, error) {
 	var handler http.Handler
 	if sitesConf != nil {
 		logger.Info("running in multi-sites mode")
-		handler, err = sites.NewHandler(logger, fsys, sitesConf, NewHandler(nil))
+		handler, err = sites.NewHandler(fsys, sitesConf, NewHandler(nil))
 		if err != nil {
 			return nil, err
 		}
@@ -145,6 +145,7 @@ func start(ctx context.Context) error {
 
 	err = server.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		logger.Error("failed to start server", zap.Error(err))
 		return fmt.Errorf("failed to start server: %w", err)
 	}
 	<-shutdown
@@ -153,7 +154,7 @@ func start(ctx context.Context) error {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "start server",
+	Use:   "pageship",
 	Short: "Start server",
 	Run: func(cmd *cobra.Command, args []string) {
 		command.Run(logger, []command.WorkFunc{start})

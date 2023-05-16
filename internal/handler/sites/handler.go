@@ -24,8 +24,8 @@ type siteRouterHandler struct {
 	next http.Handler
 }
 
-func NewHandler(logger *zap.Logger, fs fs.FS, conf *config.SitesConfig, next http.Handler) (http.Handler, error) {
-	logger = logger.Named("sites")
+func NewHandler(fs fs.FS, conf *config.SitesConfig, next http.Handler) (http.Handler, error) {
+	logger := zap.L().Named("sites")
 
 	hostRegex, err := regexp.Compile(`^` + conf.HostPattern + `(?:\:\d+)?$`)
 	if err != nil {
