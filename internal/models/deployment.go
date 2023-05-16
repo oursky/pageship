@@ -20,8 +20,8 @@ type Deployment struct {
 	UpdatedAt time.Time
 	DeletedAt *time.Time
 
-	AppID  string
-	SiteID string
+	AppID           string
+	EnvironmentName string
 
 	Status           DeploymentStatus
 	StorageKeyPrefix string
