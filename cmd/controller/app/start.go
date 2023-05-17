@@ -3,7 +3,7 @@ package app
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/oursky/pageship/internal/command"
-	"github.com/oursky/pageship/internal/controller"
+	"github.com/oursky/pageship/internal/handler/controller"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
