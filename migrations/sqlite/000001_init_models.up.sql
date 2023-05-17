@@ -1,24 +1,24 @@
 CREATE TABLE app (
     id                  TEXT NOT NULL PRIMARY KEY,
-    created_at          TEXT NOT NULL,
-    updated_at          TEXT NOT NULL,
-    deleted_at          TEXT
+    created_at          TIMESTAMP NOT NULL,
+    updated_at          TIMESTAMP NOT NULL,
+    deleted_at          TIMESTAMP
 );
 
 CREATE TABLE environment (
     app_id              TEXT NOT NULL REFERENCES app(id),
     name                TEXT NOT NULL,
-    created_at          TEXT NOT NULL,
-    updated_at          TEXT NOT NULL,
-    deleted_at          TEXT,
+    created_at          TIMESTAMP NOT NULL,
+    updated_at          TIMESTAMP NOT NULL,
+    deleted_at          TIMESTAMP,
     PRIMARY KEY (app_id, name)
 );
 
 CREATE TABLE deployment (
     id                  TEXT NOT NULL PRIMARY KEY,
-    created_at          TEXT NOT NULL,
-    updated_at          TEXT NOT NULL,
-    deleted_at          TEXT,
+    created_at          TIMESTAMP NOT NULL,
+    updated_at          TIMESTAMP NOT NULL,
+    deleted_at          TIMESTAMP,
     app_id              TEXT NOT NULL,
     environment_name    TEXT NOT NULL,
     status              TEXT NOT NULL,

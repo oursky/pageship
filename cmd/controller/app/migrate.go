@@ -20,7 +20,6 @@ import (
 func init() {
 	rootCmd.AddCommand(migrateCmd)
 
-	migrateCmd.PersistentFlags().String("database", "", "database URL")
 	migrateCmd.PersistentFlags().Bool("down", false, "downgrade database")
 	viper.BindPFlags(migrateCmd.PersistentFlags())
 }

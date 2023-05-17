@@ -6,10 +6,12 @@ import (
 
 	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
+	"github.com/oursky/pageship/internal/db"
 	"go.uber.org/zap"
 )
 
 type Controller struct {
+	DB db.DB
 }
 
 func (c *Controller) Handler() http.Handler {
@@ -20,6 +22,10 @@ func (c *Controller) Handler() http.Handler {
 	g.Use(ginzap.RecoveryWithZap(logger, true))
 
 	g.GET("/healthz", c.handleHealthz)
+
+	v1 := g.Group("/api/v1")
+	v1.POST("/apps", c.handleAppCreate)
+	v1.GET("/apps", c.handleAppList)
 
 	return g.Handler()
 }
