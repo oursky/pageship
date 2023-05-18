@@ -1,4 +1,4 @@
-DROP TABLE site;
+DROP TABLE site_deployment;
 DROP TABLE deployment;
-DROP TABLE environment;
+DROP TABLE site;
 DROP TABLE app;

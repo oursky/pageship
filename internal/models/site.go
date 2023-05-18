@@ -1,8 +1,11 @@
 package models
 
+import "time"
+
 type Site struct {
-	ID              string
-	AppID           string
-	EnvironmentName string
-	DeploymentID    string
+	AppID     string
+	Name      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt *time.Time
 }
