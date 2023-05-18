@@ -2,8 +2,6 @@ package models
 
 import (
 	"time"
-
-	"github.com/oursky/pageship/internal/config"
 )
 
 type DeploymentStatus string
@@ -25,10 +23,5 @@ type Deployment struct {
 
 	Status           DeploymentStatus
 	StorageKeyPrefix string
-	Metadata         *DeploymentMetadata
-}
-
-type DeploymentMetadata struct {
-	Config   *config.ServerConfig
-	RootFile *FileMeta
+	Metadata         any
 }

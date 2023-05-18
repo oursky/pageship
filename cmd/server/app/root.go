@@ -31,12 +31,12 @@ func NewHandler(defaultSite *sites.Descriptor) *handler {
 func (h *handler) LoadHandler(desc *sites.Descriptor) (http.Handler, error) {
 	loader := config.NewLoader(config.SiteConfigName)
 
-	conf := config.DefaultServerConfig()
-	if err := loader.Load(desc.FS, conf); err != nil {
+	conf := config.DefaultConfig()
+	if err := loader.Load(desc.FS, &conf); err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	return server.NewHandler(conf, desc.FS)
+	return server.NewHandler(&conf.Site, desc.FS)
 }
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

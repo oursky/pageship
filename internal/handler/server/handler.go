@@ -7,8 +7,8 @@ import (
 	"github.com/oursky/pageship/internal/config"
 )
 
-func NewHandler(conf *config.ServerConfig, fsys fs.FS) (http.Handler, error) {
-	publicFS, err := fs.Sub(fsys, conf.Site.Public)
+func NewHandler(conf *config.SiteConfig, fsys fs.FS) (http.Handler, error) {
+	publicFS, err := fs.Sub(fsys, conf.Public)
 	if err != nil {
 		return nil, err
 	}
