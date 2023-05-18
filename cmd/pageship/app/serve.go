@@ -20,7 +20,7 @@ import (
 func init() {
 	rootCmd.AddCommand(serveCmd)
 
-	serveCmd.PersistentFlags().String("addr", ":8001", "listen address")
+	serveCmd.PersistentFlags().String("addr", ":8000", "listen address")
 	viper.BindPFlags(serveCmd.PersistentFlags())
 }
 
@@ -37,7 +37,9 @@ func NewHandler(defaultSite *sites.Descriptor) *handler {
 func (h *handler) LoadHandler(desc *sites.Descriptor) (http.Handler, error) {
 	loader := config.NewLoader(config.SiteConfigName)
 
-	conf := config.DefaultConfig()
+	var conf struct {
+		Site config.SiteConfig `json:"site"`
+	}
 	if err := loader.Load(desc.FS, &conf); err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
@@ -81,12 +83,12 @@ func loadSitesConfig(fsys fs.FS) (*config.SitesConfig, error) {
 }
 
 func makeHandler(prefix string) (http.Handler, error) {
-	prefixDir, err := filepath.Abs(prefix)
+	dir, err := filepath.Abs(prefix)
 	if err != nil {
 		return nil, err
 	}
 
-	fsys := os.DirFS(prefixDir)
+	fsys := os.DirFS(dir)
 	sitesConf, err := loadSitesConfig(fsys)
 	if errors.Is(err, config.ErrConfigNotFound) {
 		// If multi-site config not found: continue in single-site mode.

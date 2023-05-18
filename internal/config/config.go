@@ -1,10 +1,10 @@
 package config
 
 type Config struct {
-	ID string `json:"id"`
+	ID string `json:"id" validate:"required,dnsLabel"`
 
-	AppConfig
-	Site SiteConfig `json:"site"`
+	AppConfig `mapstructure:",squash"`
+	Site      SiteConfig `json:"site"`
 }
 
 func DefaultConfig() Config {

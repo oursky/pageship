@@ -47,5 +47,13 @@ func (l *Loader) Load(fsys fs.FS, conf any) error {
 		return err
 	}
 
-	return l.viper.Unmarshal(conf)
+	if err := l.viper.Unmarshal(conf); err != nil {
+		return err
+	}
+
+	if err := validate.Struct(conf); err != nil {
+		return err
+	}
+
+	return nil
 }

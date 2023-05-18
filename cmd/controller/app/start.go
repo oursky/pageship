@@ -14,6 +14,7 @@ import (
 func init() {
 	rootCmd.AddCommand(startCmd)
 
+	startCmd.MarkPersistentFlagRequired("database")
 	startCmd.PersistentFlags().String("addr", ":8001", "listen address")
 	viper.BindPFlags(startCmd.PersistentFlags())
 }
@@ -24,10 +25,6 @@ var startCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		database := viper.GetString("database")
 		addr := viper.GetString("addr")
-		if database == "" {
-			logger.Fatal("missing database URL")
-			return
-		}
 
 		if !debugMode {
 			gin.SetMode(gin.ReleaseMode)

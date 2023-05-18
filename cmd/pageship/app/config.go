@@ -8,12 +8,14 @@ import (
 	"go.uber.org/zap"
 )
 
+var apiEndpoint string
 var debugMode bool
 
 var logger *zap.Logger
 
 func init() {
 	rootCmd.PersistentFlags().Bool("debug", false, "debug mode")
+	rootCmd.PersistentFlags().String("api", "localhost:8001", "server API endpoing")
 
 	cobra.OnInitialize(initConfig)
 	cobra.OnInitialize(initLogger)
@@ -26,6 +28,7 @@ func initConfig() {
 	viper.AutomaticEnv()
 
 	debugMode = viper.GetBool("debug")
+	apiEndpoint = viper.GetString("api")
 }
 
 func initLogger() {
