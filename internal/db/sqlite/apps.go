@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/models"
 )
@@ -51,6 +52,21 @@ func (c Conn) GetApp(ctx context.Context, id string) (*models.App, error) {
 		SELECT id, created_at, updated_at, deleted_at, config FROM app
 			WHERE id = ? AND deleted_at IS NULL
 	`, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, models.ErrAppNotFound
+	} else if err != nil {
+		return nil, err
+	}
+
+	return &app, nil
+}
+
+func (c Conn) UpdateAppConfig(ctx context.Context, id string, config *config.AppConfig) (*models.App, error) {
+	var app models.App
+	err := c.tx.GetContext(ctx, &app, `
+		UPDATE app SET config = ? WHERE id = ? AND deleted_at IS NULL
+			RETURNING id, created_at, updated_at, deleted_at, config
+	`, config, id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, models.ErrAppNotFound
 	} else if err != nil {

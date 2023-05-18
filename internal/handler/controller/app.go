@@ -11,7 +11,7 @@ import (
 
 func (c *Controller) handleAppCreate(ctx *gin.Context) {
 	var request struct {
-		ID string `json:"id" binding:"required"`
+		ID string `json:"id" validate:"required"`
 	}
 	if err := checkBind(ctx, ctx.ShouldBindJSON(&request)); err != nil {
 		return
@@ -36,15 +36,10 @@ func (c *Controller) handleAppCreate(ctx *gin.Context) {
 }
 
 func (c *Controller) handleAppGet(ctx *gin.Context) {
-	var request struct {
-		ID string `uri:"id" binding:"required"`
-	}
-	if err := checkBind(ctx, ctx.ShouldBindUri(&request)); err != nil {
-		return
-	}
+	id := ctx.Param("id")
 
 	err := db.WithTx(ctx, c.DB, func(conn db.Conn) error {
-		app, err := conn.GetApp(ctx, request.ID)
+		app, err := conn.GetApp(ctx, id)
 		if errors.Is(err, models.ErrAppNotFound) {
 			ctx.JSON(http.StatusNotFound, response{Error: err})
 			return db.ErrRollback

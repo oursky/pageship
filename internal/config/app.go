@@ -7,14 +7,20 @@ import (
 )
 
 type AppConfig struct {
-	DefaultEnvironment string                       `json:"defaultEnvironment"`
-	Environments       map[string]EnvironmentConfig `json:"environments"`
+	DefaultEnvironment string                       `json:"defaultEnvironment" validate:"required,max=64"`
+	Environments       map[string]EnvironmentConfig `json:"environments" validate:"max=10,dive,keys,max=64,endkeys"`
 }
 
 func DefaultAppConfig() AppConfig {
 	return AppConfig{
 		DefaultEnvironment: DefaultEnvironment,
 		Environments:       make(map[string]EnvironmentConfig),
+	}
+}
+
+func (c *AppConfig) SetDefaults() {
+	if c.Environments == nil {
+		c.Environments = make(map[string]EnvironmentConfig)
 	}
 }
 

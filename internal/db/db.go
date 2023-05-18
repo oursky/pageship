@@ -6,6 +6,7 @@ import (
 	neturl "net/url"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/models"
 )
 
@@ -40,4 +41,5 @@ type AppsDB interface {
 	CreateApp(ctx context.Context, id string) (*models.App, error)
 	GetApp(ctx context.Context, id string) (*models.App, error)
 	ListApps(ctx context.Context) ([]*models.App, error)
+	UpdateAppConfig(ctx context.Context, id string, config *config.AppConfig) (*models.App, error)
 }
