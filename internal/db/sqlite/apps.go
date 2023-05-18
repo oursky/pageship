@@ -48,3 +48,18 @@ func (c Conn) ListApps(ctx context.Context) ([]*models.App, error) {
 
 	return apps, nil
 }
+
+func (c Conn) GetApp(ctx context.Context, id string) (*models.App, error) {
+	var app models.App
+	err := c.tx.GetContext(ctx, &app, `
+		SELECT id, created_at, updated_at, deleted_at FROM app
+			WHERE id = ? AND deleted_at IS NULL
+	`, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, models.ErrAppNotFound
+	} else if err != nil {
+		return nil, err
+	}
+
+	return &app, nil
+}

@@ -38,5 +38,6 @@ type Conn interface {
 
 type AppsDB interface {
 	CreateApp(ctx context.Context, id string) (*models.App, error)
+	GetApp(ctx context.Context, id string) (*models.App, error)
 	ListApps(ctx context.Context) ([]*models.App, error)
 }

@@ -20,10 +20,9 @@ func (r response) MarshalJSON() ([]byte, error) {
 	}
 }
 
-func bindJSON(ctx *gin.Context, value any) error {
-	if err := ctx.ShouldBindJSON(value); err != nil {
+func checkBind(ctx *gin.Context, err error) error {
+	if err != nil {
 		ctx.JSON(http.StatusBadRequest, response{Error: err})
-		return err
 	}
-	return nil
+	return err
 }

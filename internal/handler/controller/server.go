@@ -25,6 +25,7 @@ func (c *Controller) Handler() http.Handler {
 
 	v1 := g.Group("/api/v1")
 	v1.POST("/apps", c.handleAppCreate)
+	v1.GET("/apps/:id", c.handleAppGet)
 	v1.GET("/apps", c.handleAppList)
 
 	return g.Handler()
