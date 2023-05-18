@@ -28,7 +28,6 @@ func NewSqlite(url url.URL) (db.DB, error) {
 	url.RawQuery = q.Encode()
 
 	dsn := strings.TrimPrefix(url.String(), "sqlite://")
-	println(dsn)
 	db, err := sqlx.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite DB: %w", err)
