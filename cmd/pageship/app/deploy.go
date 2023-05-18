@@ -6,6 +6,7 @@ import (
 
 	"github.com/manifoldco/promptui"
 	"github.com/oursky/pageship/internal/config"
+	"github.com/oursky/pageship/internal/deploy"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -26,12 +27,12 @@ var deployCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		site := viper.GetString("site")
 		yes := viper.GetBool("yes")
-		dir := args[0]
+		fsys := os.DirFS(args[0])
 
 		loader := config.NewLoader(config.SiteConfigName)
 
 		conf := config.DefaultConfig()
-		if err := loader.Load(os.DirFS(dir), &conf); err != nil {
+		if err := loader.Load(fsys, &conf); err != nil {
 			logger.Fatal("failed to load config", zap.Error(err))
 			return
 		}
@@ -55,10 +56,14 @@ var deployCmd = &cobra.Command{
 		}
 
 		if !yes {
-			prompt := promptui.Prompt{
-				Label:     fmt.Sprintf("Deploy to site '%s' of app '%s'?", site, appID),
-				IsConfirm: true,
+			var label string
+			if site == env.Name {
+				label = fmt.Sprintf("Deploy to site '%s' of app '%s'?", site, appID)
+			} else {
+				label = fmt.Sprintf("Deploy to site '%s' (%s) of app '%s'?", site, env.Name, appID)
 			}
+
+			prompt := promptui.Prompt{Label: label, IsConfirm: true}
 			_, err := prompt.Run()
 			if err != nil {
 				logger.Info("cancelled", zap.Error(err))
@@ -66,6 +71,12 @@ var deployCmd = &cobra.Command{
 			}
 		}
 
-		logger.Sugar().Debug("TODO", site, env, args[0])
+		logger.Info("collecting files")
+		entries, err := deploy.CollectFileList(fsys)
+		if err != nil {
+			logger.Fatal("failed to collect files", zap.Error(err))
+			return
+		}
+		logger.Info("setting up deployment", zap.Int("files", len(entries)))
 	},
 }
