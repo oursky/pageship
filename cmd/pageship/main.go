@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/oursky/pageship/cmd/server/app"
+	"github.com/oursky/pageship/cmd/pageship/app"
 )
 
 func main() {

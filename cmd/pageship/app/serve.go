@@ -1,7 +1,6 @@
 package app
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -17,6 +16,13 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
+
+func init() {
+	rootCmd.AddCommand(serveCmd)
+
+	serveCmd.PersistentFlags().String("addr", ":8001", "listen address")
+	viper.BindPFlags(serveCmd.PersistentFlags())
+}
 
 type handler struct {
 	defaultSite *sites.Descriptor
@@ -118,29 +124,23 @@ func makeHandler(prefix string) (http.Handler, error) {
 	return handler, nil
 }
 
-func start(ctx context.Context) error {
-	handler, err := makeHandler(cmdConfig.Prefix)
-	if err != nil {
-		logger.Error("failed to load config", zap.Error(err))
-		return err
-	}
-
-	server := &command.HTTPServer{
-		Addr:    cmdConfig.Addr,
-		Handler: handler,
-	}
-
-	return server.Run(ctx)
-}
-
-var rootCmd = &cobra.Command{
-	Use:   "pageship",
+var serveCmd = &cobra.Command{
+	Use:   "serve directory",
 	Short: "Start server",
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		command.Run(logger, []command.WorkFunc{start})
-	},
-}
+		addr := viper.GetString("addr")
 
-func Execute() error {
-	return rootCmd.Execute()
+		handler, err := makeHandler(args[0])
+		if err != nil {
+			logger.Fatal("failed to load config", zap.Error(err))
+			return
+		}
+
+		server := &command.HTTPServer{
+			Addr:    addr,
+			Handler: handler,
+		}
+		command.Run(logger, []command.WorkFunc{server.Run})
+	},
 }
