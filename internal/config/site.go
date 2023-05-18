@@ -5,7 +5,7 @@ const SiteConfigName = "pageship"
 const DefaultSite = "app"
 
 type SiteConfig struct {
-	Public string
+	Public string `json:"public"`
 }
 
 func DefaultSiteConfig() SiteConfig {

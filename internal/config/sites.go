@@ -3,19 +3,19 @@ package config
 const SitesConfigName = "sites"
 
 type SitesConfig struct {
-	HostPattern string
-	DefaultSite string
-	Sites       map[string]SitesConfigEntry
+	HostPattern string                      `json:"hostPattern"`
+	DefaultSite string                      `json:"defaultSite"`
+	Sites       map[string]SitesConfigEntry `json:"sites,omitempty"`
 }
 
 type SitesConfigEntry struct {
-	Context string
+	Context string `json:"context"`
 }
 
 func DefaultSitesConfig() *SitesConfig {
 	return &SitesConfig{
 		HostPattern: `(?:(.+)\.)?localhost`,
 		DefaultSite: DefaultSite,
-		Sites:       nil,
+		Sites:       make(map[string]SitesConfigEntry),
 	}
 }

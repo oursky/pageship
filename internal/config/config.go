@@ -1,8 +1,10 @@
 package config
 
 type Config struct {
+	ID string `json:"id"`
+
 	AppConfig
-	Site SiteConfig
+	Site SiteConfig `json:"site"`
 }
 
 func DefaultConfig() Config {
