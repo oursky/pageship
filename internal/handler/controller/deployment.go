@@ -57,12 +57,19 @@ func (c *Controller) handleDeploymentCreate(ctx *gin.Context) {
 			return db.ErrRollback
 		}
 
-		site, err := conn.EnsureSite(ctx, appID, siteName)
+		site := models.NewSite(c.Clock.Now().UTC(), appID, siteName)
+		err = conn.CreateSiteIfNotExist(ctx, site)
 		if err != nil {
 			return err
 		}
 
-		deployment, err := conn.CreateDeployment(ctx, appID, site.ID, c.Config.StorageKeyPrefix, files, siteConfig)
+		metadata := &models.DeploymentMetadata{
+			Files:  files,
+			Config: *siteConfig,
+		}
+		deployment := models.NewDeployment(c.Clock.Now().UTC(), appID, site.ID, c.Config.StorageKeyPrefix, metadata)
+
+		err = conn.CreateDeployment(ctx, deployment)
 		if err != nil {
 			return err
 		}

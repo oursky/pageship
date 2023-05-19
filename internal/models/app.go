@@ -14,7 +14,7 @@ type App struct {
 	Config    *config.AppConfig `json:"config" db:"config"`
 }
 
-func NewApp(id string, now time.Time) *App {
+func NewApp(now time.Time, id string) *App {
 	config := config.DefaultAppConfig()
 	config.SetDefaults()
 

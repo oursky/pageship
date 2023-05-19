@@ -18,7 +18,9 @@ func (c *Controller) handleAppCreate(ctx *gin.Context) {
 	}
 
 	err := db.WithTx(ctx, c.DB, func(conn db.Conn) error {
-		app, err := conn.CreateApp(ctx, request.ID)
+		app := models.NewApp(c.Clock.Now().UTC(), request.ID)
+
+		err := conn.CreateApp(ctx, app)
 		if errors.Is(err, models.ErrUsedAppID) {
 			ctx.JSON(http.StatusBadRequest, response{Error: err})
 			return db.ErrRollback

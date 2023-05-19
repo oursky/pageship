@@ -11,7 +11,7 @@ type Site struct {
 	DeletedAt *time.Time `json:"deletedAt" db:"deleted_at"`
 }
 
-func NewSite(appID string, name string, now time.Time) *Site {
+func NewSite(now time.Time, appID string, name string) *Site {
 	return &Site{
 		ID:        newID("site"),
 		AppID:     appID,

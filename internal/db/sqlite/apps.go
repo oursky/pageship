@@ -9,26 +9,25 @@ import (
 	"github.com/oursky/pageship/internal/models"
 )
 
-func (c Conn) CreateApp(ctx context.Context, id string) (*models.App, error) {
-	app := models.NewApp(id, c.clock.Now().UTC())
-
+func (c Conn) CreateApp(ctx context.Context, app *models.App) error {
 	result, err := c.tx.NamedExecContext(ctx, `
 		INSERT INTO app (id, created_at, updated_at, deleted_at, config)
 			VALUES (:id, :created_at, :updated_at, :deleted_at, :config)
 			ON CONFLICT (id) DO NOTHING
 	`, app)
 	if err != nil {
-		return nil, err
-	}
-	n, err := result.RowsAffected()
-	if err != nil {
-		return nil, err
-	}
-	if n != 1 {
-		return nil, models.ErrUsedAppID
+		return err
 	}
 
-	return app, nil
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n != 1 {
+		return models.ErrUsedAppID
+	}
+
+	return nil
 }
 
 func (c Conn) ListApps(ctx context.Context) ([]*models.App, error) {
