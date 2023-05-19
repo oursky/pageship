@@ -46,4 +46,5 @@ type AppsDB interface {
 	CreateSiteIfNotExist(ctx context.Context, site *models.Site) error
 
 	CreateDeployment(ctx context.Context, deployment *models.Deployment) error
+	GetDeployment(ctx context.Context, appID string, siteName string, id string) (*models.Deployment, error)
 }

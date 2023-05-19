@@ -3,6 +3,7 @@ package controller
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/dustin/go-humanize"
@@ -86,4 +87,42 @@ func (c *Controller) handleDeploymentCreate(ctx *gin.Context) {
 	if err != nil {
 		ctx.AbortWithError(http.StatusInternalServerError, err)
 	}
+}
+
+func (c *Controller) handleDeploymentUpload(ctx *gin.Context) {
+	appID := ctx.Param("app-id")
+	siteName := ctx.Param("site")
+	deploymentID := ctx.Param("deployment-id")
+
+	var deployment *models.Deployment
+	err := db.WithTx(ctx, c.DB, func(conn db.Conn) (err error) {
+		deployment, err = conn.GetDeployment(ctx, appID, siteName, deploymentID)
+		return
+	})
+
+	if err != nil {
+		if errors.Is(err, models.ErrDeploymentNotFound) {
+			ctx.JSON(http.StatusNotFound, response{Error: err})
+		} else {
+			ctx.AbortWithError(http.StatusInternalServerError, err)
+		}
+		return
+	}
+
+	handleFile := func(e models.FileEntry, r io.Reader) error {
+		println(e.Path)
+		_, err := io.ReadAll(r)
+		return err
+	}
+
+	err = deploy.ExtractFiles(ctx.Request.Body, deployment.Metadata.Files, handleFile)
+	if errors.As(err, new(deploy.Error)) {
+		ctx.JSON(http.StatusBadRequest, response{Error: err})
+		return
+	} else if err != nil {
+		ctx.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, response{Result: deployment})
 }

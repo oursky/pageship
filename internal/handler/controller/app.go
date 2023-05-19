@@ -38,7 +38,7 @@ func (c *Controller) handleAppCreate(ctx *gin.Context) {
 }
 
 func (c *Controller) handleAppGet(ctx *gin.Context) {
-	id := ctx.Param("id")
+	id := ctx.Param("app-id")
 
 	err := db.WithTx(ctx, c.DB, func(conn db.Conn) error {
 		app, err := conn.GetApp(ctx, id)

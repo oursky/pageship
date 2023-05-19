@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/url"
 
@@ -41,6 +42,32 @@ func (c *Client) SetupDeployment(
 		"files":       files,
 		"site_config": siteConfig,
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return decodeJSONResponse[models.Deployment](resp)
+}
+
+func (c *Client) UploadDeploymentTarball(
+	ctx context.Context,
+	appID string,
+	siteName string,
+	deploymentID string,
+	tarball io.Reader,
+) (*models.Deployment, error) {
+	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "sites", siteName, "deployments", deploymentID, "tarball")
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "PUT", endpoint, tarball)
 	if err != nil {
 		return nil, err
 	}

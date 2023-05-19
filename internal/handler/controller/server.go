@@ -40,11 +40,12 @@ func (c *Controller) Handler() http.Handler {
 	v1 := g.Group("/api/v1")
 	v1.POST("/apps", c.handleAppCreate)
 	v1.GET("/apps", c.handleAppList)
-	v1.GET("/apps/:id", c.handleAppGet)
-	v1.GET("/apps/:id/config", c.handleAppConfigGet)
-	v1.PUT("/apps/:id/config", c.handleAppConfigSet)
+	v1.GET("/apps/:app-id", c.handleAppGet)
+	v1.GET("/apps/:app-id/config", c.handleAppConfigGet)
+	v1.PUT("/apps/:app-id/config", c.handleAppConfigSet)
 
 	v1.POST("/apps/:app-id/sites/:site/deployments", c.handleDeploymentCreate)
+	v1.PUT("/apps/:app-id/sites/:site/deployments/:deployment-id/tarball", c.handleDeploymentUpload)
 
 	return g.Handler()
 }

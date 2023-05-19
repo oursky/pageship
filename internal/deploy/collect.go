@@ -1,19 +1,29 @@
 package deploy
 
 import (
-	"encoding/base64"
-	"errors"
+	"archive/tar"
 	"io"
 	"io/fs"
+	"os"
 	"path/filepath"
+	"time"
 
+	"github.com/klauspost/compress/zstd"
 	"github.com/oursky/pageship/internal/models"
-	"golang.org/x/crypto/sha3"
 )
 
-var ErrTooManyFiles = errors.New("too many files collected")
+var ErrTooManyFiles error = Error("too many files collected")
 
-func CollectFileList(fsys fs.FS) ([]models.FileEntry, error) {
+func CollectFileList(fsys fs.FS, now time.Time, tarfile *os.File) ([]models.FileEntry, error) {
+	comp, err := zstd.NewWriter(tarfile)
+	if err != nil {
+		return nil, err
+	}
+	defer comp.Close()
+
+	writer := tar.NewWriter(comp)
+	defer writer.Close()
+
 	var entries []models.FileEntry
 	var walker fs.WalkDirFunc
 	walker = func(path string, d fs.DirEntry, err error) error {
@@ -28,7 +38,7 @@ func CollectFileList(fsys fs.FS) ([]models.FileEntry, error) {
 			return fs.WalkDir(fsys, path, walker)
 		}
 
-		entry, err := makeFileEntry(fsys, path, d)
+		entry, err := addFile(fsys, path, d, now, writer)
 		if err != nil {
 			return err
 		}
@@ -39,40 +49,49 @@ func CollectFileList(fsys fs.FS) ([]models.FileEntry, error) {
 		return nil
 	}
 
-	err := fs.WalkDir(fsys, ".", walker)
+	err = fs.WalkDir(fsys, ".", walker)
 	return entries, err
 }
 
-func makeFileEntry(fsys fs.FS, filePath string, d fs.DirEntry) (models.FileEntry, error) {
+func addFile(fsys fs.FS, filePath string, d fs.DirEntry, now time.Time, writer *tar.Writer) (models.FileEntry, error) {
 	info, err := d.Info()
 	if err != nil {
 		return models.FileEntry{}, err
 	}
 
-	path := "/" + filepath.ToSlash(filePath)
-	size := info.Size()
-	hash := ""
+	header := tar.Header{
+		Name:    "/" + filepath.ToSlash(filePath),
+		ModTime: now,
+		Size:    info.Size(),
+	}
 	if info.IsDir() {
-		size = 0
-		path += "/"
+		header.Typeflag = tar.TypeDir
+		header.Size = 0
+		header.Name += "/"
 	} else {
+		header.Typeflag = tar.TypeReg
+	}
+	writer.WriteHeader(&header)
+
+	hash := ""
+	if !info.IsDir() {
 		file, err := fsys.Open(filePath)
 		if err != nil {
 			return models.FileEntry{}, err
 		}
-		h := sha3.New256()
-		_, err = io.Copy(h, file)
+
+		h := NewFileHash()
+		_, err = io.Copy(writer, io.TeeReader(file, h))
 		if err != nil {
 			return models.FileEntry{}, err
 		}
-		hash = base64.RawURLEncoding.EncodeToString(h.Sum(nil))
+		hash = h.Sum()
 	}
 
 	return models.FileEntry{
 		FilePath: filePath,
-		Path:     path,
-		Size:     size,
+		Path:     header.Name,
+		Size:     header.Size,
 		Hash:     hash,
 	}, nil
-
 }

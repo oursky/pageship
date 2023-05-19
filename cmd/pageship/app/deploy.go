@@ -2,12 +2,14 @@ package app
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/dustin/go-humanize"
 	"github.com/manifoldco/promptui"
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/deploy"
+	"github.com/oursky/pageship/internal/time"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -72,10 +74,23 @@ var deployCmd = &cobra.Command{
 			}
 		}
 
-		logger.Info("collecting files")
-		files, err := deploy.CollectFileList(fsys)
+		now := time.SystemClock.Now().UTC()
+		tarfile, err := os.CreateTemp("", fmt.Sprintf("pageship-%s-%s-*.tar.zst", appID, site))
+		if err != nil {
+			logger.Fatal("failed to create temp file", zap.Error(err))
+			return
+		}
+		defer os.Remove(tarfile.Name())
+		logger.Info("collecting files", zap.String("tarball", tarfile.Name()))
+
+		files, err := deploy.CollectFileList(fsys, now, tarfile)
 		if err != nil {
 			logger.Fatal("failed to collect files", zap.Error(err))
+			return
+		}
+		_, err = tarfile.Seek(0, io.SeekStart)
+		if err != nil {
+			logger.Fatal("failed setup tarball", zap.Error(err))
 			return
 		}
 
@@ -94,6 +109,13 @@ var deployCmd = &cobra.Command{
 			return
 		}
 
-		logger.Sugar().Debug(deployment)
+		logger.Info("uploading tarball")
+		deployment, err = apiClient.UploadDeploymentTarball(cmd.Context(), appID, site, deployment.ID, tarfile)
+		if err != nil {
+			logger.Fatal("failed to upload tarball", zap.Error(err))
+			return
+		}
+
+		logger.Sugar().Debugf("%+v", deployment)
 	},
 }

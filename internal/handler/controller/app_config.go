@@ -11,7 +11,7 @@ import (
 )
 
 func (c *Controller) handleAppConfigGet(ctx *gin.Context) {
-	id := ctx.Param("id")
+	id := ctx.Param("app-id")
 
 	err := db.WithTx(ctx, c.DB, func(conn db.Conn) error {
 		app, err := conn.GetApp(ctx, id)
@@ -32,7 +32,7 @@ func (c *Controller) handleAppConfigGet(ctx *gin.Context) {
 }
 
 func (c *Controller) handleAppConfigSet(ctx *gin.Context) {
-	id := ctx.Param("id")
+	id := ctx.Param("app-id")
 
 	var request struct {
 		Config *config.AppConfig `json:"config" validate:"required"`
