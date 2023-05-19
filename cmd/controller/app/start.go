@@ -7,6 +7,7 @@ import (
 	"github.com/oursky/pageship/internal/db"
 	_ "github.com/oursky/pageship/internal/db/sqlite"
 	"github.com/oursky/pageship/internal/handler/controller"
+	"github.com/oursky/pageship/internal/storage"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -16,6 +17,8 @@ func init() {
 	rootCmd.AddCommand(startCmd)
 
 	startCmd.MarkPersistentFlagRequired("database")
+	startCmd.MarkPersistentFlagRequired("storage-endpoint")
+
 	startCmd.PersistentFlags().String("addr", ":8001", "listen address")
 
 	startCmd.PersistentFlags().String("max-deployment-size", "200M", "max deployment files size")
@@ -36,6 +39,7 @@ var startCmd = &cobra.Command{
 			return
 		}
 		storageKeyPrefix := viper.GetString("storage-key-prefix")
+		storageEndpoint := viper.GetString("storage-endpoint")
 
 		if !debugMode {
 			gin.SetMode(gin.ReleaseMode)
@@ -52,9 +56,16 @@ var startCmd = &cobra.Command{
 			return
 		}
 
+		storage, err := storage.New(cmd.Context(), storageEndpoint)
+		if err != nil {
+			logger.Fatal("failed to setup object storage", zap.Error(err))
+			return
+		}
+
 		ctrl := &controller.Controller{
-			Config: config,
-			DB:     db,
+			Config:  config,
+			Storage: storage,
+			DB:      db,
 		}
 		server := command.HTTPServer{Addr: addr, Handler: ctrl.Handler()}
 

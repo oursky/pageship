@@ -6,6 +6,7 @@ import (
 
 func init() {
 	rootCmd.PersistentFlags().String("database", "", "database URL")
+	rootCmd.PersistentFlags().String("storage-endpoint", "", "object storage endpoint")
 }
 
 var rootCmd = &cobra.Command{

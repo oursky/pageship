@@ -110,9 +110,8 @@ func (c *Controller) handleDeploymentUpload(ctx *gin.Context) {
 	}
 
 	handleFile := func(e models.FileEntry, r io.Reader) error {
-		println(e.Path)
-		_, err := io.ReadAll(r)
-		return err
+		key := deployment.StorageKeyPrefix + e.Path
+		return c.Storage.Upload(ctx, key, r)
 	}
 
 	err = deploy.ExtractFiles(ctx.Request.Body, deployment.Metadata.Files, handleFile)

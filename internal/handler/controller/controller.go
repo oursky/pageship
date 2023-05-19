@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
 	"github.com/oursky/pageship/internal/db"
+	"github.com/oursky/pageship/internal/storage"
 	apptime "github.com/oursky/pageship/internal/time"
 	"go.uber.org/zap"
 )
@@ -19,9 +20,10 @@ func init() {
 }
 
 type Controller struct {
-	Clock  apptime.Clock
-	Config Config
-	DB     db.DB
+	Clock   apptime.Clock
+	Config  Config
+	Storage *storage.Storage
+	DB      db.DB
 }
 
 func (c *Controller) Handler() http.Handler {
