@@ -3,12 +3,13 @@ package app
 import (
 	"strings"
 
+	"github.com/oursky/pageship/internal/api"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
-var apiEndpoint string
+var apiClient *api.Client
 var debugMode bool
 
 var logger *zap.Logger
@@ -28,7 +29,8 @@ func initConfig() {
 	viper.AutomaticEnv()
 
 	debugMode = viper.GetBool("debug")
-	apiEndpoint = viper.GetString("api")
+	apiEndpoint := viper.GetString("api")
+	apiClient = api.NewClient(apiEndpoint)
 }
 
 func initLogger() {

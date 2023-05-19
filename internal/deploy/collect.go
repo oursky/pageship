@@ -3,7 +3,6 @@ package deploy
 import (
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"io"
 	"io/fs"
 	"path/filepath"
@@ -41,7 +40,6 @@ func CollectFileList(fsys fs.FS) ([]models.FileEntry, error) {
 	}
 
 	err := fs.WalkDir(fsys, ".", walker)
-	fmt.Printf("%+v %s\n", entries, err)
 	return entries, err
 }
 

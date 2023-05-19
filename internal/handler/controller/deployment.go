@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/dustin/go-humanize"
 	"github.com/gin-gonic/gin"
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/db"
@@ -37,7 +38,11 @@ func (c *Controller) handleDeploymentCreate(ctx *gin.Context) {
 	}
 	if totalSize > c.Config.MaxDeploymentSize {
 		ctx.JSON(http.StatusBadRequest, response{
-			Error: fmt.Errorf("deployment too large: %d > %d", totalSize, c.Config.MaxDeploymentSize),
+			Error: fmt.Errorf(
+				"deployment too large: %s > %s",
+				humanize.Bytes(uint64(totalSize)),
+				humanize.Bytes(uint64(c.Config.MaxDeploymentSize)),
+			),
 		})
 		return
 	}

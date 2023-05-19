@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/dustin/go-humanize"
 	"github.com/manifoldco/promptui"
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/deploy"
@@ -72,11 +73,27 @@ var deployCmd = &cobra.Command{
 		}
 
 		logger.Info("collecting files")
-		entries, err := deploy.CollectFileList(fsys)
+		files, err := deploy.CollectFileList(fsys)
 		if err != nil {
 			logger.Fatal("failed to collect files", zap.Error(err))
 			return
 		}
-		logger.Info("setting up deployment", zap.Int("files", len(entries)))
+
+		var totalSize int64 = 0
+		for _, f := range files {
+			totalSize += f.Size
+		}
+
+		logger.Info("setting up deployment",
+			zap.Int("files", len(files)),
+			zap.String("size", humanize.Bytes(uint64(totalSize))),
+		)
+		deployment, err := apiClient.SetupDeployment(cmd.Context(), appID, site, files, &conf.Site)
+		if err != nil {
+			logger.Fatal("failed to setup deployment", zap.Error(err))
+			return
+		}
+
+		logger.Sugar().Debug(deployment)
 	},
 }
