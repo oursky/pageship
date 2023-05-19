@@ -23,15 +23,12 @@ CREATE TABLE deployment (
     deleted_at          TIMESTAMP,
     app_id              TEXT NOT NULL,
     site_id             TEXT NOT NULL REFERENCES site(id),
-    status              TEXT NOT NULL,
     storage_key_prefix  TEXT NOT NULL,
-    metadata            TEXT
+    metadata            TEXT,
+    uploaded_at         TIMESTAMP
 );
 
 CREATE TABLE site_deployment (
-    id                  TEXT NOT NULL PRIMARY KEY,
-    app_id              TEXT NOT NULL,
-    site_name           TEXT NOT NULL,
-    deployment_id       TEXT NOT NULL REFERENCES deployment(id),
-    FOREIGN KEY (app_id, site_name) REFERENCES site(app_id, name)
+    site_id             TEXT NOT NULL PRIMARY KEY REFERENCES site(id) ON DELETE CASCADE,
+    deployment_id       TEXT NOT NULL REFERENCES deployment(id)
 );

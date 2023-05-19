@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	neturl "net/url"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/oursky/pageship/internal/config"
@@ -47,5 +48,5 @@ type AppsDB interface {
 
 	CreateDeployment(ctx context.Context, deployment *models.Deployment) error
 	GetDeployment(ctx context.Context, appID string, siteName string, id string) (*models.Deployment, error)
-	UpdateDeploymentStatus(ctx context.Context, deployment *models.Deployment) error
+	MarkDeploymentUploaded(ctx context.Context, now time.Time, deployment *models.Deployment) error
 }

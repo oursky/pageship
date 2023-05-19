@@ -26,9 +26,10 @@ type Deployment struct {
 	AppID  string `json:"appID" db:"app_id"`
 	SiteID string `json:"siteID" db:"site_id"`
 
-	Status           DeploymentStatus    `json:"status" db:"status"`
+	Status           DeploymentStatus    `json:"status" db:"-"`
 	StorageKeyPrefix string              `json:"-" db:"storage_key_prefix"`
 	Metadata         *DeploymentMetadata `json:"metadata" db:"metadata"`
+	UploadedAt       *time.Time          `json:"uploadedAt" db:"uploaded_at"`
 }
 
 func NewDeployment(
@@ -50,6 +51,18 @@ func NewDeployment(
 		Status:           DeploymentStatusPending,
 		StorageKeyPrefix: fmt.Sprintf("%s%s/%s/%s", storageKeyPrefix, appID, siteID, id),
 		Metadata:         metadata,
+		UploadedAt:       nil,
+	}
+}
+
+func (d *Deployment) SetStatus(siteDeploymentID *string) {
+	switch {
+	case d.UploadedAt == nil:
+		d.Status = DeploymentStatusPending
+	case siteDeploymentID != nil && d.ID == *siteDeploymentID:
+		d.Status = DeploymentStatusActive
+	default:
+		d.Status = DeploymentStatusInactive
 	}
 }
 

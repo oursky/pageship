@@ -141,6 +141,8 @@ func (c *Controller) handleDeploymentUpload(ctx *gin.Context) {
 		return
 	}
 
+	now := c.Clock.Now().UTC()
+
 	// Mark deployment as completed, but inactive
 	err = db.WithTx(ctx, c.DB, func(conn db.Conn) error {
 		deployment, err = conn.GetDeployment(ctx, appID, siteName, deploymentID)
@@ -152,8 +154,7 @@ func (c *Controller) handleDeploymentUpload(ctx *gin.Context) {
 			return models.ErrDeploymentInvalidStatus
 		}
 
-		deployment.Status = models.DeploymentStatusInactive
-		err = conn.UpdateDeploymentStatus(ctx, deployment)
+		err = conn.MarkDeploymentUploaded(ctx, now, deployment)
 		if err != nil {
 			return err
 		}
