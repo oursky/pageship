@@ -14,7 +14,6 @@ import (
 	"github.com/oursky/pageship/internal/handler/sites"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
 )
 
 func init() {
@@ -63,7 +62,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	} else if err != nil {
-		logger.Error("failed to load site", zap.Error(err))
+		Error("Failed to load site '%s': %s", desc.Site, err)
 		http.Error(w, "failed to load site", http.StatusInternalServerError)
 		return
 	}
@@ -100,13 +99,13 @@ func makeHandler(prefix string) (http.Handler, error) {
 
 	var handler http.Handler
 	if sitesConf != nil {
-		logger.Info("running in multi-sites mode")
+		Info("Running in multi-sites mode")
 		handler, err = sites.NewHandler(fsys, sitesConf, NewHandler(nil))
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		logger.Debug("running in single-site mode")
+		Debug("Running in single-site mode")
 		desc := &sites.Descriptor{
 			Site: config.DefaultSite,
 			FS:   fsys,
@@ -135,7 +134,7 @@ var serveCmd = &cobra.Command{
 
 		handler, err := makeHandler(args[0])
 		if err != nil {
-			logger.Fatal("failed to load config", zap.Error(err))
+			Error("Failed to load config: %w", err)
 			return
 		}
 
@@ -143,6 +142,6 @@ var serveCmd = &cobra.Command{
 			Addr:    addr,
 			Handler: handler,
 		}
-		command.Run(logger, []command.WorkFunc{server.Run})
+		command.Run([]command.WorkFunc{server.Run})
 	},
 }

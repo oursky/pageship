@@ -58,7 +58,7 @@ var startCmd = &cobra.Command{
 		}
 		server := command.HTTPServer{Addr: addr, Handler: ctrl.Handler()}
 
-		command.Run(logger, []command.WorkFunc{
+		command.Run([]command.WorkFunc{
 			server.Run,
 		})
 	},

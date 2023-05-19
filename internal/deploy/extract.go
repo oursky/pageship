@@ -14,7 +14,8 @@ var ErrUnexpectedFile error = Error("unexpected file")
 var ErrUnexpectedFileSize error = Error("unexpected file size")
 var ErrMissingFile error = Error("missing file")
 
-const decodeMaxMemory = 1024 * 1024 * 1 // 1MB
+const zstdWindowSize = 1024 * 1024 * 1 // 1MB
+const zstdMaxMemory = 1024 * 1024 * 1  // 1MB
 
 func ExtractFiles(r io.Reader, files []models.FileEntry, handle func(models.FileEntry, io.Reader) error) error {
 	pending := make(map[string]models.FileEntry)
@@ -22,7 +23,7 @@ func ExtractFiles(r io.Reader, files []models.FileEntry, handle func(models.File
 		pending[entry.Path] = entry
 	}
 
-	decomp, err := zstd.NewReader(r, zstd.WithDecoderMaxMemory(decodeMaxMemory))
+	decomp, err := zstd.NewReader(r, zstd.WithDecoderMaxMemory(zstdMaxMemory))
 	if err != nil {
 		return err
 	}

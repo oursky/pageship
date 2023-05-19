@@ -6,13 +6,12 @@ import (
 	"os/signal"
 	"syscall"
 
-	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
 type WorkFunc func(context.Context) error
 
-func Run(logger *zap.Logger, works []WorkFunc) {
+func Run(works []WorkFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -21,7 +20,6 @@ func Run(logger *zap.Logger, works []WorkFunc) {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
 
-	logger.Debug("starting...")
 	for _, f := range works {
 		work := f
 		g.Go(func() error { return work(ctx) })
@@ -29,7 +27,6 @@ func Run(logger *zap.Logger, works []WorkFunc) {
 
 	go func() {
 		<-sig
-		logger.Debug("stopping...")
 		cancel()
 	}()
 

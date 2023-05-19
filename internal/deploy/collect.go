@@ -15,7 +15,7 @@ import (
 var ErrTooManyFiles error = Error("too many files collected")
 
 func CollectFileList(fsys fs.FS, now time.Time, tarfile *os.File) ([]models.FileEntry, error) {
-	comp, err := zstd.NewWriter(tarfile)
+	comp, err := zstd.NewWriter(tarfile, zstd.WithWindowSize(zstdWindowSize))
 	if err != nil {
 		return nil, err
 	}

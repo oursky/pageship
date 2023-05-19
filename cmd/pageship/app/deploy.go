@@ -1,18 +1,21 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 
 	"github.com/dustin/go-humanize"
 	"github.com/manifoldco/promptui"
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/deploy"
+	"github.com/oursky/pageship/internal/models"
 	"github.com/oursky/pageship/internal/time"
+	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
 )
 
 func init() {
@@ -21,6 +24,65 @@ func init() {
 	deployCmd.PersistentFlags().String("site", "", "target site")
 	deployCmd.PersistentFlags().BoolP("yes", "y", false, "skip confirmation")
 	viper.BindPFlags(deployCmd.PersistentFlags())
+}
+
+func packTar(fsys fs.FS, tarfile *os.File) ([]models.FileEntry, int64, error) {
+	now := time.SystemClock.Now()
+	files, err := deploy.CollectFileList(fsys, now, tarfile)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	_, err = tarfile.Seek(0, io.SeekStart)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	fi, err := tarfile.Stat()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return files, fi.Size(), nil
+}
+
+func doDeploy(ctx context.Context, appID string, site string, conf *config.SiteConfig, fsys fs.FS) {
+	tarfile, err := os.CreateTemp("", fmt.Sprintf("pageship-%s-%s-*.tar.zst", appID, site))
+	if err != nil {
+		Error("Failed to create temp file: %s", err)
+		return
+	}
+	defer os.Remove(tarfile.Name())
+
+	Info("Collecting files...")
+	Debug("Tarball: %s", tarfile.Name())
+	files, tarSize, err := packTar(fsys, tarfile)
+	if err != nil {
+		Error("failed to collect files: %s", err)
+		return
+	}
+
+	Info("%d files found. Tarball size: %s", len(files), humanize.Bytes(uint64(tarSize)))
+
+	Info("Setting up deployment...")
+	deployment, err := apiClient.SetupDeployment(ctx, appID, site, files, conf)
+	if err != nil {
+		Error("Failed to setup deployment: %s", err)
+		return
+	}
+
+	Debug("Deployment ID: %s", deployment.ID)
+	Debug("Site ID: %s", deployment.SiteID)
+
+	bar := progressbar.DefaultBytes(tarSize, "uploading")
+	body := io.TeeReader(tarfile, bar)
+	deployment, err = apiClient.UploadDeploymentTarball(ctx, appID, site, deployment.ID, body)
+	if err != nil {
+		Error("Failed to upload tarball: %s", err)
+		return
+	}
+
+	Debug("%+v", deployment)
 }
 
 var deployCmd = &cobra.Command{
@@ -36,7 +98,7 @@ var deployCmd = &cobra.Command{
 
 		conf := config.DefaultConfig()
 		if err := loader.Load(fsys, &conf); err != nil {
-			logger.Fatal("failed to load config", zap.Error(err))
+			Error("Failed to load config: %s", err)
 			return
 		}
 		conf.SetDefaults()
@@ -47,15 +109,14 @@ var deployCmd = &cobra.Command{
 		}
 
 		if !config.ValidateDNSLabel(site) {
-			logger.Fatal("invalid site name; site name must be a valid DNS label",
-				zap.String("site", site))
+			Error("Invalid site name; site name must be a valid DNS label: %s", site)
 			return
 		}
 
 		env, ok := conf.ResolveSite(site)
 		if !ok {
-			logger.Fatal("site is not defined by any environment",
-				zap.String("site", site))
+			Error("Site is not defined by any environment: %s", site)
+			return
 		}
 
 		if !yes {
@@ -69,53 +130,11 @@ var deployCmd = &cobra.Command{
 			prompt := promptui.Prompt{Label: label, IsConfirm: true}
 			_, err := prompt.Run()
 			if err != nil {
-				logger.Info("cancelled", zap.Error(err))
+				Info("Cancelled.")
 				return
 			}
 		}
 
-		now := time.SystemClock.Now().UTC()
-		tarfile, err := os.CreateTemp("", fmt.Sprintf("pageship-%s-%s-*.tar.zst", appID, site))
-		if err != nil {
-			logger.Fatal("failed to create temp file", zap.Error(err))
-			return
-		}
-		defer os.Remove(tarfile.Name())
-		logger.Info("collecting files", zap.String("tarball", tarfile.Name()))
-
-		files, err := deploy.CollectFileList(fsys, now, tarfile)
-		if err != nil {
-			logger.Fatal("failed to collect files", zap.Error(err))
-			return
-		}
-		_, err = tarfile.Seek(0, io.SeekStart)
-		if err != nil {
-			logger.Fatal("failed setup tarball", zap.Error(err))
-			return
-		}
-
-		var totalSize int64 = 0
-		for _, f := range files {
-			totalSize += f.Size
-		}
-
-		logger.Info("setting up deployment",
-			zap.Int("files", len(files)),
-			zap.String("size", humanize.Bytes(uint64(totalSize))),
-		)
-		deployment, err := apiClient.SetupDeployment(cmd.Context(), appID, site, files, &conf.Site)
-		if err != nil {
-			logger.Fatal("failed to setup deployment", zap.Error(err))
-			return
-		}
-
-		logger.Info("uploading tarball")
-		deployment, err = apiClient.UploadDeploymentTarball(cmd.Context(), appID, site, deployment.ID, tarfile)
-		if err != nil {
-			logger.Fatal("failed to upload tarball", zap.Error(err))
-			return
-		}
-
-		logger.Sugar().Debugf("%+v", deployment)
+		doDeploy(cmd.Context(), appID, site, &conf.Site, fsys)
 	},
 }
