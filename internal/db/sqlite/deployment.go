@@ -65,7 +65,7 @@ func (c Conn) ActivateSiteDeployment(ctx context.Context, deployment *models.Dep
 	_, err := c.tx.ExecContext(ctx, `
 		INSERT INTO site_deployment (site_id, deployment_id)
 			VALUES (?, ?)
-			ON CONFLICT SET deployment_id = excluded.deployment_id
+			ON CONFLICT (site_id) DO UPDATE SET deployment_id = excluded.deployment_id
 	`, deployment.SiteID, deployment.ID)
 	if err != nil {
 		return err
@@ -77,8 +77,7 @@ func (c Conn) ActivateSiteDeployment(ctx context.Context, deployment *models.Dep
 
 func (c Conn) DeactivateSiteDeployment(ctx context.Context, deployment *models.Deployment) error {
 	result, err := c.tx.ExecContext(ctx, `
-		DELETE FROM site_deployment (site_id, deployment_id)
-			WHERE site_id = ? AND deployment_id = ?
+		DELETE FROM site_deployment WHERE site_id = ? AND deployment_id = ?
 	`, deployment.SiteID, deployment.ID)
 	if err != nil {
 		return err

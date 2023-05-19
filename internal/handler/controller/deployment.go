@@ -14,6 +14,30 @@ import (
 	"github.com/oursky/pageship/internal/models"
 )
 
+func (c *Controller) handleDeploymentGet(ctx *gin.Context) {
+	appID := ctx.Param("app-id")
+	siteName := ctx.Param("site")
+	deploymentID := ctx.Param("deployment-id")
+
+	err := db.WithTx(ctx, c.DB, func(conn db.Conn) error {
+		deployment, err := conn.GetDeployment(ctx, appID, siteName, deploymentID)
+		if err != nil {
+			return err
+		}
+
+		ctx.JSON(http.StatusOK, response{Result: deployment})
+		return nil
+	})
+
+	if err != nil {
+		if errors.Is(err, models.ErrDeploymentNotFound) {
+			ctx.JSON(http.StatusNotFound, response{Error: err})
+		} else {
+			ctx.AbortWithError(http.StatusInternalServerError, err)
+		}
+	}
+}
+
 func (c *Controller) handleDeploymentCreate(ctx *gin.Context) {
 	appID := ctx.Param("app-id")
 	siteName := ctx.Param("site")
@@ -157,6 +181,68 @@ func (c *Controller) handleDeploymentUpload(ctx *gin.Context) {
 		err = conn.MarkDeploymentUploaded(ctx, now, deployment)
 		if err != nil {
 			return err
+		}
+
+		ctx.JSON(http.StatusOK, response{Result: deployment})
+		return nil
+	})
+
+	if err != nil {
+		if errors.Is(err, models.ErrDeploymentNotFound) {
+			ctx.JSON(http.StatusNotFound, response{Error: err})
+		} else if errors.Is(err, models.ErrDeploymentInvalidStatus) {
+			ctx.JSON(http.StatusConflict, response{Error: err})
+		} else {
+			ctx.AbortWithError(http.StatusInternalServerError, err)
+		}
+	}
+}
+
+func (c *Controller) handleDeploymentUpdate(ctx *gin.Context) {
+	appID := ctx.Param("app-id")
+	siteName := ctx.Param("site")
+	deploymentID := ctx.Param("deployment-id")
+
+	var request struct {
+		Status *models.DeploymentStatus `json:"status,omitempty" validate:"omitempty,oneof=ACTIVE INACTIVE"`
+	}
+	if err := checkBind(ctx, ctx.ShouldBindJSON(&request)); err != nil {
+		return
+	}
+
+	if request.Status != nil && !request.Status.IsValid() {
+		ctx.JSON(http.StatusBadRequest, response{Result: errors.New("invalid status")})
+		return
+	}
+
+	err := db.WithTx(ctx, c.DB, func(conn db.Conn) error {
+		deployment, err := conn.GetDeployment(ctx, appID, siteName, deploymentID)
+		if err != nil {
+			return err
+		}
+
+		if request.Status != nil {
+			switch deployment.Status {
+			case models.DeploymentStatusActive, models.DeploymentStatusInactive:
+				break
+			default:
+				return models.ErrDeploymentInvalidStatus
+			}
+
+			switch *request.Status {
+			case models.DeploymentStatusActive:
+				err = conn.ActivateSiteDeployment(ctx, deployment)
+				if err != nil {
+					return err
+				}
+			case models.DeploymentStatusInactive:
+				err = conn.DeactivateSiteDeployment(ctx, deployment)
+				if err != nil {
+					return err
+				}
+			default:
+				return models.ErrDeploymentInvalidStatus
+			}
 		}
 
 		ctx.JSON(http.StatusOK, response{Result: deployment})

@@ -9,6 +9,7 @@ import (
 
 	"github.com/dustin/go-humanize"
 	"github.com/manifoldco/promptui"
+	"github.com/oursky/pageship/internal/api"
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/deploy"
 	"github.com/oursky/pageship/internal/models"
@@ -82,7 +83,18 @@ func doDeploy(ctx context.Context, appID string, site string, conf *config.SiteC
 		return
 	}
 
-	Debug("%+v", deployment)
+	Info("Activating deployment...")
+	status := models.DeploymentStatusActive
+	deployment, err = apiClient.PatchDeployment(ctx, appID, site, deployment.ID, &api.DeploymentPatchRequest{
+		Status: &status,
+	})
+	if err != nil {
+		Error("Failed to activate deployment: %s", err)
+		return
+	}
+
+	Debug("Deployment: %+v", deployment)
+	Info("Done!")
 }
 
 var deployCmd = &cobra.Command{

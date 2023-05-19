@@ -21,14 +21,14 @@ func (e BadRequestError) Error() string {
 	return fmt.Sprintf("bad request: %s", string(e))
 }
 
-func newJSONRequest(ctx context.Context, endpoint string, v any) (*http.Request, error) {
+func newJSONRequest(ctx context.Context, method string, endpoint string, v any) (*http.Request, error) {
 	body := new(bytes.Buffer)
 	err := json.NewEncoder(body).Encode(v)
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", endpoint, body)
+	req, err := http.NewRequestWithContext(ctx, method, endpoint, body)
 	if err != nil {
 		return nil, err
 	}

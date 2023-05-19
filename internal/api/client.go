@@ -38,7 +38,7 @@ func (c *Client) SetupDeployment(
 		return nil, err
 	}
 
-	req, err := newJSONRequest(ctx, endpoint, map[string]any{
+	req, err := newJSONRequest(ctx, "POST", endpoint, map[string]any{
 		"files":       files,
 		"site_config": siteConfig,
 	})
@@ -68,6 +68,32 @@ func (c *Client) UploadDeploymentTarball(
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "PUT", endpoint, tarball)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return decodeJSONResponse[models.Deployment](resp)
+}
+
+func (c *Client) PatchDeployment(
+	ctx context.Context,
+	appID string,
+	siteName string,
+	deploymentID string,
+	patch *DeploymentPatchRequest,
+) (*models.Deployment, error) {
+	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "sites", siteName, "deployments", deploymentID)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := newJSONRequest(ctx, "PATCH", endpoint, patch)
 	if err != nil {
 		return nil, err
 	}

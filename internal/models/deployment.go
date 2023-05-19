@@ -17,6 +17,14 @@ const (
 	DeploymentStatusInactive DeploymentStatus = "INACTIVE"
 )
 
+func (s DeploymentStatus) IsValid() bool {
+	switch s {
+	case DeploymentStatusPending, DeploymentStatusActive, DeploymentStatusInactive:
+		return true
+	}
+	return false
+}
+
 type Deployment struct {
 	ID        string     `json:"id" db:"id"`
 	CreatedAt time.Time  `json:"createdAt" db:"created_at"`
