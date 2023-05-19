@@ -16,6 +16,7 @@ type App struct {
 
 func NewApp(id string, now time.Time) *App {
 	config := config.DefaultAppConfig()
+	config.SetDefaults()
 
 	return &App{
 		ID:        id,

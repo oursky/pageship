@@ -6,28 +6,26 @@ import (
 	"errors"
 
 	"github.com/oursky/pageship/internal/config"
-	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/models"
 )
 
 func (c Conn) CreateApp(ctx context.Context, id string) (*models.App, error) {
-	rows, err := c.tx.QueryContext(ctx, `
-		SELECT 1 FROM app WHERE id = ? LIMIT 1
-	`, id)
-	if err != nil {
-		return nil, err
-	} else if err := db.EnsureNoRow(rows, models.ErrUsedAppID); err != nil {
-		return nil, err
-	}
-
 	app := models.NewApp(id, c.clock.Now().UTC())
 
-	_, err = c.tx.NamedExecContext(ctx, `
+	result, err := c.tx.NamedExecContext(ctx, `
 		INSERT INTO app (id, created_at, updated_at, deleted_at, config)
 			VALUES (:id, :created_at, :updated_at, :deleted_at, :config)
+			ON CONFLICT (id) DO NOTHING
 	`, app)
 	if err != nil {
 		return nil, err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+	if n != 1 {
+		return nil, models.ErrUsedAppID
 	}
 
 	return app, nil

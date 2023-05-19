@@ -18,7 +18,8 @@ func init() {
 }
 
 type Controller struct {
-	DB db.DB
+	Config Config
+	DB     db.DB
 }
 
 func (c *Controller) Handler() http.Handler {
@@ -36,6 +37,8 @@ func (c *Controller) Handler() http.Handler {
 	v1.GET("/apps/:id", c.handleAppGet)
 	v1.GET("/apps/:id/config", c.handleAppConfigGet)
 	v1.PUT("/apps/:id/config", c.handleAppConfigSet)
+
+	v1.POST("/apps/:app-id/sites/:site/deployments", c.handleDeploymentCreate)
 
 	return g.Handler()
 }

@@ -42,4 +42,15 @@ type AppsDB interface {
 	GetApp(ctx context.Context, id string) (*models.App, error)
 	ListApps(ctx context.Context) ([]*models.App, error)
 	UpdateAppConfig(ctx context.Context, id string, config *config.AppConfig) (*models.App, error)
+
+	EnsureSite(ctx context.Context, appID string, siteName string) (*models.Site, error)
+
+	CreateDeployment(
+		ctx context.Context,
+		appID string,
+		siteID string,
+		storageKeyPrefix string,
+		files []models.FileEntry,
+		config *config.SiteConfig,
+	) (*models.Deployment, error)
 }

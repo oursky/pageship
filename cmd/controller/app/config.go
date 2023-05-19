@@ -22,7 +22,7 @@ func init() {
 func initConfig() {
 	viper.BindPFlags(rootCmd.PersistentFlags())
 	viper.SetEnvPrefix("PAGESHIP")
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 	viper.AutomaticEnv()
 
 	debugMode = viper.GetBool("debug")
