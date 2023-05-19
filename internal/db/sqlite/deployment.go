@@ -36,3 +36,17 @@ func (c Conn) GetDeployment(ctx context.Context, appID string, siteName string, 
 
 	return &deployment, nil
 }
+
+func (c Conn) UpdateDeploymentStatus(ctx context.Context, deployment *models.Deployment) error {
+	err := c.tx.GetContext(ctx, deployment, `
+		UPDATE deployment SET status = ? WHERE id = ? AND deleted_at IS NULL
+			RETURNING id, created_at, updated_at, deleted_at, app_id, site_id, status, storage_key_prefix, metadata
+	`, deployment.Status, deployment.ID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return models.ErrDeploymentNotFound
+	} else if err != nil {
+		return err
+	}
+
+	return nil
+}

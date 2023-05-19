@@ -47,4 +47,5 @@ type AppsDB interface {
 
 	CreateDeployment(ctx context.Context, deployment *models.Deployment) error
 	GetDeployment(ctx context.Context, appID string, siteName string, id string) (*models.Deployment, error)
+	UpdateDeploymentStatus(ctx context.Context, deployment *models.Deployment) error
 }

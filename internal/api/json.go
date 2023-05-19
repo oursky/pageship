@@ -42,7 +42,7 @@ func decodeJSONResponse[T any](resp *http.Response) (*T, error) {
 		Error  *string `json:"error"`
 		Result *T      `json:"result"`
 	}
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusBadRequest {
+	if resp.StatusCode != http.StatusOK && (resp.StatusCode < 400 || resp.StatusCode >= 500) {
 		return nil, HTTPStatusCodeError(resp.Status)
 	}
 
