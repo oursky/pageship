@@ -40,7 +40,7 @@ func (c *Controller) Handler() http.Handler {
 	v1.PUT("/apps/:app-id/config", c.handleAppConfigSet)
 
 	v1.GET("/apps/:app-id/sites", c.handleSiteList)
-	v1.POST("/apps/:app-id/sites/:site-name", c.handleSiteCreate)
+	v1.POST("/apps/:app-id/sites", c.handleSiteCreate)
 	v1.PATCH("/apps/:app-id/sites/:site-name", c.handleSiteUpdate)
 
 	v1.POST("/apps/:app-id/deployments", c.handleDeploymentCreate)

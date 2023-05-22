@@ -61,7 +61,13 @@ func (c *Controller) handleSiteList(ctx *gin.Context) {
 
 func (c *Controller) handleSiteCreate(ctx *gin.Context) {
 	appID := ctx.Param("app-id")
-	siteName := ctx.Param("site-name")
+
+	var request struct {
+		Name string `json:"name" binding:"required,dnsLabel"`
+	}
+	if err := checkBind(ctx, ctx.ShouldBindJSON(&request)); err != nil {
+		return
+	}
 
 	err := db.WithTx(ctx, c.DB, func(conn db.Conn) error {
 		app, err := conn.GetApp(ctx, appID)
@@ -69,11 +75,11 @@ func (c *Controller) handleSiteCreate(ctx *gin.Context) {
 			return err
 		}
 
-		if _, ok := app.Config.ResolveSite(siteName); !ok {
+		if _, ok := app.Config.ResolveSite(request.Name); !ok {
 			return models.ErrUndefinedSite
 		}
 
-		site := models.NewSite(c.Clock.Now().UTC(), appID, siteName)
+		site := models.NewSite(c.Clock.Now().UTC(), appID, request.Name)
 		info, err := conn.CreateSiteIfNotExist(ctx, site)
 		if err != nil {
 			return err
