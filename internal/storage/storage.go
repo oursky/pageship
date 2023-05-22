@@ -43,3 +43,12 @@ func (s *Storage) Upload(ctx context.Context, key string, r io.Reader) (err erro
 	_, err = io.Copy(writer, r)
 	return
 }
+
+func (s *Storage) OpenRead(ctx context.Context, key string) (io.ReadSeekCloser, error) {
+	reader, err := s.bucket.NewReader(ctx, key, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return reader, nil
+}

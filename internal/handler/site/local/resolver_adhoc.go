@@ -1,6 +1,7 @@
 package local
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -18,7 +19,7 @@ type resolverAdhoc struct {
 
 func (h *resolverAdhoc) Kind() string { return "ad-hoc" }
 
-func (h *resolverAdhoc) Resolve(matchedID string) (*site.Descriptor, error) {
+func (h *resolverAdhoc) Resolve(ctx context.Context, matchedID string) (*site.Descriptor, error) {
 	dnsLabels := strings.Split(path.Clean(matchedID), ".")
 	pathSegments := make([]string, len(dnsLabels))
 	for i, label := range dnsLabels {
@@ -46,10 +47,8 @@ func (h *resolverAdhoc) Resolve(matchedID string) (*site.Descriptor, error) {
 	}
 
 	return &site.Descriptor{
-		AppID:    config.ID,
-		SiteName: matchedID,
-		Files:    nil,
-		Config:   &config.Site,
-		FS:       fsys,
+		ID:     matchedID,
+		Config: &config.Site,
+		FS:     fsys,
 	}, nil
 }

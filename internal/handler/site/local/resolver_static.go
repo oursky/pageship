@@ -1,6 +1,7 @@
 package local
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 
@@ -15,7 +16,7 @@ type resolverStatic struct {
 
 func (h *resolverStatic) Kind() string { return "static config" }
 
-func (h *resolverStatic) Resolve(matchedID string) (*site.Descriptor, error) {
+func (h *resolverStatic) Resolve(ctx context.Context, matchedID string) (*site.Descriptor, error) {
 	entry, ok := h.sites[matchedID]
 	if !ok {
 		return nil, site.ErrSiteNotFound
@@ -36,10 +37,8 @@ func (h *resolverStatic) Resolve(matchedID string) (*site.Descriptor, error) {
 	}
 
 	return &site.Descriptor{
-		AppID:    config.ID,
-		SiteName: matchedID,
-		Files:    nil,
-		Config:   &config.Site,
-		FS:       fsys,
+		ID:     matchedID,
+		Config: &config.Site,
+		FS:     fsys,
 	}, nil
 }

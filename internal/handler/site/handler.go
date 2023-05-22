@@ -37,11 +37,16 @@ func NewHandler(logger Logger, resolver Resolver, conf HandlerConfig) (*Handler,
 		return nil, fmt.Errorf("setup cache: %w", err)
 	}
 
+	defaultSite := conf.DefaultSite
+	if defaultSite == "-" { // Allow setting '-' to disable default site
+		defaultSite = ""
+	}
+
 	return &Handler{
 		logger:      logger,
 		resolver:    resolver,
 		hostRegex:   hostRegex,
-		defaultSite: conf.DefaultSite,
+		defaultSite: defaultSite,
 		cache:       cache,
 	}, nil
 }
@@ -66,7 +71,10 @@ func (h *Handler) resolveSite(r *http.Request) (*Descriptor, error) {
 		matchedID = h.defaultSite
 	}
 
-	return h.cache.Load(matchedID, h.resolver.Resolve)
+	resolve := func(matchedID string) (*Descriptor, error) {
+		return h.resolver.Resolve(r.Context(), matchedID)
+	}
+	return h.cache.Load(matchedID, resolve)
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -79,7 +87,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-	h.logger.Debug("resolved site: %s/%s", site.AppID, site.SiteName)
+	h.logger.Debug("resolved site: %s", site.ID)
 
 	h.serve(site, w, r)
 }
@@ -88,6 +96,8 @@ func (h *Handler) serve(site *Descriptor, w http.ResponseWriter, r *http.Request
 	publicFS, err := fs.Sub(site.FS, site.Config.Public)
 	if err != nil {
 		h.logger.Error("construct site fs", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
 	}
 
 	http.FileServer(http.FS(publicFS)).ServeHTTP(w, r)

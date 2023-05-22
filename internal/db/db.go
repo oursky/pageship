@@ -51,4 +51,5 @@ type AppsDB interface {
 	MarkDeploymentUploaded(ctx context.Context, now time.Time, deployment *models.Deployment) error
 	ActivateSiteDeployment(ctx context.Context, deployment *models.Deployment) error
 	DeactivateSiteDeployment(ctx context.Context, deployment *models.Deployment) error
+	GetActiveSiteDeployment(ctx context.Context, appID string, siteName string) (*models.Deployment, error)
 }

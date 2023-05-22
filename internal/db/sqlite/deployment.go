@@ -93,3 +93,23 @@ func (c Conn) DeactivateSiteDeployment(ctx context.Context, deployment *models.D
 	}
 	return nil
 }
+
+func (c Conn) GetActiveSiteDeployment(ctx context.Context, appID string, siteName string) (*models.Deployment, error) {
+	var deployment models.Deployment
+
+	err := c.tx.GetContext(ctx, &deployment, `
+		SELECT d.id, d.created_at, d.updated_at, d.deleted_at, d.app_id, d.site_id, d.storage_key_prefix, d.metadata, d.uploaded_at FROM deployment d
+			JOIN app a ON (a.id = d.app_id AND a.deleted_at IS NULL)
+			JOIN site s ON (s.id = d.site_id AND s.deleted_at IS NULL)
+			JOIN site_deployment sd ON (sd.site_id = d.site_id AND sd.deployment_id = d.id)
+			WHERE d.app_id = ? AND s.name = ? AND d.deleted_at IS NULL
+	`, appID, siteName)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, models.ErrDeploymentNotFound
+	} else if err != nil {
+		return nil, err
+	}
+
+	deployment.SetStatus(&deployment.ID)
+	return &deployment, nil
+}

@@ -1,24 +1,22 @@
 package site
 
 import (
+	"context"
 	"errors"
 	"io/fs"
 
 	"github.com/oursky/pageship/internal/config"
-	"github.com/oursky/pageship/internal/models"
 )
 
 var ErrSiteNotFound = errors.New("site not found")
 
 type Descriptor struct {
-	AppID    string
-	SiteName string
-	Files    []models.FileEntry
-	Config   *config.SiteConfig
-	FS       fs.FS
+	ID     string
+	Config *config.SiteConfig
+	FS     fs.FS
 }
 
 type Resolver interface {
 	Kind() string
-	Resolve(matchedID string) (*Descriptor, error)
+	Resolve(ctx context.Context, matchedID string) (*Descriptor, error)
 }

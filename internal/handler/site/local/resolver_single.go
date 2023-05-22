@@ -1,6 +1,7 @@
 package local
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 
@@ -17,7 +18,7 @@ func NewSingleSiteResolver(fs fs.FS) site.Resolver {
 
 func (h *resolverSingle) Kind() string { return "single site" }
 
-func (h *resolverSingle) Resolve(matchedID string) (*site.Descriptor, error) {
+func (h *resolverSingle) Resolve(ctx context.Context, matchedID string) (*site.Descriptor, error) {
 	if err := checkSiteFS(h.fs); err != nil {
 		return nil, fmt.Errorf("check context fs: %w", err)
 	}
@@ -28,10 +29,8 @@ func (h *resolverSingle) Resolve(matchedID string) (*site.Descriptor, error) {
 	}
 
 	return &site.Descriptor{
-		AppID:    config.ID,
-		SiteName: matchedID,
-		Files:    nil,
-		Config:   &config.Site,
-		FS:       h.fs,
+		ID:     config.ID,
+		Config: &config.Site,
+		FS:     h.fs,
 	}, nil
 }
