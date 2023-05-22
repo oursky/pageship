@@ -23,6 +23,7 @@ type Handler struct {
 	resolver    Resolver
 	hostRegex   *regexp.Regexp
 	defaultSite string
+	cache       *siteCache
 }
 
 func NewHandler(logger Logger, resolver Resolver, conf HandlerConfig) (*Handler, error) {
@@ -31,11 +32,17 @@ func NewHandler(logger Logger, resolver Resolver, conf HandlerConfig) (*Handler,
 		return nil, fmt.Errorf("invalid host pattern: %w", err)
 	}
 
+	cache, err := newSiteCache()
+	if err != nil {
+		return nil, fmt.Errorf("setup cache: %w", err)
+	}
+
 	return &Handler{
 		logger:      logger,
 		resolver:    resolver,
 		hostRegex:   hostRegex,
 		defaultSite: conf.DefaultSite,
+		cache:       cache,
 	}, nil
 }
 
@@ -59,7 +66,7 @@ func (h *Handler) resolveSite(r *http.Request) (*Descriptor, error) {
 		matchedID = h.defaultSite
 	}
 
-	return h.resolver.Resolve(matchedID)
+	return h.cache.Load(matchedID, h.resolver.Resolve)
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
