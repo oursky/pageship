@@ -12,7 +12,7 @@ var debugMode bool
 
 func init() {
 	rootCmd.PersistentFlags().Bool("debug", false, "debug mode")
-	rootCmd.PersistentFlags().String("api", "localhost:8001", "server API endpoing")
+	rootCmd.PersistentFlags().String("api", "localhost:8001", "server API endpoint")
 
 	cobra.OnInitialize(initConfig)
 }

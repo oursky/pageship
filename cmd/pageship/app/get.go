@@ -17,7 +17,8 @@ func init() {
 	getCmd.AddCommand(getSitesCmd)
 	getCmd.AddCommand(getDeploymentsCmd)
 
-	getCmd.PersistentFlags().String("app", "", "app ID")
+	getSitesCmd.PersistentFlags().String("app", "", "app ID")
+	getDeploymentsCmd.PersistentFlags().String("app", "", "app ID")
 }
 
 var getCmd = &cobra.Command{

@@ -16,10 +16,11 @@ func BindConfig(root *cobra.Command) {
 }
 
 func setCommandFlags(cmd *cobra.Command) {
-	viper.BindPFlags(cmd.PersistentFlags())
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
 		if viper.IsSet(f.Name) {
 			cmd.Flags().Set(f.Name, viper.GetString(f.Name))
+		} else {
+			viper.BindPFlag(f.Name, f)
 		}
 	})
 
