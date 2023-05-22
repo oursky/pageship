@@ -20,9 +20,10 @@ import (
 func init() {
 	rootCmd.AddCommand(migrateCmd)
 
+	migrateCmd.PersistentFlags().String("database", "", "database URL")
 	migrateCmd.MarkPersistentFlagRequired("database")
+
 	migrateCmd.PersistentFlags().Bool("down", false, "downgrade database")
-	viper.BindPFlags(migrateCmd.PersistentFlags())
 }
 
 type migrateLogger struct{ *log.Logger }

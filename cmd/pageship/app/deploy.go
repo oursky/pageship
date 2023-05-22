@@ -24,7 +24,6 @@ func init() {
 
 	deployCmd.PersistentFlags().String("site", "", "target site")
 	deployCmd.PersistentFlags().BoolP("yes", "y", false, "skip confirmation")
-	viper.BindPFlags(deployCmd.PersistentFlags())
 }
 
 func packTar(fsys fs.FS, tarfile *os.File) ([]models.FileEntry, int64, error) {

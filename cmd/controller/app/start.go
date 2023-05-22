@@ -16,15 +16,16 @@ import (
 func init() {
 	rootCmd.AddCommand(startCmd)
 
+	startCmd.PersistentFlags().String("database", "", "database URL")
 	startCmd.MarkPersistentFlagRequired("database")
+
+	startCmd.PersistentFlags().String("storage-endpoint", "", "object storage endpoint")
 	startCmd.MarkPersistentFlagRequired("storage-endpoint")
 
 	startCmd.PersistentFlags().String("addr", ":8001", "listen address")
 
 	startCmd.PersistentFlags().String("max-deployment-size", "200M", "max deployment files size")
 	startCmd.PersistentFlags().String("storage-key-prefix", "", "storage key prefix")
-
-	viper.BindPFlags(startCmd.PersistentFlags())
 }
 
 var startCmd = &cobra.Command{

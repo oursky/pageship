@@ -1,9 +1,8 @@
 package app
 
 import (
-	"strings"
-
 	"github.com/oursky/pageship/internal/api"
+	"github.com/oursky/pageship/internal/command"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -19,10 +18,7 @@ func init() {
 }
 
 func initConfig() {
-	viper.BindPFlags(rootCmd.PersistentFlags())
-	viper.SetEnvPrefix("PAGESHIP")
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
-	viper.AutomaticEnv()
+	command.BindConfig(rootCmd)
 
 	debugMode = viper.GetBool("debug")
 	apiEndpoint := viper.GetString("api")

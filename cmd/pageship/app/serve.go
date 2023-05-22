@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"io/fs"
 	"net/http"
@@ -19,7 +20,6 @@ func init() {
 	rootCmd.AddCommand(serveCmd)
 
 	serveCmd.PersistentFlags().String("addr", ":8000", "listen address")
-	viper.BindPFlags(serveCmd.PersistentFlags())
 }
 
 type siteLogger struct{}
@@ -27,6 +27,7 @@ type siteLogger struct{}
 func (siteLogger) Debug(format string, args ...any) {
 	Debug(format, args...)
 }
+
 func (siteLogger) Error(msg string, err error) {
 	Error(msg+": %s", err)
 }
@@ -69,7 +70,7 @@ func makeHandler(prefix string) (http.Handler, error) {
 		}
 
 		// Check site on startup.
-		_, err = resolver.Resolve(config.DefaultSite)
+		_, err = resolver.Resolve(context.Background(), config.DefaultSite)
 		if err != nil {
 			return nil, err
 		}

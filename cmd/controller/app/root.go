@@ -10,7 +10,7 @@ func init() {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "pageship",
+	Use:   "controller",
 	Short: "Pageship controller",
 }
 
