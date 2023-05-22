@@ -2,7 +2,7 @@ package config
 
 const SiteConfigName = "pageship"
 
-const DefaultSite = "app"
+const DefaultSite = "main"
 
 type SiteConfig struct {
 	Public string `json:"public" validate:"required"`

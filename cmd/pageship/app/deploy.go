@@ -117,7 +117,7 @@ var deployCmd = &cobra.Command{
 
 		appID := conf.ID
 		if site == "" {
-			site = conf.DefaultEnvironment
+			site = conf.DefaultSite
 		}
 
 		if !config.ValidateDNSLabel(site) {

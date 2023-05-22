@@ -2,8 +2,6 @@ package config
 
 import "regexp"
 
-const DefaultEnvironment = "main"
-
 type EnvironmentConfig struct {
 	Name        string `json:"name" validate:"required,dnsLabel"`
 	SitePattern string `json:"sitePattern,omitempty" validate:"max=100,regexp"`

@@ -7,14 +7,14 @@ import (
 )
 
 type AppConfig struct {
-	DefaultEnvironment string              `json:"defaultEnvironment" validate:"required,dnsLabel"`
-	Environments       []EnvironmentConfig `json:"environments" validate:"max=10"`
+	DefaultSite  string              `json:"defaultSite" validate:"required,dnsLabel"`
+	Environments []EnvironmentConfig `json:"environments" validate:"max=10"`
 }
 
 func DefaultAppConfig() AppConfig {
 	return AppConfig{
-		DefaultEnvironment: DefaultEnvironment,
-		Environments:       make([]EnvironmentConfig, 0),
+		DefaultSite:  DefaultSite,
+		Environments: make([]EnvironmentConfig, 0),
 	}
 }
 
@@ -27,10 +27,15 @@ func (c *AppConfig) SetDefaults() {
 	for i, env := range c.Environments {
 		env.SetDefaults()
 		c.Environments[i] = env
+
+		pattern, err := env.CompileSitePattern()
+		if err == nil && pattern.MatchString(c.DefaultSite) {
+			foundDefault = true
+		}
 	}
 
-	if !foundDefault {
-		defaultEnv := EnvironmentConfig{Name: c.DefaultEnvironment}
+	if !foundDefault && len(c.Environments) == 0 {
+		defaultEnv := EnvironmentConfig{Name: c.DefaultSite}
 		defaultEnv.SetDefaults()
 		c.Environments = append(c.Environments, defaultEnv)
 	}
