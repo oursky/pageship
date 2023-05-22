@@ -9,6 +9,7 @@ import (
 var validate = validator.New()
 
 func init() {
+	validate.SetTagName("pageship")
 	validate.RegisterValidation("regexp", func(fl validator.FieldLevel) bool {
 		value := fl.Field().String()
 		_, err := regexp.Compile(value)
@@ -33,4 +34,12 @@ func ValidateDNSLabel(value string) bool {
 		return false
 	}
 	return true
+}
+
+func ValidateAppConfig(conf *AppConfig) error {
+	return validate.Struct(conf)
+}
+
+func ValidateSiteConfig(conf *SiteConfig) error {
+	return validate.Struct(conf)
 }

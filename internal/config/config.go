@@ -1,7 +1,7 @@
 package config
 
 type Config struct {
-	ID string `json:"id" validate:"required,dnsLabel"`
+	ID string `json:"id" pageship:"required,dnsLabel"`
 
 	AppConfig `mapstructure:",squash"`
 	Site      SiteConfig `json:"site"`

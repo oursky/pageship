@@ -3,8 +3,8 @@ package config
 import "regexp"
 
 type EnvironmentConfig struct {
-	Name        string `json:"name" validate:"required,dnsLabel"`
-	SitePattern string `json:"sitePattern,omitempty" validate:"max=100,regexp"`
+	Name        string `json:"name" pageship:"required,dnsLabel"`
+	SitePattern string `json:"sitePattern,omitempty" pageship:"max=100,regexp"`
 }
 
 func (c *EnvironmentConfig) SetDefaults() {

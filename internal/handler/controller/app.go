@@ -11,7 +11,7 @@ import (
 
 func (c *Controller) handleAppCreate(ctx *gin.Context) {
 	var request struct {
-		ID string `json:"id" validate:"required"`
+		ID string `json:"id" binding:"required"`
 	}
 	if err := checkBind(ctx, ctx.ShouldBindJSON(&request)); err != nil {
 		return

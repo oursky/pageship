@@ -35,13 +35,17 @@ func (c *Controller) handleAppConfigSet(ctx *gin.Context) {
 	id := ctx.Param("app-id")
 
 	var request struct {
-		Config *config.AppConfig `json:"config" validate:"required"`
+		Config *config.AppConfig `json:"config" binding:"required"`
 	}
 	if err := checkBind(ctx, ctx.ShouldBindJSON(&request)); err != nil {
 		return
 	}
 
 	request.Config.SetDefaults()
+	if err := config.ValidateAppConfig(request.Config); err != nil {
+		ctx.JSON(http.StatusNotFound, response{Error: err})
+		return
+	}
 
 	err := db.WithTx(ctx, c.DB, func(conn db.Conn) error {
 		app, err := conn.UpdateAppConfig(ctx, id, request.Config)

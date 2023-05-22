@@ -43,8 +43,8 @@ func (c *Controller) handleDeploymentCreate(ctx *gin.Context) {
 	siteName := ctx.Param("site")
 
 	var request struct {
-		Files      []models.FileEntry `json:"files" validate:"required"`
-		SiteConfig *config.SiteConfig `json:"site_config" validate:"required"`
+		Files      []models.FileEntry `json:"files" binding:"required"`
+		SiteConfig *config.SiteConfig `json:"site_config" binding:"required"`
 	}
 	if err := checkBind(ctx, ctx.ShouldBindJSON(&request)); err != nil {
 		return
@@ -54,6 +54,11 @@ func (c *Controller) handleDeploymentCreate(ctx *gin.Context) {
 
 	if len(files) > models.MaxFiles {
 		ctx.JSON(http.StatusBadRequest, response{Error: deploy.ErrTooManyFiles})
+		return
+	}
+
+	if err := config.ValidateSiteConfig(siteConfig); err != nil {
+		ctx.JSON(http.StatusBadRequest, response{Error: err})
 		return
 	}
 
@@ -204,7 +209,7 @@ func (c *Controller) handleDeploymentUpdate(ctx *gin.Context) {
 	deploymentID := ctx.Param("deployment-id")
 
 	var request struct {
-		Status *models.DeploymentStatus `json:"status,omitempty" validate:"omitempty,oneof=ACTIVE INACTIVE"`
+		Status *models.DeploymentStatus `json:"status,omitempty" binding:"omitempty,oneof=ACTIVE INACTIVE"`
 	}
 	if err := checkBind(ctx, ctx.ShouldBindJSON(&request)); err != nil {
 		return

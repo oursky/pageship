@@ -7,8 +7,8 @@ import (
 )
 
 type AppConfig struct {
-	DefaultSite  string              `json:"defaultSite" validate:"required,dnsLabel"`
-	Environments []EnvironmentConfig `json:"environments" validate:"max=10"`
+	DefaultSite  string              `json:"defaultSite" pageship:"required,dnsLabel"`
+	Environments []EnvironmentConfig `json:"environments" pageship:"max=10"`
 }
 
 func DefaultAppConfig() AppConfig {

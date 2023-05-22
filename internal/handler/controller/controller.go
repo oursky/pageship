@@ -6,18 +6,11 @@ import (
 
 	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
-	"github.com/gin-gonic/gin/binding"
-	"github.com/go-playground/validator/v10"
 	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/storage"
 	apptime "github.com/oursky/pageship/internal/time"
 	"go.uber.org/zap"
 )
-
-func init() {
-	// Use vanilla tag name for interop.
-	binding.Validator.Engine().(*validator.Validate).SetTagName("validate")
-}
 
 type Controller struct {
 	Clock   apptime.Clock
