@@ -14,12 +14,17 @@ import (
 )
 
 type resolverAdhoc struct {
-	fs fs.FS
+	fs          fs.FS
+	defaultSite string
 }
 
 func (h *resolverAdhoc) Kind() string { return "ad-hoc" }
 
 func (h *resolverAdhoc) Resolve(ctx context.Context, matchedID string) (*site.Descriptor, error) {
+	if !site.CheckDefaultSite(&matchedID, h.defaultSite) {
+		return nil, site.ErrSiteNotFound
+	}
+
 	dnsLabels := strings.Split(path.Clean(matchedID), ".")
 	pathSegments := make([]string, len(dnsLabels))
 	for i, label := range dnsLabels {

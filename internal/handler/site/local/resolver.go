@@ -8,14 +8,15 @@ import (
 	"github.com/oursky/pageship/internal/handler/site"
 )
 
-func NewMultiSiteResolver(fs fs.FS, sites map[string]config.SitesConfigEntry) site.Resolver {
-	if len(sites) == 0 {
-		return &resolverAdhoc{fs: fs}
+func NewMultiSiteResolver(fs fs.FS, conf *config.SitesConfig) site.Resolver {
+	if len(conf.Sites) == 0 {
+		return &resolverAdhoc{fs: fs, defaultSite: conf.DefaultSite}
 	}
 
 	return &resolverStatic{
-		fs:    fs,
-		sites: sites,
+		fs:          fs,
+		defaultSite: conf.DefaultSite,
+		sites:       conf.Sites,
 	}
 }
 

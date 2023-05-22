@@ -61,7 +61,7 @@ func makeHandler(prefix string) (http.Handler, error) {
 
 	var resolver site.Resolver
 	if sitesConf != nil {
-		resolver = local.NewMultiSiteResolver(fsys, sitesConf.Sites)
+		resolver = local.NewMultiSiteResolver(fsys, sitesConf)
 	} else {
 		resolver = local.NewSingleSiteResolver(fsys)
 		sitesConf = &config.SitesConfig{
@@ -78,7 +78,6 @@ func makeHandler(prefix string) (http.Handler, error) {
 	Info("site resolution mode: %s", resolver.Kind())
 
 	handler, err := site.NewHandler(siteLogger{}, resolver, site.HandlerConfig{
-		DefaultSite: sitesConf.DefaultSite,
 		HostPattern: sitesConf.HostPattern,
 	})
 	if err != nil {

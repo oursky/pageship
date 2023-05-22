@@ -10,13 +10,18 @@ import (
 )
 
 type resolverStatic struct {
-	fs    fs.FS
-	sites map[string]config.SitesConfigEntry
+	fs          fs.FS
+	defaultSite string
+	sites       map[string]config.SitesConfigEntry
 }
 
 func (h *resolverStatic) Kind() string { return "static config" }
 
 func (h *resolverStatic) Resolve(ctx context.Context, matchedID string) (*site.Descriptor, error) {
+	if !site.CheckDefaultSite(&matchedID, h.defaultSite) {
+		return nil, site.ErrSiteNotFound
+	}
+
 	entry, ok := h.sites[matchedID]
 	if !ok {
 		return nil, site.ErrSiteNotFound

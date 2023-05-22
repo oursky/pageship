@@ -22,7 +22,6 @@ func init() {
 	startCmd.PersistentFlags().String("storage-endpoint", "", "object storage endpoint")
 	startCmd.MarkPersistentFlagRequired("storage-endpoint")
 
-	startCmd.PersistentFlags().String("default-site", config.DefaultSite, "default site name")
 	startCmd.PersistentFlags().String("host-pattern", config.DefaultHostPattern, "host match regexp")
 
 	startCmd.PersistentFlags().String("addr", ":8000", "listen address")
@@ -47,7 +46,6 @@ var startCmd = &cobra.Command{
 		database := viper.GetString("database")
 		addr := viper.GetString("addr")
 		storageEndpoint := viper.GetString("storage-endpoint")
-		defaultSite := viper.GetString("default-site")
 		hostPattern := viper.GetString("host-pattern")
 
 		db, err := db.New(database)
@@ -67,7 +65,6 @@ var startCmd = &cobra.Command{
 			siteLogger{log: logger.Named("site")},
 			resolver,
 			site.HandlerConfig{
-				DefaultSite: defaultSite,
 				HostPattern: hostPattern,
 			},
 		)

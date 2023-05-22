@@ -15,7 +15,6 @@ type Logger interface {
 }
 
 type HandlerConfig struct {
-	DefaultSite string
 	HostPattern string
 }
 
@@ -23,7 +22,6 @@ type Handler struct {
 	logger      Logger
 	resolver    Resolver
 	hostPattern config.HostPattern
-	defaultSite string
 	cache       *siteCache
 }
 
@@ -33,16 +31,10 @@ func NewHandler(logger Logger, resolver Resolver, conf HandlerConfig) (*Handler,
 		return nil, fmt.Errorf("setup cache: %w", err)
 	}
 
-	defaultSite := conf.DefaultSite
-	if defaultSite == "-" { // Allow setting '-' to disable default site
-		defaultSite = ""
-	}
-
 	return &Handler{
 		logger:      logger,
 		resolver:    resolver,
 		hostPattern: config.NewHostPattern(conf.HostPattern),
-		defaultSite: defaultSite,
 		cache:       cache,
 	}, nil
 }
@@ -51,19 +43,6 @@ func (h *Handler) resolveSite(r *http.Request) (*Descriptor, error) {
 	matchedID, ok := h.hostPattern.MatchString(r.Host)
 	if !ok {
 		return nil, ErrSiteNotFound
-	}
-
-	if matchedID == h.defaultSite {
-		// Default site must be accessed through empty ID
-		return nil, ErrSiteNotFound
-	}
-
-	if matchedID == "" {
-		if h.defaultSite == "" {
-			// Default site is disabled; treat as not found
-			return nil, ErrSiteNotFound
-		}
-		matchedID = h.defaultSite
 	}
 
 	resolve := func(matchedID string) (*Descriptor, error) {
