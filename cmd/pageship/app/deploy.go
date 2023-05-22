@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
+	"path/filepath"
 
 	"github.com/dustin/go-humanize"
 	"github.com/manifoldco/promptui"
@@ -28,7 +28,7 @@ func init() {
 	deployCmd.PersistentFlags().BoolP("yes", "y", false, "skip confirmation")
 }
 
-func packTar(fsys fs.FS, tarfile *os.File, conf *config.Config) ([]models.FileEntry, int64, error) {
+func packTar(dir string, tarfile *os.File, conf *config.Config) ([]models.FileEntry, int64, error) {
 	modTime := time.SystemClock.Now()
 	collector, err := deploy.NewCollector(modTime, tarfile)
 	if err != nil {
@@ -36,7 +36,7 @@ func packTar(fsys fs.FS, tarfile *os.File, conf *config.Config) ([]models.FileEn
 	}
 	defer collector.Close()
 
-	actualPublicDir := conf.Site.Public
+	publicDir := filepath.Join(dir, conf.Site.Public)
 	conf.Site.Public = "public"
 
 	confJSON, err := json.MarshalIndent(conf, "", "\t")
@@ -48,13 +48,9 @@ func packTar(fsys fs.FS, tarfile *os.File, conf *config.Config) ([]models.FileEn
 		return nil, 0, err
 	}
 
-	publicFsys, err := fs.Sub(fsys, actualPublicDir)
+	err = collector.Collect(os.DirFS(publicDir), "/public")
 	if err != nil {
-		return nil, 0, err
-	}
-	err = collector.Collect(publicFsys, "/public")
-	if err != nil {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("collecting from %s: %w", publicDir, err)
 	}
 
 	collector.Close()
@@ -72,7 +68,7 @@ func packTar(fsys fs.FS, tarfile *os.File, conf *config.Config) ([]models.FileEn
 	return collector.Files(), fi.Size(), nil
 }
 
-func doDeploy(ctx context.Context, appID string, siteName string, deploymentName string, conf *config.Config, fsys fs.FS) {
+func doDeploy(ctx context.Context, appID string, siteName string, deploymentName string, conf *config.Config, dir string) {
 	tarfile, err := os.CreateTemp("", fmt.Sprintf("pageship-%s-%s-*.tar.zst", appID, deploymentName))
 	if err != nil {
 		Error("Failed to create temp file: %s", err)
@@ -82,9 +78,9 @@ func doDeploy(ctx context.Context, appID string, siteName string, deploymentName
 
 	Info("Collecting files...")
 	Debug("Tarball: %s", tarfile.Name())
-	files, tarSize, err := packTar(fsys, tarfile, conf)
+	files, tarSize, err := packTar(dir, tarfile, conf)
 	if err != nil {
-		Error("failed to collect files: %s", err)
+		Error("Failed to collect files: %s", err)
 		return
 	}
 
@@ -154,7 +150,11 @@ var deployCmd = &cobra.Command{
 		site := viper.GetString("site")
 		name := viper.GetString("name")
 		yes := viper.GetBool("yes")
-		fsys := os.DirFS(args[0])
+		dir, err := filepath.Abs(args[0])
+		if err != nil {
+			Error("Invalid deploy directory: %s", err)
+			return
+		}
 
 		if name == "" {
 			name = models.RandomID(4)
@@ -163,7 +163,7 @@ var deployCmd = &cobra.Command{
 		loader := config.NewLoader(config.SiteConfigName)
 
 		conf := config.DefaultConfig()
-		if err := loader.Load(fsys, &conf); err != nil {
+		if err := loader.Load(os.DirFS(dir), &conf); err != nil {
 			Error("Failed to load config: %s", err)
 			return
 		}
@@ -201,6 +201,6 @@ var deployCmd = &cobra.Command{
 			}
 		}
 
-		doDeploy(cmd.Context(), appID, site, name, &conf, fsys)
+		doDeploy(cmd.Context(), appID, site, name, &conf, dir)
 	},
 }
