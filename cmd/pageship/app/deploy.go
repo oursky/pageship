@@ -46,7 +46,7 @@ func packTar(fsys fs.FS, tarfile *os.File) ([]models.FileEntry, int64, error) {
 	return files, fi.Size(), nil
 }
 
-func doDeploy(ctx context.Context, appID string, site string, conf *config.SiteConfig, fsys fs.FS) {
+func doDeploy(ctx context.Context, appID string, site string, conf *config.Config, fsys fs.FS) {
 	tarfile, err := os.CreateTemp("", fmt.Sprintf("pageship-%s-%s-*.tar.zst", appID, site))
 	if err != nil {
 		Error("Failed to create temp file: %s", err)
@@ -64,8 +64,16 @@ func doDeploy(ctx context.Context, appID string, site string, conf *config.SiteC
 
 	Info("%d files found. Tarball size: %s", len(files), humanize.Bytes(uint64(tarSize)))
 
+	Debug("Configuring app...")
+	_, err = apiClient.ConfigureApp(ctx, appID, &conf.AppConfig)
+	if err != nil {
+		Error("Failed to configure app: %s", err)
+		return
+	}
+
 	Info("Setting up deployment...")
-	deployment, err := apiClient.SetupDeployment(ctx, appID, site, files, conf)
+
+	deployment, err := apiClient.SetupDeployment(ctx, appID, site, files, &conf.Site)
 	if err != nil {
 		Error("Failed to setup deployment: %s", err)
 		return
@@ -146,6 +154,6 @@ var deployCmd = &cobra.Command{
 			}
 		}
 
-		doDeploy(cmd.Context(), appID, site, &conf.Site, fsys)
+		doDeploy(cmd.Context(), appID, site, &conf, fsys)
 	},
 }

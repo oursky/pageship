@@ -26,6 +26,28 @@ func NewClient(endpoint string) *Client {
 	return NewClientWithTransport(endpoint, http.DefaultTransport)
 }
 
+func (c *Client) ConfigureApp(ctx context.Context, appID string, conf *config.AppConfig) (*models.App, error) {
+	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "config")
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := newJSONRequest(ctx, "PUT", endpoint, map[string]any{
+		"config": conf,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return decodeJSONResponse[models.App](resp)
+}
+
 func (c *Client) SetupDeployment(
 	ctx context.Context,
 	appID string,
