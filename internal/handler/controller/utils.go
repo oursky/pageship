@@ -26,3 +26,11 @@ func checkBind(ctx *gin.Context, err error) error {
 	}
 	return err
 }
+
+func mapModels[T, U any](models []T, mapper func(m T) U) []U {
+	result := make([]U, len(models))
+	for i, m := range models {
+		result[i] = mapper(m)
+	}
+	return result
+}

@@ -43,6 +43,37 @@ func (c Conn) GetDeployment(ctx context.Context, appID string, siteName string, 
 	aggregate.Deployment.SetStatus(aggregate.SiteDeploymentID)
 	return aggregate.Deployment, nil
 }
+func (c Conn) ListDeployments(ctx context.Context, appID string, siteName string) ([]*models.Deployment, error) {
+	var site struct {
+		ID           string  `db:"id"`
+		DeploymentID *string `db:"deployment_id"`
+	}
+	err := c.tx.GetContext(ctx, &site, `
+		SELECT s.id, sd.deployment_id FROM site s
+			JOIN app a ON (a.id = s.app_id AND a.deleted_at IS NULL)
+			LEFT JOIN site_deployment sd ON (s.id = sd.site_id)
+			WHERE s.app_id = ? AND s.name = ? AND s.deleted_at IS NULL
+	`, appID, siteName)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, models.ErrSiteNotFound
+	} else if err != nil {
+		return nil, err
+	}
+
+	var deployments []*models.Deployment
+	err = c.tx.SelectContext(ctx, &deployments, `
+		SELECT d.id, d.created_at, d.updated_at, d.deleted_at, d.app_id, d.site_id, d.storage_key_prefix, d.metadata, d.uploaded_at FROM deployment d
+			WHERE d.app_id = ? AND d.site_id = ? AND d.deleted_at IS NULL
+	`, appID, site.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, d := range deployments {
+		d.SetStatus(site.DeploymentID)
+	}
+	return deployments, nil
+}
 
 func (c Conn) MarkDeploymentUploaded(ctx context.Context, now time.Time, deployment *models.Deployment) error {
 	err := c.tx.GetContext(ctx, deployment, `

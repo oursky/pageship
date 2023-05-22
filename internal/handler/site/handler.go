@@ -21,7 +21,7 @@ type HandlerConfig struct {
 type Handler struct {
 	logger      Logger
 	resolver    Resolver
-	hostPattern config.HostPattern
+	hostPattern *config.HostPattern
 	cache       *siteCache
 }
 

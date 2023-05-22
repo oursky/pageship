@@ -9,6 +9,18 @@ import (
 	"github.com/oursky/pageship/internal/models"
 )
 
+type apiApp struct {
+	*models.App
+	URL string `json:"url"`
+}
+
+func (c *Controller) makeAPIApp(app *models.App) apiApp {
+	return apiApp{
+		App: app,
+		URL: c.Config.HostPattern.MakeURL(app.ID),
+	}
+}
+
 func (c *Controller) handleAppCreate(ctx *gin.Context) {
 	var request struct {
 		ID string `json:"id" binding:"required"`
@@ -28,7 +40,7 @@ func (c *Controller) handleAppCreate(ctx *gin.Context) {
 			return err
 		}
 
-		ctx.JSON(http.StatusOK, response{Result: app})
+		ctx.JSON(http.StatusOK, response{Result: c.makeAPIApp(app)})
 		return nil
 	})
 
@@ -49,7 +61,7 @@ func (c *Controller) handleAppGet(ctx *gin.Context) {
 			return err
 		}
 
-		ctx.JSON(http.StatusOK, response{Result: app})
+		ctx.JSON(http.StatusOK, response{Result: c.makeAPIApp(app)})
 		return nil
 	})
 
@@ -65,7 +77,9 @@ func (c *Controller) handleAppList(ctx *gin.Context) {
 			return err
 		}
 
-		ctx.JSON(http.StatusOK, response{Result: apps})
+		result := mapModels(apps, c.makeAPIApp)
+
+		ctx.JSON(http.StatusOK, response{Result: result})
 		return nil
 	})
 

@@ -37,25 +37,28 @@ func newJSONRequest(ctx context.Context, method string, endpoint string, v any) 
 	return req, nil
 }
 
-func decodeJSONResponse[T any](resp *http.Response) (*T, error) {
+func decodeJSONResponse[T any](resp *http.Response) (result T, err error) {
 	type response struct {
 		Error  *string `json:"error"`
-		Result *T      `json:"result"`
+		Result T       `json:"result"`
 	}
 	if resp.StatusCode != http.StatusOK && (resp.StatusCode < 400 || resp.StatusCode >= 500) {
-		return nil, HTTPStatusCodeError(resp.Status)
+		err = HTTPStatusCodeError(resp.Status)
+		return
 	}
 
 	var v response
-	if err := json.NewDecoder(resp.Body).Decode(&v); err != nil {
-		if resp.StatusCode == http.StatusBadRequest {
-			return nil, HTTPStatusCodeError(resp.Status)
+	if err = json.NewDecoder(resp.Body).Decode(&v); err != nil {
+		if resp.StatusCode != http.StatusOK {
+			err = HTTPStatusCodeError(resp.Status)
 		}
-		return nil, err
+		return
 	}
 
 	if v.Error != nil {
-		return nil, errors.New(*v.Error)
+		err = errors.New(*v.Error)
+		return
 	}
-	return v.Result, nil
+	result = v.Result
+	return result, nil
 }

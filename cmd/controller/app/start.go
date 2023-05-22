@@ -4,6 +4,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/gin-gonic/gin"
 	"github.com/oursky/pageship/internal/command"
+	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/db"
 	_ "github.com/oursky/pageship/internal/db/sqlite"
 	"github.com/oursky/pageship/internal/handler/controller"
@@ -26,6 +27,7 @@ func init() {
 
 	startCmd.PersistentFlags().String("max-deployment-size", "200M", "max deployment files size")
 	startCmd.PersistentFlags().String("storage-key-prefix", "", "storage key prefix")
+	startCmd.PersistentFlags().String("host-pattern", config.DefaultHostPattern, "host match pattern")
 }
 
 var startCmd = &cobra.Command{
@@ -33,14 +35,16 @@ var startCmd = &cobra.Command{
 	Short: "Start controller server",
 	Run: func(cmd *cobra.Command, args []string) {
 		database := viper.GetString("database")
+		storageEndpoint := viper.GetString("storage-endpoint")
 		addr := viper.GetString("addr")
+
 		maxDeploymentSize, err := humanize.ParseBytes(viper.GetString("max-deployment-size"))
 		if err != nil {
 			logger.Fatal("invalid max deployment size", zap.Error(err))
 			return
 		}
 		storageKeyPrefix := viper.GetString("storage-key-prefix")
-		storageEndpoint := viper.GetString("storage-endpoint")
+		hostPattern := viper.GetString("host-pattern")
 
 		if !debugMode {
 			gin.SetMode(gin.ReleaseMode)
@@ -49,6 +53,7 @@ var startCmd = &cobra.Command{
 		config := controller.Config{
 			MaxDeploymentSize: int64(maxDeploymentSize),
 			StorageKeyPrefix:  storageKeyPrefix,
+			HostPattern:       config.NewHostPattern(hostPattern),
 		}
 
 		db, err := db.New(database)

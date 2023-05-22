@@ -22,7 +22,7 @@ func init() {
 	startCmd.PersistentFlags().String("storage-endpoint", "", "object storage endpoint")
 	startCmd.MarkPersistentFlagRequired("storage-endpoint")
 
-	startCmd.PersistentFlags().String("host-pattern", config.DefaultHostPattern, "host match regexp")
+	startCmd.PersistentFlags().String("host-pattern", config.DefaultHostPattern, "host match pattern")
 
 	startCmd.PersistentFlags().String("addr", ":8000", "listen address")
 }

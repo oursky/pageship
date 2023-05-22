@@ -26,7 +26,27 @@ func NewClient(endpoint string) *Client {
 	return NewClientWithTransport(endpoint, http.DefaultTransport)
 }
 
-func (c *Client) ConfigureApp(ctx context.Context, appID string, conf *config.AppConfig) (*models.App, error) {
+func (c *Client) ListApps(ctx context.Context) ([]APIApp, error) {
+	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps")
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return decodeJSONResponse[[]APIApp](resp)
+}
+
+func (c *Client) ConfigureApp(ctx context.Context, appID string, conf *config.AppConfig) (*APIApp, error) {
 	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "config")
 	if err != nil {
 		return nil, err
@@ -45,7 +65,47 @@ func (c *Client) ConfigureApp(ctx context.Context, appID string, conf *config.Ap
 	}
 	defer resp.Body.Close()
 
-	return decodeJSONResponse[models.App](resp)
+	return decodeJSONResponse[*APIApp](resp)
+}
+
+func (c *Client) ListSites(ctx context.Context, appID string) ([]APISite, error) {
+	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "sites")
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return decodeJSONResponse[[]APISite](resp)
+}
+
+func (c *Client) ListDeployments(ctx context.Context, appID string, siteName string) ([]APIDeployment, error) {
+	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "sites", siteName, "deployments")
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return decodeJSONResponse[[]APIDeployment](resp)
 }
 
 func (c *Client) SetupDeployment(
@@ -74,7 +134,7 @@ func (c *Client) SetupDeployment(
 	}
 	defer resp.Body.Close()
 
-	return decodeJSONResponse[models.Deployment](resp)
+	return decodeJSONResponse[*models.Deployment](resp)
 }
 
 func (c *Client) UploadDeploymentTarball(
@@ -100,7 +160,7 @@ func (c *Client) UploadDeploymentTarball(
 	}
 	defer resp.Body.Close()
 
-	return decodeJSONResponse[models.Deployment](resp)
+	return decodeJSONResponse[*models.Deployment](resp)
 }
 
 func (c *Client) PatchDeployment(
@@ -126,5 +186,5 @@ func (c *Client) PatchDeployment(
 	}
 	defer resp.Body.Close()
 
-	return decodeJSONResponse[models.Deployment](resp)
+	return decodeJSONResponse[*models.Deployment](resp)
 }

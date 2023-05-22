@@ -14,6 +14,16 @@ import (
 	"github.com/oursky/pageship/internal/models"
 )
 
+type apiDeployment struct {
+	*models.Deployment
+}
+
+func (c *Controller) makeAPIDeployment(d *models.Deployment) apiDeployment {
+	deployment := *d
+	deployment.Metadata.Files = nil // Avoid large file list
+	return apiDeployment{Deployment: d}
+}
+
 func (c *Controller) handleDeploymentGet(ctx *gin.Context) {
 	appID := ctx.Param("app-id")
 	siteName := ctx.Param("site")
@@ -25,7 +35,7 @@ func (c *Controller) handleDeploymentGet(ctx *gin.Context) {
 			return err
 		}
 
-		ctx.JSON(http.StatusOK, response{Result: deployment})
+		ctx.JSON(http.StatusOK, response{Result: c.makeAPIDeployment(deployment)})
 		return nil
 	})
 
@@ -109,7 +119,7 @@ func (c *Controller) handleDeploymentCreate(ctx *gin.Context) {
 			return err
 		}
 
-		ctx.JSON(http.StatusOK, response{Result: deployment})
+		ctx.JSON(http.StatusOK, response{Result: c.makeAPIDeployment(deployment)})
 		return nil
 	})
 
@@ -188,7 +198,7 @@ func (c *Controller) handleDeploymentUpload(ctx *gin.Context) {
 			return err
 		}
 
-		ctx.JSON(http.StatusOK, response{Result: deployment})
+		ctx.JSON(http.StatusOK, response{Result: c.makeAPIDeployment(deployment)})
 		return nil
 	})
 
@@ -250,7 +260,7 @@ func (c *Controller) handleDeploymentUpdate(ctx *gin.Context) {
 			}
 		}
 
-		ctx.JSON(http.StatusOK, response{Result: deployment})
+		ctx.JSON(http.StatusOK, response{Result: c.makeAPIDeployment(deployment)})
 		return nil
 	})
 
@@ -262,5 +272,26 @@ func (c *Controller) handleDeploymentUpdate(ctx *gin.Context) {
 		} else {
 			ctx.AbortWithError(http.StatusInternalServerError, err)
 		}
+	}
+}
+
+func (c *Controller) handleDeploymentList(ctx *gin.Context) {
+	appID := ctx.Param("app-id")
+	siteName := ctx.Param("site")
+
+	err := db.WithTx(ctx, c.DB, func(conn db.Conn) error {
+		deployments, err := conn.ListDeployments(ctx, appID, siteName)
+		if err != nil {
+			return err
+		}
+
+		result := mapModels(deployments, c.makeAPIDeployment)
+
+		ctx.JSON(http.StatusOK, response{Result: result})
+		return nil
+	})
+
+	if err != nil {
+		ctx.AbortWithError(http.StatusInternalServerError, err)
 	}
 }

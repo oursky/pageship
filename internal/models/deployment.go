@@ -75,7 +75,7 @@ func (d *Deployment) SetStatus(siteDeploymentID *string) {
 }
 
 type DeploymentMetadata struct {
-	Files  []FileEntry       `json:"files"`
+	Files  []FileEntry       `json:"files,omitempty"`
 	Config config.SiteConfig `json:"config"`
 }
 

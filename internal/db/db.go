@@ -35,7 +35,10 @@ type DB interface {
 
 type Conn interface {
 	Tx() *sqlx.Tx
+
 	AppsDB
+	SitesDB
+	DeploymentsDB
 }
 
 type AppsDB interface {
@@ -43,13 +46,25 @@ type AppsDB interface {
 	GetApp(ctx context.Context, id string) (*models.App, error)
 	ListApps(ctx context.Context) ([]*models.App, error)
 	UpdateAppConfig(ctx context.Context, id string, config *config.AppConfig) (*models.App, error)
+}
 
+type SitesDB interface {
 	CreateSiteIfNotExist(ctx context.Context, site *models.Site) error
+	ListSites(ctx context.Context, appID string) ([]SiteInfo, error)
+}
 
+type DeploymentsDB interface {
 	CreateDeployment(ctx context.Context, deployment *models.Deployment) error
+	ListDeployments(ctx context.Context, appID string, siteName string) ([]*models.Deployment, error)
 	GetDeployment(ctx context.Context, appID string, siteName string, id string) (*models.Deployment, error)
 	MarkDeploymentUploaded(ctx context.Context, now time.Time, deployment *models.Deployment) error
 	ActivateSiteDeployment(ctx context.Context, deployment *models.Deployment) error
 	DeactivateSiteDeployment(ctx context.Context, deployment *models.Deployment) error
 	GetActiveSiteDeployment(ctx context.Context, appID string, siteName string) (*models.Deployment, error)
+}
+
+type SiteInfo struct {
+	*models.Site
+	ActiveDeploymentID *string    `db:"deployment_id"`
+	LastDeployedAt     *time.Time `db:"last_deployed_at"`
 }
