@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/oursky/pageship/internal/handler/site"
 	"github.com/oursky/pageship/internal/models"
 	"github.com/oursky/pageship/internal/storage"
 )
@@ -21,20 +22,22 @@ type storageFS struct {
 	files   []models.FileEntry
 }
 
-func newStorageFS(ctx context.Context, storage *storage.Storage, deployment *models.Deployment) *storageFS {
+func newStorageFSFunc(storage *storage.Storage, deployment *models.Deployment) site.FSFunc {
 	files := deployment.Metadata.Files
 	fileMap := make(map[string]models.FileEntry)
 	for _, entry := range deployment.Metadata.Files {
 		fileMap[entry.Path] = entry
 	}
 
-	return &storageFS{
-		ctx:     ctx,
-		storage: storage,
-		modTime: *deployment.UploadedAt,
-		prefix:  deployment.StorageKeyPrefix,
-		fileMap: fileMap,
-		files:   files,
+	return func(ctx context.Context) fs.FS {
+		return &storageFS{
+			ctx:     ctx,
+			storage: storage,
+			modTime: *deployment.UploadedAt,
+			prefix:  deployment.StorageKeyPrefix,
+			fileMap: fileMap,
+			files:   files,
+		}
 	}
 }
 

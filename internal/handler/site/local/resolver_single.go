@@ -31,6 +31,6 @@ func (h *resolverSingle) Resolve(ctx context.Context, matchedID string) (*site.D
 	return &site.Descriptor{
 		ID:     config.ID,
 		Config: &config.Site,
-		FS:     h.fs,
+		FSFunc: func(ctx context.Context) fs.FS { return h.fs },
 	}, nil
 }

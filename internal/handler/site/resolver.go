@@ -10,10 +10,12 @@ import (
 
 var ErrSiteNotFound = errors.New("site not found")
 
+type FSFunc func(context.Context) fs.FS
+
 type Descriptor struct {
 	ID     string
 	Config *config.SiteConfig
-	FS     fs.FS
+	FSFunc FSFunc
 }
 
 type Resolver interface {

@@ -68,7 +68,7 @@ func (r *resolver) Resolve(ctx context.Context, matchedID string) (*site.Descrip
 		desc = &site.Descriptor{
 			ID:     id,
 			Config: &deployment.Metadata.Config,
-			FS:     newStorageFS(ctx, r.storage, deployment),
+			FSFunc: newStorageFSFunc(r.storage, deployment),
 		}
 		return nil
 	})

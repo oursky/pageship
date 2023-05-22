@@ -44,6 +44,6 @@ func (h *resolverStatic) Resolve(ctx context.Context, matchedID string) (*site.D
 	return &site.Descriptor{
 		ID:     matchedID,
 		Config: &config.Site,
-		FS:     fsys,
+		FSFunc: func(ctx context.Context) fs.FS { return fsys },
 	}, nil
 }

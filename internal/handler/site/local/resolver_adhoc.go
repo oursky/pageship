@@ -54,6 +54,6 @@ func (h *resolverAdhoc) Resolve(ctx context.Context, matchedID string) (*site.De
 	return &site.Descriptor{
 		ID:     matchedID,
 		Config: &config.Site,
-		FS:     fsys,
+		FSFunc: func(ctx context.Context) fs.FS { return fsys },
 	}, nil
 }

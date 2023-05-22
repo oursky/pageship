@@ -67,7 +67,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) serve(site *Descriptor, w http.ResponseWriter, r *http.Request) {
-	publicFS, err := fs.Sub(site.FS, site.Config.Public)
+	fsys := site.FSFunc(r.Context())
+	publicFS, err := fs.Sub(fsys, site.Config.Public)
 	if err != nil {
 		h.logger.Error("construct site fs", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
