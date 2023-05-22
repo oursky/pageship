@@ -2,7 +2,6 @@ package app
 
 import (
 	"errors"
-	"fmt"
 	"io/fs"
 	"net/http"
 	"os"
@@ -10,8 +9,8 @@ import (
 
 	"github.com/oursky/pageship/internal/command"
 	"github.com/oursky/pageship/internal/config"
-	"github.com/oursky/pageship/internal/handler/server"
-	"github.com/oursky/pageship/internal/handler/sites"
+	"github.com/oursky/pageship/internal/handler/site"
+	"github.com/oursky/pageship/internal/handler/site/local"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -23,51 +22,13 @@ func init() {
 	viper.BindPFlags(serveCmd.PersistentFlags())
 }
 
-type handler struct {
-	defaultSite *sites.Descriptor
+type siteLogger struct{}
+
+func (siteLogger) Debug(format string, args ...any) {
+	Debug(format, args...)
 }
-
-func NewHandler(defaultSite *sites.Descriptor) *handler {
-	return &handler{
-		defaultSite: defaultSite,
-	}
-}
-
-func (h *handler) LoadHandler(desc *sites.Descriptor) (http.Handler, error) {
-	loader := config.NewLoader(config.SiteConfigName)
-
-	var conf struct {
-		Site config.SiteConfig `json:"site"`
-	}
-	if err := loader.Load(desc.FS, &conf); err != nil {
-		return nil, fmt.Errorf("failed to load config: %w", err)
-	}
-
-	return server.NewHandler(&conf.Site, desc.FS)
-}
-
-func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	desc, ok := sites.SiteFromContext(r.Context())
-	if !ok {
-		desc = h.defaultSite
-	}
-
-	if desc == nil {
-		http.NotFound(w, r)
-		return
-	}
-
-	handler, err := h.LoadHandler(desc)
-	if errors.As(err, &viper.ConfigFileNotFoundError{}) {
-		http.NotFound(w, r)
-		return
-	} else if err != nil {
-		Error("Failed to load site '%s': %s", desc.Site, err)
-		http.Error(w, "failed to load site", http.StatusInternalServerError)
-		return
-	}
-
-	handler.ServeHTTP(w, r)
+func (siteLogger) Error(msg string, err error) {
+	Error(msg+": %s", err)
 }
 
 func loadSitesConfig(fsys fs.FS) (*config.SitesConfig, error) {
@@ -97,29 +58,30 @@ func makeHandler(prefix string) (http.Handler, error) {
 		return nil, err
 	}
 
-	var handler http.Handler
+	var resolver site.Resolver
 	if sitesConf != nil {
-		Info("Running in multi-sites mode")
-		handler, err = sites.NewHandler(fsys, sitesConf, NewHandler(nil))
-		if err != nil {
-			return nil, err
-		}
+		resolver = local.NewMultiSiteResolver(fsys, sitesConf.Sites)
 	} else {
-		Debug("Running in single-site mode")
-		desc := &sites.Descriptor{
-			Site: config.DefaultSite,
-			FS:   fsys,
+		resolver = local.NewSingleSiteResolver(fsys)
+		sitesConf = &config.SitesConfig{
+			DefaultSite: "",
+			HostPattern: "(.*)",
 		}
 
-		h := NewHandler(desc)
-
-		// Check config on startup.
-		_, err = h.LoadHandler(desc)
+		// Check site on startup.
+		_, err = resolver.Resolve(config.DefaultSite)
 		if err != nil {
 			return nil, err
 		}
+	}
+	Info("site resolution mode: %s", resolver.Kind())
 
-		handler = h
+	handler, err := site.NewHandler(siteLogger{}, resolver, site.HandlerConfig{
+		DefaultSite: sitesConf.DefaultSite,
+		HostPattern: sitesConf.HostPattern,
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return handler, nil
@@ -134,7 +96,7 @@ var serveCmd = &cobra.Command{
 
 		handler, err := makeHandler(args[0])
 		if err != nil {
-			Error("Failed to load config: %w", err)
+			Error("Failed to setup server: %s", err)
 			return
 		}
 
