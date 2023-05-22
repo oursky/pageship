@@ -1,7 +1,6 @@
 package config
 
 const SitesConfigName = "sites"
-const DefaultHostPattern = `(?:(.+)\.)?localhost`
 
 type SitesConfig struct {
 	HostPattern string                      `json:"hostPattern"`

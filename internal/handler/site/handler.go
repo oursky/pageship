@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
-	"regexp"
+
+	"github.com/oursky/pageship/internal/config"
 )
 
 type Logger interface {
@@ -21,17 +22,12 @@ type HandlerConfig struct {
 type Handler struct {
 	logger      Logger
 	resolver    Resolver
-	hostRegex   *regexp.Regexp
+	hostPattern config.HostPattern
 	defaultSite string
 	cache       *siteCache
 }
 
 func NewHandler(logger Logger, resolver Resolver, conf HandlerConfig) (*Handler, error) {
-	hostRegex, err := regexp.Compile(`^` + conf.HostPattern + `(?:\:\d+)?$`)
-	if err != nil {
-		return nil, fmt.Errorf("invalid host pattern: %w", err)
-	}
-
 	cache, err := newSiteCache()
 	if err != nil {
 		return nil, fmt.Errorf("setup cache: %w", err)
@@ -45,19 +41,18 @@ func NewHandler(logger Logger, resolver Resolver, conf HandlerConfig) (*Handler,
 	return &Handler{
 		logger:      logger,
 		resolver:    resolver,
-		hostRegex:   hostRegex,
+		hostPattern: config.NewHostPattern(conf.HostPattern),
 		defaultSite: defaultSite,
 		cache:       cache,
 	}, nil
 }
 
 func (h *Handler) resolveSite(r *http.Request) (*Descriptor, error) {
-	matches := h.hostRegex.FindStringSubmatch(r.Host)
-	if len(matches) != 2 {
+	matchedID, ok := h.hostPattern.MatchString(r.Host)
+	if !ok {
 		return nil, ErrSiteNotFound
 	}
 
-	matchedID := matches[1]
 	if matchedID == h.defaultSite {
 		// Default site must be accessed through empty ID
 		return nil, ErrSiteNotFound
