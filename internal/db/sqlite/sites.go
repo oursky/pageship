@@ -74,27 +74,11 @@ func (c Conn) ListSitesInfo(ctx context.Context, appID string) ([]db.SiteInfo, e
 			LEFT JOIN site_deployment sd ON (sd.site_id = s.id)
 			LEFT JOIN deployment d ON (d.id = sd.deployment_id AND d.deleted_at IS NULL)
 			WHERE s.app_id = ? AND s.deleted_at IS NULL
+			ORDER BY s.app_id, s.name
 	`, appID)
 	if err != nil {
 		return nil, err
 	}
 
 	return info, nil
-}
-
-func (c Conn) ListDeploymentSites(ctx context.Context, appID string, deploymentID string) ([]*models.Site, error) {
-	var sites []*models.Site
-
-	err := c.tx.SelectContext(ctx, &sites, `
-		SELECT s.id, s.app_id, s.name, s.created_at, s.updated_at, s.deleted_at FROM site s
-			JOIN app a ON (a.id = s.app_id AND a.deleted_at IS NULL)
-			JOIN site_deployment sd ON (sd.site_id = s.id)
-			JOIN deployment d ON (d.id = sd.deployment_id AND d.deleted_at IS NULL)
-			WHERE s.app_id = ? AND d.id = ? AND s.deleted_at IS NULL
-	`, appID, deploymentID)
-	if err != nil {
-		return nil, err
-	}
-
-	return sites, nil
 }

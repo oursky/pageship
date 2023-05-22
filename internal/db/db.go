@@ -53,7 +53,6 @@ type SitesDB interface {
 	GetSiteByName(ctx context.Context, appID string, siteName string) (*models.Site, error)
 	GetSiteInfo(ctx context.Context, appID string, id string) (*SiteInfo, error)
 	ListSitesInfo(ctx context.Context, appID string) ([]SiteInfo, error)
-	ListDeploymentSites(ctx context.Context, appID string, deploymentID string) ([]*models.Site, error)
 }
 
 type DeploymentsDB interface {

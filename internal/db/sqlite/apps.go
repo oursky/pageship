@@ -35,6 +35,7 @@ func (c Conn) ListApps(ctx context.Context) ([]*models.App, error) {
 	err := c.tx.SelectContext(ctx, &apps, `
 		SELECT id, created_at, updated_at, deleted_at, config FROM app
 			WHERE deleted_at IS NULL
+			ORDER BY id
 	`)
 	if err != nil {
 		return nil, err

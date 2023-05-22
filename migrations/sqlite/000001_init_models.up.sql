@@ -27,6 +27,7 @@ CREATE TABLE deployment (
     metadata            TEXT,
     uploaded_at         TIMESTAMP
 );
+CREATE INDEX deployment_order ON site(app_id, created_at) WHERE deleted_at IS NULL;
 CREATE UNIQUE INDEX deployment_key ON deployment(app_id, name) WHERE deleted_at IS NULL;
 
 CREATE TABLE site_deployment (

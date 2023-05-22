@@ -69,6 +69,7 @@ func (c Conn) ListDeployments(ctx context.Context, appID string) ([]*models.Depl
 	err := c.tx.SelectContext(ctx, &deployments, `
 		SELECT d.id, d.created_at, d.updated_at, d.deleted_at, d.name, d.app_id, d.storage_key_prefix, d.metadata, d.uploaded_at FROM deployment d
 			WHERE d.app_id = ? AND d.deleted_at IS NULL
+			ORDER BY d.app_id, d.created_at
 	`, appID)
 	if err != nil {
 		return nil, err
