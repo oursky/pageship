@@ -2,9 +2,11 @@ package deploy
 
 import (
 	"archive/tar"
+	"bytes"
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"time"
 
@@ -14,54 +16,117 @@ import (
 
 var ErrTooManyFiles error = Error("too many files collected")
 
-func CollectFileList(fsys fs.FS, now time.Time, tarfile *os.File) ([]models.FileEntry, error) {
-	comp, err := zstd.NewWriter(tarfile, zstd.WithWindowSize(zstdWindowSize))
-	if err != nil {
-		return nil, err
+type Collector struct {
+	files   []models.FileEntry
+	modTime time.Time
+
+	closed bool
+	comp   *zstd.Encoder
+	writer *tar.Writer
+}
+
+func NewCollector(modTime time.Time, tarfile *os.File) (coll *Collector, err error) {
+	coll = &Collector{
+		files:   nil,
+		modTime: modTime,
+		closed:  false,
 	}
-	defer comp.Close()
+	defer func() {
+		if err != nil {
+			coll.Close()
+			coll = nil
+		}
+	}()
 
-	writer := tar.NewWriter(comp)
-	defer writer.Close()
+	coll.comp, err = zstd.NewWriter(tarfile, zstd.WithWindowSize(zstdWindowSize))
+	if err != nil {
+		return
+	}
 
-	var entries []models.FileEntry
+	coll.writer = tar.NewWriter(coll.comp)
+
+	return
+}
+
+func (c *Collector) Close() {
+	if c.closed {
+		return
+	}
+
+	if c.writer != nil {
+		c.writer.Close()
+	}
+	if c.comp != nil {
+		c.comp.Close()
+	}
+	c.closed = true
+}
+
+func (c *Collector) Files() []models.FileEntry {
+	return c.files
+}
+
+func (c *Collector) AddFile(path string, data []byte) error {
+	h := NewFileHash()
+	_, err := io.Copy(h, bytes.NewBuffer(data))
+	if err != nil {
+		return err
+	}
+	hash := h.Sum()
+
+	header := &tar.Header{
+		Typeflag: tar.TypeReg,
+		Name:     path,
+		ModTime:  c.modTime,
+		Size:     int64(len(data)),
+	}
+	c.writer.WriteHeader(header)
+	c.writer.Write(data)
+
+	c.files = append(c.files, models.FileEntry{
+		Path: header.Name,
+		Size: header.Size,
+		Hash: hash,
+	})
+	return nil
+}
+
+func (c *Collector) Collect(fsys fs.FS, dir string) error {
 	var walker fs.WalkDirFunc
-	walker = func(path string, d fs.DirEntry, err error) error {
+	walker = func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
-		}
-		if path == "." {
-			return nil
 		}
 
 		if d.Type()&fs.ModeSymlink == fs.ModeSymlink {
-			return fs.WalkDir(fsys, path, walker)
+			return fs.WalkDir(fsys, p, walker)
 		}
 
-		entry, err := addFile(fsys, path, d, now, writer)
+		entry, err := addFile(fsys, p, d, dir, c.modTime, c.writer)
 		if err != nil {
 			return err
 		}
-		entries = append(entries, entry)
-		if len(entries) > models.MaxFiles {
+
+		c.files = append(c.files, entry)
+		if len(c.files) > models.MaxFiles {
 			return ErrTooManyFiles
 		}
 		return nil
 	}
 
-	err = fs.WalkDir(fsys, ".", walker)
-	return entries, err
+	return fs.WalkDir(fsys, ".", walker)
 }
 
-func addFile(fsys fs.FS, filePath string, d fs.DirEntry, now time.Time, writer *tar.Writer) (models.FileEntry, error) {
+func addFile(fsys fs.FS, filePath string, d fs.DirEntry, dir string, modTime time.Time, writer *tar.Writer) (models.FileEntry, error) {
 	info, err := d.Info()
 	if err != nil {
 		return models.FileEntry{}, err
 	}
 
+	path := path.Join(dir, filepath.ToSlash(filePath))
 	header := tar.Header{
-		Name:    "/" + filepath.ToSlash(filePath),
-		ModTime: now,
+		Name:    path,
+		ModTime: modTime,
 		Size:    info.Size(),
 	}
 	if info.IsDir() {
@@ -89,9 +154,8 @@ func addFile(fsys fs.FS, filePath string, d fs.DirEntry, now time.Time, writer *
 	}
 
 	return models.FileEntry{
-		FilePath: filePath,
-		Path:     header.Name,
-		Size:     header.Size,
-		Hash:     hash,
+		Path: header.Name,
+		Size: header.Size,
+		Hash: hash,
 	}, nil
 }

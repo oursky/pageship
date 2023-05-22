@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
@@ -27,12 +28,36 @@ func init() {
 	deployCmd.PersistentFlags().BoolP("yes", "y", false, "skip confirmation")
 }
 
-func packTar(fsys fs.FS, tarfile *os.File) ([]models.FileEntry, int64, error) {
-	now := time.SystemClock.Now()
-	files, err := deploy.CollectFileList(fsys, now, tarfile)
+func packTar(fsys fs.FS, tarfile *os.File, conf *config.Config) ([]models.FileEntry, int64, error) {
+	modTime := time.SystemClock.Now()
+	collector, err := deploy.NewCollector(modTime, tarfile)
 	if err != nil {
 		return nil, 0, err
 	}
+	defer collector.Close()
+
+	actualPublicDir := conf.Site.Public
+	conf.Site.Public = "public"
+
+	confJSON, err := json.MarshalIndent(conf, "", "\t")
+	if err != nil {
+		return nil, 0, err
+	}
+	err = collector.AddFile(fmt.Sprintf("/%s.json", config.SiteConfigName), confJSON)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	publicFsys, err := fs.Sub(fsys, actualPublicDir)
+	if err != nil {
+		return nil, 0, err
+	}
+	err = collector.Collect(publicFsys, "/public")
+	if err != nil {
+		return nil, 0, err
+	}
+
+	collector.Close()
 
 	_, err = tarfile.Seek(0, io.SeekStart)
 	if err != nil {
@@ -44,7 +69,7 @@ func packTar(fsys fs.FS, tarfile *os.File) ([]models.FileEntry, int64, error) {
 		return nil, 0, err
 	}
 
-	return files, fi.Size(), nil
+	return collector.Files(), fi.Size(), nil
 }
 
 func doDeploy(ctx context.Context, appID string, siteName string, deploymentName string, conf *config.Config, fsys fs.FS) {
@@ -57,7 +82,7 @@ func doDeploy(ctx context.Context, appID string, siteName string, deploymentName
 
 	Info("Collecting files...")
 	Debug("Tarball: %s", tarfile.Name())
-	files, tarSize, err := packTar(fsys, tarfile)
+	files, tarSize, err := packTar(fsys, tarfile, conf)
 	if err != nil {
 		Error("failed to collect files: %s", err)
 		return
