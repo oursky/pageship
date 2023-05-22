@@ -1,8 +1,6 @@
 package api
 
 import (
-	"time"
-
 	"github.com/oursky/pageship/internal/models"
 )
 
@@ -13,14 +11,14 @@ type APIApp struct {
 
 type APISite struct {
 	*models.Site
-	URL          string     `json:"url"`
-	LastDeployAt *time.Time `json:"uploadedAt" db:"uploaded_at"`
+	URL            string  `json:"url"`
+	DeploymentName *string `json:"deploymentName"`
 }
 
 type APIDeployment struct {
 	*models.Deployment
 }
 
-type DeploymentPatchRequest struct {
-	Status *models.DeploymentStatus `json:"status,omitempty"`
+type SitePatchRequest struct {
+	DeploymentName *string `json:"deploymentName,omitempty"`
 }

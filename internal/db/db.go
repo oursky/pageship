@@ -49,22 +49,26 @@ type AppsDB interface {
 }
 
 type SitesDB interface {
-	CreateSiteIfNotExist(ctx context.Context, site *models.Site) error
-	ListSites(ctx context.Context, appID string) ([]SiteInfo, error)
+	CreateSiteIfNotExist(ctx context.Context, site *models.Site) (*SiteInfo, error)
+	GetSiteByName(ctx context.Context, appID string, siteName string) (*models.Site, error)
+	GetSiteInfo(ctx context.Context, appID string, id string) (*SiteInfo, error)
+	ListSitesInfo(ctx context.Context, appID string) ([]SiteInfo, error)
+	ListDeploymentSites(ctx context.Context, appID string, deploymentID string) ([]*models.Site, error)
 }
 
 type DeploymentsDB interface {
 	CreateDeployment(ctx context.Context, deployment *models.Deployment) error
-	ListDeployments(ctx context.Context, appID string, siteName string) ([]*models.Deployment, error)
-	GetDeployment(ctx context.Context, appID string, siteName string, id string) (*models.Deployment, error)
+	GetDeployment(ctx context.Context, appID string, id string) (*models.Deployment, error)
+	GetDeploymentByName(ctx context.Context, appID string, name string) (*models.Deployment, error)
+	ListDeployments(ctx context.Context, appID string) ([]*models.Deployment, error)
 	MarkDeploymentUploaded(ctx context.Context, now time.Time, deployment *models.Deployment) error
-	ActivateSiteDeployment(ctx context.Context, deployment *models.Deployment) error
-	DeactivateSiteDeployment(ctx context.Context, deployment *models.Deployment) error
-	GetActiveSiteDeployment(ctx context.Context, appID string, siteName string) (*models.Deployment, error)
+	AssignDeploymentSite(ctx context.Context, deployment *models.Deployment, siteID string) error
+	UnassignDeploymentSite(ctx context.Context, deployment *models.Deployment, siteID string) error
+	GetSiteDeployment(ctx context.Context, appID string, siteName string) (*models.Deployment, error)
 }
 
 type SiteInfo struct {
 	*models.Site
-	ActiveDeploymentID *string    `db:"deployment_id"`
-	LastDeployedAt     *time.Time `db:"last_deployed_at"`
+	DeploymentID   *string `db:"deployment_id"`
+	DeploymentName *string `db:"deployment_name"`
 }

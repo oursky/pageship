@@ -16,21 +16,22 @@ import (
 
 type apiDeployment struct {
 	*models.Deployment
+	Sites []string `json:"sites"`
 }
 
 func (c *Controller) makeAPIDeployment(d *models.Deployment) apiDeployment {
 	deployment := *d
 	deployment.Metadata.Files = nil // Avoid large file list
+
 	return apiDeployment{Deployment: d}
 }
 
 func (c *Controller) handleDeploymentGet(ctx *gin.Context) {
 	appID := ctx.Param("app-id")
-	siteName := ctx.Param("site")
-	deploymentID := ctx.Param("deployment-id")
+	deploymentName := ctx.Param("deployment-name")
 
 	err := db.WithTx(ctx, c.DB, func(conn db.Conn) error {
-		deployment, err := conn.GetDeployment(ctx, appID, siteName, deploymentID)
+		deployment, err := conn.GetDeployment(ctx, appID, deploymentName)
 		if err != nil {
 			return err
 		}
@@ -50,15 +51,16 @@ func (c *Controller) handleDeploymentGet(ctx *gin.Context) {
 
 func (c *Controller) handleDeploymentCreate(ctx *gin.Context) {
 	appID := ctx.Param("app-id")
-	siteName := ctx.Param("site")
 
 	var request struct {
+		Name       string             `json:"name" binding:"required,max=32"`
 		Files      []models.FileEntry `json:"files" binding:"required"`
 		SiteConfig *config.SiteConfig `json:"site_config" binding:"required"`
 	}
 	if err := checkBind(ctx, ctx.ShouldBindJSON(&request)); err != nil {
 		return
 	}
+	name := request.Name
 	files := request.Files
 	siteConfig := request.SiteConfig
 
@@ -88,7 +90,7 @@ func (c *Controller) handleDeploymentCreate(ctx *gin.Context) {
 	}
 
 	err := db.WithTx(ctx, c.DB, func(conn db.Conn) error {
-		app, err := conn.GetApp(ctx, appID)
+		_, err := conn.GetApp(ctx, appID)
 		if errors.Is(err, models.ErrAppNotFound) {
 			ctx.JSON(http.StatusNotFound, response{Error: err})
 			return db.ErrRollback
@@ -96,26 +98,17 @@ func (c *Controller) handleDeploymentCreate(ctx *gin.Context) {
 			return err
 		}
 
-		_, ok := app.Config.ResolveSite(siteName)
-		if !ok {
-			ctx.JSON(http.StatusBadRequest, response{Error: models.ErrUndefinedSite})
-			return db.ErrRollback
-		}
-
-		site := models.NewSite(c.Clock.Now().UTC(), appID, siteName)
-		err = conn.CreateSiteIfNotExist(ctx, site)
-		if err != nil {
-			return err
-		}
-
 		metadata := &models.DeploymentMetadata{
 			Files:  files,
 			Config: *siteConfig,
 		}
-		deployment := models.NewDeployment(c.Clock.Now().UTC(), appID, site.ID, c.Config.StorageKeyPrefix, metadata)
+		deployment := models.NewDeployment(c.Clock.Now().UTC(), name, appID, c.Config.StorageKeyPrefix, metadata)
 
 		err = conn.CreateDeployment(ctx, deployment)
-		if err != nil {
+		if errors.Is(err, models.ErrDeploymentUsedName) {
+			ctx.JSON(http.StatusBadRequest, response{Error: err})
+			return db.ErrRollback
+		} else if err != nil {
 			return err
 		}
 
@@ -130,18 +123,17 @@ func (c *Controller) handleDeploymentCreate(ctx *gin.Context) {
 
 func (c *Controller) handleDeploymentUpload(ctx *gin.Context) {
 	appID := ctx.Param("app-id")
-	siteName := ctx.Param("site")
-	deploymentID := ctx.Param("deployment-id")
+	deploymentName := ctx.Param("deployment-name")
 
 	var deployment *models.Deployment
 	err := db.WithTx(ctx, c.DB, func(conn db.Conn) (err error) {
-		deployment, err = conn.GetDeployment(ctx, appID, siteName, deploymentID)
+		deployment, err = conn.GetDeploymentByName(ctx, appID, deploymentName)
 		if err != nil {
 			return
 		}
 
-		if deployment.Status != models.DeploymentStatusPending {
-			err = models.ErrDeploymentInvalidStatus
+		if deployment.UploadedAt != nil {
+			err = models.ErrDeploymentAlreadyUploaded
 			return
 		}
 
@@ -151,16 +143,11 @@ func (c *Controller) handleDeploymentUpload(ctx *gin.Context) {
 	if err != nil {
 		if errors.Is(err, models.ErrDeploymentNotFound) {
 			ctx.JSON(http.StatusNotFound, response{Error: err})
-		} else if errors.Is(err, models.ErrDeploymentInvalidStatus) {
+		} else if errors.Is(err, models.ErrDeploymentAlreadyUploaded) {
 			ctx.JSON(http.StatusConflict, response{Error: err})
 		} else {
 			ctx.AbortWithError(http.StatusInternalServerError, err)
 		}
-		return
-	}
-
-	if deployment.Status != models.DeploymentStatusPending {
-		ctx.JSON(http.StatusConflict, response{Error: models.ErrDeploymentInvalidStatus})
 		return
 	}
 
@@ -184,13 +171,13 @@ func (c *Controller) handleDeploymentUpload(ctx *gin.Context) {
 
 	// Mark deployment as completed, but inactive
 	err = db.WithTx(ctx, c.DB, func(conn db.Conn) error {
-		deployment, err = conn.GetDeployment(ctx, appID, siteName, deploymentID)
+		deployment, err = conn.GetDeployment(ctx, appID, deployment.ID)
 		if err != nil {
 			return err
 		}
 
-		if deployment.Status != models.DeploymentStatusPending {
-			return models.ErrDeploymentInvalidStatus
+		if deployment.UploadedAt != nil {
+			return models.ErrDeploymentAlreadyUploaded
 		}
 
 		err = conn.MarkDeploymentUploaded(ctx, now, deployment)
@@ -205,69 +192,7 @@ func (c *Controller) handleDeploymentUpload(ctx *gin.Context) {
 	if err != nil {
 		if errors.Is(err, models.ErrDeploymentNotFound) {
 			ctx.JSON(http.StatusNotFound, response{Error: err})
-		} else if errors.Is(err, models.ErrDeploymentInvalidStatus) {
-			ctx.JSON(http.StatusConflict, response{Error: err})
-		} else {
-			ctx.AbortWithError(http.StatusInternalServerError, err)
-		}
-	}
-}
-
-func (c *Controller) handleDeploymentUpdate(ctx *gin.Context) {
-	appID := ctx.Param("app-id")
-	siteName := ctx.Param("site")
-	deploymentID := ctx.Param("deployment-id")
-
-	var request struct {
-		Status *models.DeploymentStatus `json:"status,omitempty" binding:"omitempty,oneof=ACTIVE INACTIVE"`
-	}
-	if err := checkBind(ctx, ctx.ShouldBindJSON(&request)); err != nil {
-		return
-	}
-
-	if request.Status != nil && !request.Status.IsValid() {
-		ctx.JSON(http.StatusBadRequest, response{Result: errors.New("invalid status")})
-		return
-	}
-
-	err := db.WithTx(ctx, c.DB, func(conn db.Conn) error {
-		deployment, err := conn.GetDeployment(ctx, appID, siteName, deploymentID)
-		if err != nil {
-			return err
-		}
-
-		if request.Status != nil {
-			switch deployment.Status {
-			case models.DeploymentStatusActive, models.DeploymentStatusInactive:
-				break
-			default:
-				return models.ErrDeploymentInvalidStatus
-			}
-
-			switch *request.Status {
-			case models.DeploymentStatusActive:
-				err = conn.ActivateSiteDeployment(ctx, deployment)
-				if err != nil {
-					return err
-				}
-			case models.DeploymentStatusInactive:
-				err = conn.DeactivateSiteDeployment(ctx, deployment)
-				if err != nil {
-					return err
-				}
-			default:
-				return models.ErrDeploymentInvalidStatus
-			}
-		}
-
-		ctx.JSON(http.StatusOK, response{Result: c.makeAPIDeployment(deployment)})
-		return nil
-	})
-
-	if err != nil {
-		if errors.Is(err, models.ErrDeploymentNotFound) {
-			ctx.JSON(http.StatusNotFound, response{Error: err})
-		} else if errors.Is(err, models.ErrDeploymentInvalidStatus) {
+		} else if errors.Is(err, models.ErrDeploymentAlreadyUploaded) {
 			ctx.JSON(http.StatusConflict, response{Error: err})
 		} else {
 			ctx.AbortWithError(http.StatusInternalServerError, err)
@@ -277,10 +202,9 @@ func (c *Controller) handleDeploymentUpdate(ctx *gin.Context) {
 
 func (c *Controller) handleDeploymentList(ctx *gin.Context) {
 	appID := ctx.Param("app-id")
-	siteName := ctx.Param("site")
 
 	err := db.WithTx(ctx, c.DB, func(conn db.Conn) error {
-		deployments, err := conn.ListDeployments(ctx, appID, siteName)
+		deployments, err := conn.ListDeployments(ctx, appID)
 		if err != nil {
 			return err
 		}

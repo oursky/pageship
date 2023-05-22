@@ -53,9 +53,11 @@ func (r *resolver) Resolve(ctx context.Context, matchedID string) (*site.Descrip
 			return site.ErrSiteNotFound
 		}
 
-		deployment, err := c.GetActiveSiteDeployment(ctx, appID, siteName)
+		deployment, err := c.GetSiteDeployment(ctx, appID, siteName)
 		if errors.Is(err, models.ErrDeploymentNotFound) {
 			return site.ErrSiteNotFound
+		} else if err != nil {
+			return err
 		}
 
 		if deployment.UploadedAt == nil {

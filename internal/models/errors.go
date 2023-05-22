@@ -2,11 +2,13 @@ package models
 
 import "errors"
 
-var ErrUsedAppID = errors.New("used app ID")
+var ErrAppUsedID = errors.New("used app ID")
 var ErrAppNotFound = errors.New("app not found")
 
 var ErrUndefinedSite = errors.New("undefined site")
 var ErrSiteNotFound = errors.New("site not found")
 
 var ErrDeploymentNotFound = errors.New("deployment not found")
-var ErrDeploymentInvalidStatus = errors.New("deployment has invalid status")
+var ErrDeploymentUsedName = errors.New("used deployment name")
+var ErrDeploymentNotUploaded = errors.New("deployment is not uploaded")
+var ErrDeploymentAlreadyUploaded = errors.New("deployment is already uploaded")

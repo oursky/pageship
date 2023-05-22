@@ -40,12 +40,13 @@ func (c *Controller) Handler() http.Handler {
 	v1.PUT("/apps/:app-id/config", c.handleAppConfigSet)
 
 	v1.GET("/apps/:app-id/sites", c.handleSiteList)
+	v1.POST("/apps/:app-id/sites/:site-name", c.handleSiteCreate)
+	v1.PATCH("/apps/:app-id/sites/:site-name", c.handleSiteUpdate)
 
-	v1.POST("/apps/:app-id/sites/:site/deployments", c.handleDeploymentCreate)
-	v1.GET("/apps/:app-id/sites/:site/deployments", c.handleDeploymentList)
-	v1.GET("/apps/:app-id/sites/:site/deployments/:deployment-id", c.handleDeploymentGet)
-	v1.PATCH("/apps/:app-id/sites/:site/deployments/:deployment-id", c.handleDeploymentUpdate)
-	v1.PUT("/apps/:app-id/sites/:site/deployments/:deployment-id/tarball", c.handleDeploymentUpload)
+	v1.POST("/apps/:app-id/deployments", c.handleDeploymentCreate)
+	v1.GET("/apps/:app-id/deployments", c.handleDeploymentList)
+	v1.GET("/apps/:app-id/deployments/:deployment-name", c.handleDeploymentGet)
+	v1.PUT("/apps/:app-id/deployments/:deployment-name/tarball", c.handleDeploymentUpload)
 
 	return g.Handler()
 }

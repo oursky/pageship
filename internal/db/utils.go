@@ -29,15 +29,3 @@ func WithTx(ctx context.Context, db DB, fn func(Conn) error) error {
 	}
 	return nil
 }
-
-func EnsureNoRow(rows *sql.Rows, dupeErr error) error {
-	defer rows.Close()
-	if !rows.Next() {
-		if err := rows.Err(); err != nil {
-			return err
-		}
-		return nil
-	}
-
-	return dupeErr
-}

@@ -24,7 +24,7 @@ func (c Conn) CreateApp(ctx context.Context, app *models.App) error {
 		return err
 	}
 	if n != 1 {
-		return models.ErrUsedAppID
+		return models.ErrAppUsedID
 	}
 
 	return nil

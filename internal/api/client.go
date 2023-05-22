@@ -68,6 +68,26 @@ func (c *Client) ConfigureApp(ctx context.Context, appID string, conf *config.Ap
 	return decodeJSONResponse[*APIApp](resp)
 }
 
+func (c *Client) CreateSite(ctx context.Context, appID string, siteName string) (*APISite, error) {
+	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "sites", siteName)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := newJSONRequest(ctx, "POST", endpoint, map[string]any{})
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return decodeJSONResponse[*APISite](resp)
+}
+
 func (c *Client) ListSites(ctx context.Context, appID string) ([]APISite, error) {
 	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "sites")
 	if err != nil {
@@ -88,8 +108,33 @@ func (c *Client) ListSites(ctx context.Context, appID string) ([]APISite, error)
 	return decodeJSONResponse[[]APISite](resp)
 }
 
-func (c *Client) ListDeployments(ctx context.Context, appID string, siteName string) ([]APIDeployment, error) {
-	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "sites", siteName, "deployments")
+func (c *Client) UpdateSite(
+	ctx context.Context,
+	appID string,
+	siteName string,
+	patch *SitePatchRequest,
+) (*APISite, error) {
+	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "sites", siteName)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := newJSONRequest(ctx, "PATCH", endpoint, patch)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return decodeJSONResponse[*APISite](resp)
+}
+
+func (c *Client) ListDeployments(ctx context.Context, appID string) ([]APIDeployment, error) {
+	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "deployments")
 	if err != nil {
 		return nil, err
 	}
@@ -111,16 +156,17 @@ func (c *Client) ListDeployments(ctx context.Context, appID string, siteName str
 func (c *Client) SetupDeployment(
 	ctx context.Context,
 	appID string,
-	siteName string,
+	name string,
 	files []models.FileEntry,
 	siteConfig *config.SiteConfig,
 ) (*models.Deployment, error) {
-	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "sites", siteName, "deployments")
+	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "deployments")
 	if err != nil {
 		return nil, err
 	}
 
 	req, err := newJSONRequest(ctx, "POST", endpoint, map[string]any{
+		"name":        name,
 		"files":       files,
 		"site_config": siteConfig,
 	})
@@ -140,42 +186,15 @@ func (c *Client) SetupDeployment(
 func (c *Client) UploadDeploymentTarball(
 	ctx context.Context,
 	appID string,
-	siteName string,
 	deploymentID string,
 	tarball io.Reader,
 ) (*models.Deployment, error) {
-	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "sites", siteName, "deployments", deploymentID, "tarball")
+	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "deployments", deploymentID, "tarball")
 	if err != nil {
 		return nil, err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "PUT", endpoint, tarball)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	return decodeJSONResponse[*models.Deployment](resp)
-}
-
-func (c *Client) PatchDeployment(
-	ctx context.Context,
-	appID string,
-	siteName string,
-	deploymentID string,
-	patch *DeploymentPatchRequest,
-) (*models.Deployment, error) {
-	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "sites", siteName, "deployments", deploymentID)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := newJSONRequest(ctx, "PATCH", endpoint, patch)
 	if err != nil {
 		return nil, err
 	}

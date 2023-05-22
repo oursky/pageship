@@ -10,11 +10,14 @@ import (
 var idEncoding = base32.StdEncoding.WithPadding(base32.NoPadding)
 
 func newID(kind string) string {
-	var data [8]byte
-	_, err := rand.Read(data[:])
+	return fmt.Sprintf("%s_%s", kind, RandomID(8))
+}
+
+func RandomID(n int) string {
+	data := make([]byte, n)
+	_, err := rand.Read(data)
 	if err != nil {
 		panic(err)
 	}
-	r := strings.ToLower(idEncoding.EncodeToString(data[:]))
-	return fmt.Sprintf("%s_%s", kind, r)
+	return strings.ToLower(idEncoding.EncodeToString(data[:]))
 }

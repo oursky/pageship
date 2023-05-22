@@ -33,7 +33,7 @@ func (c *Controller) handleAppCreate(ctx *gin.Context) {
 		app := models.NewApp(c.Clock.Now().UTC(), request.ID)
 
 		err := conn.CreateApp(ctx, app)
-		if errors.Is(err, models.ErrUsedAppID) {
+		if errors.Is(err, models.ErrAppUsedID) {
 			ctx.JSON(http.StatusBadRequest, response{Error: err})
 			return db.ErrRollback
 		} else if err != nil {

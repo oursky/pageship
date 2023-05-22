@@ -62,37 +62,53 @@ var getSitesCmd = &cobra.Command{
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 1, 4, 4, ' ', 0)
-		fmt.Fprintln(w, "NAME\tURL\tLAST DEPLOYED AT")
+		fmt.Fprintln(w, "NAME\tURL\tDEPLOYMENT")
 		for _, site := range sites {
-			lastDeployedAt := "-"
-			if site.LastDeployAt != nil {
-				lastDeployedAt = site.LastDeployAt.Local().Format(time.DateTime)
+			deployment := "-"
+			if site.DeploymentName != nil {
+				deployment = *site.DeploymentName
 			}
-			fmt.Fprintf(w, "%s\t%s\t%s\n", site.Name, site.URL, lastDeployedAt)
+			fmt.Fprintf(w, "%s\t%s\t%s\n", site.Name, site.URL, deployment)
 		}
 		w.Flush()
 	},
 }
 
 var getDeploymentsCmd = &cobra.Command{
-	Use:   "deployments site",
+	Use:   "deployments",
 	Short: "List deployments",
-	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		appID := viper.GetString("app")
-		siteName := args[0]
 
-		deployments, err := apiClient.ListDeployments(cmd.Context(), appID, siteName)
+		sites, err := apiClient.ListSites(cmd.Context(), appID)
+		if err != nil {
+			Error("Failed to list sites: %s", err)
+			return
+		}
+
+		deployments, err := apiClient.ListDeployments(cmd.Context(), appID)
 		if err != nil {
 			Error("Failed to list deployments: %s", err)
 			return
 		}
 
+		deploymentSites := map[string][]string{}
+		for _, site := range sites {
+			if site.DeploymentName == nil {
+				continue
+			}
+
+			n := deploymentSites[*site.DeploymentName]
+			n = append(n, site.Name)
+			deploymentSites[*site.DeploymentName] = n
+		}
+
 		w := tabwriter.NewWriter(os.Stdout, 1, 4, 4, ' ', 0)
-		fmt.Fprintln(w, "ID\tCREATED AT\tSTATUS")
+		fmt.Fprintln(w, "NAME\tCREATED AT\tSITES")
 		for _, deployment := range deployments {
 			createdAt := deployment.CreatedAt.Local().Format(time.DateTime)
-			fmt.Fprintf(w, "%s\t%s\t%s\n", deployment.ID, createdAt, deployment.Status)
+			sites := strings.Join(deploymentSites[deployment.Name], ",")
+			fmt.Fprintf(w, "%s\t%s\t%s\n", deployment.Name, createdAt, sites)
 		}
 		w.Flush()
 	},
