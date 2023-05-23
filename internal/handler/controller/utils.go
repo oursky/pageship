@@ -47,6 +47,10 @@ func writeResponse(ctx *gin.Context, result any, err error) {
 		ctx.JSON(http.StatusBadRequest, response{Error: err})
 	case errors.Is(err, models.ErrDeploymentAlreadyUploaded):
 		ctx.JSON(http.StatusBadRequest, response{Error: err})
+	case errors.Is(err, models.ErrUserNotFound):
+		ctx.JSON(http.StatusNotFound, response{Error: err})
+	case errors.Is(err, models.ErrDeleteCurrentUser):
+		ctx.JSON(http.StatusBadRequest, response{Error: err})
 	case errors.Is(err, models.ErrInvalidCredentials):
 		ctx.JSON(http.StatusUnauthorized, response{Error: err})
 	default:

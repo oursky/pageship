@@ -34,6 +34,6 @@ var loginCmd = &cobra.Command{
 			return
 		}
 
-		Info("Logged in as %q.", userName)
+		Info("Logged in as %q. (id: %q)", userName, claims.Subject)
 	},
 }

@@ -19,6 +19,10 @@ type APIDeployment struct {
 	*models.Deployment
 }
 
+type APIUser struct {
+	*models.User
+}
+
 type SitePatchRequest struct {
 	DeploymentName *string `json:"deploymentName,omitempty"`
 }

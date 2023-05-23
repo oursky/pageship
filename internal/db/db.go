@@ -73,6 +73,7 @@ type UserDB interface {
 	CreateUserWithCredential(ctx context.Context, user *models.User, credential *models.UserCredential) error
 	AssignAppUser(ctx context.Context, appID string, userID string) error
 	UnassignAppUser(ctx context.Context, appID string, userID string) error
+	ListAppUsers(ctx context.Context, appID string) ([]*models.User, error)
 	IsAppAccessible(ctx context.Context, appID string, userID string) error
 }
 

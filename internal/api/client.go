@@ -92,6 +92,85 @@ func (c *Client) ListApps(ctx context.Context) ([]APIApp, error) {
 	return decodeJSONResponse[[]APIApp](resp)
 }
 
+func (c *Client) ListUsers(ctx context.Context, appID string) ([]APIUser, error) {
+	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "users")
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.attachToken(req); err != nil {
+		return nil, err
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return decodeJSONResponse[[]APIUser](resp)
+}
+
+func (c *Client) AddUser(ctx context.Context, appID string, userID string) error {
+	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "users")
+	if err != nil {
+		return err
+	}
+
+	req, err := newJSONRequest(ctx, "POST", endpoint, map[string]any{
+		"userID": userID,
+	})
+	if err != nil {
+		return err
+	}
+	if err := c.attachToken(req); err != nil {
+		return err
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	_, err = decodeJSONResponse[struct{}](resp)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *Client) DeleteUser(ctx context.Context, appID string, userID string) error {
+	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "users", userID)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "DELETE", endpoint, nil)
+	if err != nil {
+		return err
+	}
+	if err := c.attachToken(req); err != nil {
+		return err
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	_, err = decodeJSONResponse[struct{}](resp)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (c *Client) ConfigureApp(ctx context.Context, appID string, conf *config.AppConfig) (*APIApp, error) {
 	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "config")
 	if err != nil {

@@ -73,14 +73,37 @@ func (c Conn) AssignAppUser(ctx context.Context, appID string, userID string) er
 }
 
 func (c Conn) UnassignAppUser(ctx context.Context, appID string, userID string) error {
-	_, err := c.tx.ExecContext(ctx, `
+	result, err := c.tx.ExecContext(ctx, `
 		DELETE FROM user_app WHERE user_id = ? AND app_id = ?
 	`, userID, appID)
 	if err != nil {
 		return err
 	}
 
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return models.ErrUserNotFound
+	}
+
 	return nil
+}
+
+func (c Conn) ListAppUsers(ctx context.Context, appID string) ([]*models.User, error) {
+	var users []*models.User
+	err := c.tx.SelectContext(ctx, &users, `
+		SELECT u.id, u.created_at, u.updated_at, u.deleted_at, u.name FROM user u
+			JOIN user_app ua ON (ua.user_id = u.id)
+			WHERE ua.app_id = ? AND u.deleted_at IS NULL
+			ORDER BY u.name
+	`, appID)
+	if err != nil {
+		return nil, err
+	}
+
+	return users, nil
 }
 
 func (c Conn) IsAppAccessible(ctx context.Context, appID string, userID string) error {

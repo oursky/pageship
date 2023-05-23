@@ -61,6 +61,9 @@ func (c *Controller) Handler() http.Handler {
 	v1.GET("/apps/:app-id", c.handleAppGet)
 	v1.GET("/apps/:app-id/config", c.handleAppConfigGet)
 	v1.PUT("/apps/:app-id/config", c.handleAppConfigSet)
+	v1.GET("/apps/:app-id/users", c.handleAppUserList)
+	v1.POST("/apps/:app-id/users", c.handleAppUserAdd)
+	v1.DELETE("/apps/:app-id/users/:user-id", c.handleAppUserDelete)
 
 	v1.GET("/apps/:app-id/sites", c.handleSiteList)
 	v1.POST("/apps/:app-id/sites", c.handleSiteCreate)

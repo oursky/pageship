@@ -86,3 +86,78 @@ func (c *Controller) handleAppList(ctx *gin.Context) {
 
 	writeResponse(ctx, apps, err)
 }
+
+func (c *Controller) handleAppUserList(ctx *gin.Context) {
+	id := ctx.Param("app-id")
+
+	if !c.requireAuthn(ctx) || !c.requireAuthz(ctx, authzReadApp(id)) {
+		return
+	}
+
+	users, err := tx(ctx, c.DB, func(conn db.Conn) ([]*apiUser, error) {
+		users, err := conn.ListAppUsers(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+
+		return mapModels(users, c.makeAPIUser), nil
+	})
+
+	writeResponse(ctx, users, err)
+}
+
+func (c *Controller) handleAppUserAdd(ctx *gin.Context) {
+	appID := ctx.Param("app-id")
+
+	if !c.requireAuthn(ctx) || !c.requireAuthz(ctx, authzWriteApp(appID)) {
+		return
+	}
+
+	var request struct {
+		UserID string `json:"userID" binding:"required"`
+	}
+	if err := checkBind(ctx, ctx.ShouldBindJSON(&request)); err != nil {
+		return
+	}
+
+	result, err := tx(ctx, c.DB, func(conn db.Conn) (*struct{}, error) {
+		user, err := conn.GetUser(ctx, request.UserID)
+		if err != nil {
+			return nil, err
+		}
+
+		err = conn.AssignAppUser(ctx, appID, user.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		return &struct{}{}, nil
+	})
+
+	writeResponse(ctx, result, err)
+}
+
+func (c *Controller) handleAppUserDelete(ctx *gin.Context) {
+	appID := ctx.Param("app-id")
+	userID := ctx.Param("user-id")
+
+	if !c.requireAuthn(ctx) || !c.requireAuthz(ctx, authzWriteApp(appID)) {
+		return
+	}
+
+	if userID == ctx.GetString(contextUserID) {
+		writeResponse(ctx, nil, models.ErrDeleteCurrentUser)
+		return
+	}
+
+	result, err := tx(ctx, c.DB, func(conn db.Conn) (*struct{}, error) {
+		err := conn.UnassignAppUser(ctx, appID, userID)
+		if err != nil {
+			return nil, err
+		}
+
+		return &struct{}{}, nil
+	})
+
+	writeResponse(ctx, result, err)
+}

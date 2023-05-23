@@ -14,4 +14,5 @@ var ErrDeploymentNotUploaded = errors.New("deployment is not uploaded")
 var ErrDeploymentAlreadyUploaded = errors.New("deployment is already uploaded")
 
 var ErrUserNotFound = errors.New("user not found")
+var ErrDeleteCurrentUser = errors.New("cannot delete current user")
 var ErrInvalidCredentials = errors.New("invalid credentials")
