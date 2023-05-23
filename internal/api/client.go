@@ -14,8 +14,9 @@ import (
 )
 
 type Client struct {
-	endpoint string
-	client   *http.Client
+	endpoint  string
+	client    *http.Client
+	TokenFunc func(r *http.Request) (string, error)
 }
 
 func NewClientWithTransport(endpoint string, transport http.RoundTripper) *Client {
@@ -29,6 +30,20 @@ func NewClient(endpoint string) *Client {
 	return NewClientWithTransport(endpoint, http.DefaultTransport)
 }
 
+func (c *Client) attachToken(r *http.Request) error {
+	if c.TokenFunc == nil {
+		return nil
+	}
+
+	token, err := c.TokenFunc(r)
+	if err != nil {
+		return err
+	}
+
+	r.Header.Add("Authorization", "Bearer "+token)
+	return nil
+}
+
 func (c *Client) CreateApp(ctx context.Context, appID string) (*APIApp, error) {
 	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps")
 	if err != nil {
@@ -39,6 +54,9 @@ func (c *Client) CreateApp(ctx context.Context, appID string) (*APIApp, error) {
 		"id": appID,
 	})
 	if err != nil {
+		return nil, err
+	}
+	if err := c.attachToken(req); err != nil {
 		return nil, err
 	}
 
@@ -59,6 +77,9 @@ func (c *Client) ListApps(ctx context.Context) ([]APIApp, error) {
 
 	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
 	if err != nil {
+		return nil, err
+	}
+	if err := c.attachToken(req); err != nil {
 		return nil, err
 	}
 
@@ -83,6 +104,9 @@ func (c *Client) ConfigureApp(ctx context.Context, appID string, conf *config.Ap
 	if err != nil {
 		return nil, err
 	}
+	if err := c.attachToken(req); err != nil {
+		return nil, err
+	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -105,6 +129,9 @@ func (c *Client) CreateSite(ctx context.Context, appID string, siteName string) 
 	if err != nil {
 		return nil, err
 	}
+	if err := c.attachToken(req); err != nil {
+		return nil, err
+	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -123,6 +150,9 @@ func (c *Client) ListSites(ctx context.Context, appID string) ([]APISite, error)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
 	if err != nil {
+		return nil, err
+	}
+	if err := c.attachToken(req); err != nil {
 		return nil, err
 	}
 
@@ -150,6 +180,9 @@ func (c *Client) UpdateSite(
 	if err != nil {
 		return nil, err
 	}
+	if err := c.attachToken(req); err != nil {
+		return nil, err
+	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -168,6 +201,9 @@ func (c *Client) ListDeployments(ctx context.Context, appID string) ([]APIDeploy
 
 	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
 	if err != nil {
+		return nil, err
+	}
+	if err := c.attachToken(req); err != nil {
 		return nil, err
 	}
 
@@ -200,6 +236,9 @@ func (c *Client) SetupDeployment(
 	if err != nil {
 		return nil, err
 	}
+	if err := c.attachToken(req); err != nil {
+		return nil, err
+	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -223,6 +262,9 @@ func (c *Client) UploadDeploymentTarball(
 
 	req, err := http.NewRequestWithContext(ctx, "PUT", endpoint, tarball)
 	if err != nil {
+		return nil, err
+	}
+	if err := c.attachToken(req); err != nil {
 		return nil, err
 	}
 

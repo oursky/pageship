@@ -40,7 +40,17 @@ func (c *Controller) Handler() http.Handler {
 	logger := zap.L().Named("controller")
 
 	g := gin.New()
-	g.Use(ginzap.Ginzap(zap.L(), time.RFC3339, true))
+	g.Use(ginzap.GinzapWithConfig(zap.L(), &ginzap.Config{
+		TimeFormat: time.RFC3339,
+		UTC:        true,
+		Context: func(c *gin.Context) []zap.Field {
+			var fields []zap.Field
+			if userID, ok := c.Get("userID"); ok {
+				fields = append(fields, zap.String("user-id", userID.(string)))
+			}
+			return fields
+		},
+	}))
 	g.Use(ginzap.RecoveryWithZap(logger, true))
 
 	g.GET("/healthz", c.handleHealthz)

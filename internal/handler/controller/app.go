@@ -19,6 +19,11 @@ func (c *Controller) makeAPIApp(app *models.App) *apiApp {
 }
 
 func (c *Controller) handleAppCreate(ctx *gin.Context) {
+	_, ok := c.requireAuthn(ctx)
+	if !ok {
+		return
+	}
+
 	var request struct {
 		ID string `json:"id" binding:"required,dnsLabel"`
 	}
@@ -41,6 +46,11 @@ func (c *Controller) handleAppCreate(ctx *gin.Context) {
 }
 
 func (c *Controller) handleAppGet(ctx *gin.Context) {
+	_, ok := c.requireAuthn(ctx)
+	if !ok {
+		return
+	}
+
 	id := ctx.Param("app-id")
 
 	app, err := tx(ctx, c.DB, func(conn db.Conn) (*apiApp, error) {
@@ -56,6 +66,11 @@ func (c *Controller) handleAppGet(ctx *gin.Context) {
 }
 
 func (c *Controller) handleAppList(ctx *gin.Context) {
+	_, ok := c.requireAuthn(ctx)
+	if !ok {
+		return
+	}
+
 	apps, err := tx(ctx, c.DB, func(conn db.Conn) ([]*apiApp, error) {
 		apps, err := conn.ListApps(ctx)
 		if err != nil {

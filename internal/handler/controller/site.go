@@ -26,6 +26,11 @@ func (c *Controller) makeAPISite(app *models.App, site db.SiteInfo) *apiSite {
 }
 
 func (c *Controller) handleSiteList(ctx *gin.Context) {
+	_, ok := c.requireAuthn(ctx)
+	if !ok {
+		return
+	}
+
 	appID := ctx.Param("app-id")
 
 	sites, err := tx(ctx, c.DB, func(conn db.Conn) ([]*apiSite, error) {
@@ -48,6 +53,11 @@ func (c *Controller) handleSiteList(ctx *gin.Context) {
 }
 
 func (c *Controller) handleSiteCreate(ctx *gin.Context) {
+	_, ok := c.requireAuthn(ctx)
+	if !ok {
+		return
+	}
+
 	appID := ctx.Param("app-id")
 
 	var request struct {
@@ -80,6 +90,11 @@ func (c *Controller) handleSiteCreate(ctx *gin.Context) {
 }
 
 func (c *Controller) handleSiteUpdate(ctx *gin.Context) {
+	_, ok := c.requireAuthn(ctx)
+	if !ok {
+		return
+	}
+
 	appID := ctx.Param("app-id")
 	siteName := ctx.Param("site-name")
 

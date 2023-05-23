@@ -8,6 +8,21 @@ import (
 	"github.com/oursky/pageship/internal/models"
 )
 
+func (c Conn) GetUser(ctx context.Context, id string) (*models.User, error) {
+	var user models.User
+	err := c.tx.GetContext(ctx, &user, `
+		SELECT u.id, u.created_at, u.updated_at, u.deleted_at, u.name FROM user u
+			WHERE u.id = ? AND u.deleted_at IS NULL
+	`, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, models.ErrUserNotFound
+	} else if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
 func (c Conn) GetUserByCredential(ctx context.Context, id models.UserCredentialID) (*models.User, error) {
 	var user models.User
 	err := c.tx.GetContext(ctx, &user, `

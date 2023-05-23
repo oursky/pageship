@@ -9,6 +9,11 @@ import (
 )
 
 func (c *Controller) handleAppConfigGet(ctx *gin.Context) {
+	_, ok := c.requireAuthn(ctx)
+	if !ok {
+		return
+	}
+
 	id := ctx.Param("app-id")
 
 	config, err := tx(ctx, c.DB, func(conn db.Conn) (*config.AppConfig, error) {
@@ -23,6 +28,11 @@ func (c *Controller) handleAppConfigGet(ctx *gin.Context) {
 }
 
 func (c *Controller) handleAppConfigSet(ctx *gin.Context) {
+	_, ok := c.requireAuthn(ctx)
+	if !ok {
+		return
+	}
+
 	id := ctx.Param("app-id")
 
 	var request struct {

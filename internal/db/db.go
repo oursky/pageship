@@ -68,6 +68,7 @@ type DeploymentsDB interface {
 }
 
 type UserDB interface {
+	GetUser(ctx context.Context, id string) (*models.User, error)
 	GetUserByCredential(ctx context.Context, id models.UserCredentialID) (*models.User, error)
 	CreateUserWithCredential(ctx context.Context, user *models.User, credential *models.UserCredential) error
 }

@@ -27,6 +27,11 @@ func (c *Controller) makeAPIDeployment(d *models.Deployment) *apiDeployment {
 }
 
 func (c *Controller) handleDeploymentGet(ctx *gin.Context) {
+	_, ok := c.requireAuthn(ctx)
+	if !ok {
+		return
+	}
+
 	appID := ctx.Param("app-id")
 	deploymentName := ctx.Param("deployment-name")
 
@@ -43,6 +48,11 @@ func (c *Controller) handleDeploymentGet(ctx *gin.Context) {
 }
 
 func (c *Controller) handleDeploymentCreate(ctx *gin.Context) {
+	_, ok := c.requireAuthn(ctx)
+	if !ok {
+		return
+	}
+
 	appID := ctx.Param("app-id")
 
 	var request struct {
@@ -106,6 +116,11 @@ func (c *Controller) handleDeploymentCreate(ctx *gin.Context) {
 }
 
 func (c *Controller) handleDeploymentUpload(ctx *gin.Context) {
+	_, ok := c.requireAuthn(ctx)
+	if !ok {
+		return
+	}
+
 	appID := ctx.Param("app-id")
 	deploymentName := ctx.Param("deployment-name")
 
@@ -168,6 +183,11 @@ func (c *Controller) handleDeploymentUpload(ctx *gin.Context) {
 }
 
 func (c *Controller) handleDeploymentList(ctx *gin.Context) {
+	_, ok := c.requireAuthn(ctx)
+	if !ok {
+		return
+	}
+
 	appID := ctx.Param("app-id")
 
 	deployments, err := tx(ctx, c.DB, func(conn db.Conn) ([]*apiDeployment, error) {

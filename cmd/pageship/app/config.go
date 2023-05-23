@@ -1,6 +1,8 @@
 package app
 
 import (
+	"net/http"
+
 	"github.com/oursky/pageship/internal/api"
 	"github.com/oursky/pageship/internal/command"
 	"github.com/spf13/cobra"
@@ -23,4 +25,8 @@ func initConfig() {
 	debugMode = viper.GetBool("debug")
 	apiEndpoint := viper.GetString("api")
 	apiClient = api.NewClient(apiEndpoint)
+
+	apiClient.TokenFunc = func(r *http.Request) (string, error) {
+		return ensureAuth(r.Context())
+	}
 }
