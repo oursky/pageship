@@ -84,9 +84,10 @@ func (c *Collector) AddFile(path string, data []byte) error {
 	c.writer.Write(data)
 
 	c.files = append(c.files, models.FileEntry{
-		Path: header.Name,
-		Size: header.Size,
-		Hash: hash,
+		Path:        header.Name,
+		Size:        header.Size,
+		Hash:        hash,
+		ContentType: models.DetectContentType(header.Name, data),
 	})
 	return nil
 }
@@ -139,14 +140,21 @@ func addFile(fsys fs.FS, filePath string, d fs.DirEntry, dir string, modTime tim
 	writer.WriteHeader(&header)
 
 	hash := ""
+	contentType := ""
 	if !info.IsDir() {
 		file, err := fsys.Open(filePath)
 		if err != nil {
 			return models.FileEntry{}, err
 		}
 
+		initialBytes := make([]byte, 512)
+		n, _ := io.ReadFull(file, initialBytes)
+		initialBytes = initialBytes[:n]
+		contentType = models.DetectContentType(header.Name, initialBytes)
+
+		fileData := io.MultiReader(bytes.NewBuffer(initialBytes), file)
 		h := NewFileHash()
-		_, err = io.Copy(writer, io.TeeReader(file, h))
+		_, err = io.Copy(writer, io.TeeReader(fileData, h))
 		if err != nil {
 			return models.FileEntry{}, err
 		}
@@ -154,8 +162,9 @@ func addFile(fsys fs.FS, filePath string, d fs.DirEntry, dir string, modTime tim
 	}
 
 	return models.FileEntry{
-		Path: header.Name,
-		Size: header.Size,
-		Hash: hash,
+		Path:        header.Name,
+		Size:        header.Size,
+		Hash:        hash,
+		ContentType: contentType,
 	}, nil
 }
