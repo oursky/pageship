@@ -12,3 +12,5 @@ var ErrDeploymentNotFound = errors.New("deployment not found")
 var ErrDeploymentUsedName = errors.New("used deployment name")
 var ErrDeploymentNotUploaded = errors.New("deployment is not uploaded")
 var ErrDeploymentAlreadyUploaded = errors.New("deployment is already uploaded")
+
+var ErrUserNotFound = errors.New("user not found")

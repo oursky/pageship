@@ -39,6 +39,7 @@ type Conn interface {
 	AppsDB
 	SitesDB
 	DeploymentsDB
+	UserDB
 }
 
 type AppsDB interface {
@@ -64,6 +65,11 @@ type DeploymentsDB interface {
 	AssignDeploymentSite(ctx context.Context, deployment *models.Deployment, siteID string) error
 	UnassignDeploymentSite(ctx context.Context, deployment *models.Deployment, siteID string) error
 	GetSiteDeployment(ctx context.Context, appID string, siteName string) (*models.Deployment, error)
+}
+
+type UserDB interface {
+	GetUserByCredential(ctx context.Context, id models.UserCredentialID) (*models.User, error)
+	CreateUserWithCredential(ctx context.Context, user *models.User, credential *models.UserCredential) error
 }
 
 type SiteInfo struct {

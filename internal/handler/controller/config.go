@@ -6,4 +6,6 @@ type Config struct {
 	MaxDeploymentSize int64
 	StorageKeyPrefix  string
 	HostPattern       *config.HostPattern
+	TokenAuthority    string
+	TokenSignSecret   []byte
 }

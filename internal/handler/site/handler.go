@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"net/http"
 
+	"github.com/oursky/pageship/internal/cache"
 	"github.com/oursky/pageship/internal/config"
 )
 
@@ -22,7 +23,7 @@ type Handler struct {
 	logger      Logger
 	resolver    Resolver
 	hostPattern *config.HostPattern
-	cache       *siteCache
+	cache       *cache.Cache[Descriptor]
 }
 
 func NewHandler(logger Logger, resolver Resolver, conf HandlerConfig) (*Handler, error) {

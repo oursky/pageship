@@ -28,6 +28,10 @@ func init() {
 	startCmd.PersistentFlags().String("max-deployment-size", "200M", "max deployment files size")
 	startCmd.PersistentFlags().String("storage-key-prefix", "", "storage key prefix")
 	startCmd.PersistentFlags().String("host-pattern", config.DefaultHostPattern, "host match pattern")
+
+	startCmd.PersistentFlags().String("token-authority", "pageship", "auth token authority")
+	startCmd.PersistentFlags().String("token-sign-secret", "", "auth token sign secret")
+	startCmd.MarkPersistentFlagRequired("token-sign-secret")
 }
 
 var startCmd = &cobra.Command{
@@ -45,6 +49,8 @@ var startCmd = &cobra.Command{
 		}
 		storageKeyPrefix := viper.GetString("storage-key-prefix")
 		hostPattern := viper.GetString("host-pattern")
+		tokenSignSecret := viper.GetString("token-sign-secret")
+		tokenAuthority := viper.GetString("token-authority")
 
 		if !debugMode {
 			gin.SetMode(gin.ReleaseMode)
@@ -54,6 +60,8 @@ var startCmd = &cobra.Command{
 			MaxDeploymentSize: int64(maxDeploymentSize),
 			StorageKeyPrefix:  storageKeyPrefix,
 			HostPattern:       config.NewHostPattern(hostPattern),
+			TokenSignSecret:   []byte(tokenSignSecret),
+			TokenAuthority:    tokenAuthority,
 		}
 
 		db, err := db.New(database)
@@ -69,6 +77,7 @@ var startCmd = &cobra.Command{
 		}
 
 		ctrl := &controller.Controller{
+			Logger:  logger.Named("controller"),
 			Config:  config,
 			Storage: storage,
 			DB:      db,

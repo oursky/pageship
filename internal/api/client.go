@@ -3,11 +3,14 @@ package api
 import (
 	"context"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/models"
+	"golang.org/x/net/websocket"
 )
 
 type Client struct {
@@ -230,4 +233,21 @@ func (c *Client) UploadDeploymentTarball(
 	defer resp.Body.Close()
 
 	return decodeJSONResponse[*models.Deployment](resp)
+}
+
+func (c *Client) OpenAuthGitHubSSH(ctx context.Context) (*websocket.Conn, error) {
+	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "auth", "github-ssh")
+	if err != nil {
+		return nil, err
+	}
+
+	endpoint = strings.Replace(endpoint, "http", "ws", 1)
+	config, err := websocket.NewConfig(endpoint, "/")
+	if err != nil {
+		return nil, err
+	}
+	config.Dialer = &net.Dialer{Cancel: ctx.Done()}
+
+	ws, err := websocket.DialConfig(config)
+	return ws, err
 }

@@ -89,7 +89,7 @@ func makeHandler(prefix string) (http.Handler, error) {
 
 var serveCmd = &cobra.Command{
 	Use:   "serve directory",
-	Short: "Start server",
+	Short: "Start local server",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		addr := viper.GetString("addr")

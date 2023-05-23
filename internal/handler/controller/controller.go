@@ -25,6 +25,7 @@ func init() {
 }
 
 type Controller struct {
+	Logger  *zap.Logger
 	Clock   apptime.Clock
 	Config  Config
 	Storage *storage.Storage
@@ -59,6 +60,8 @@ func (c *Controller) Handler() http.Handler {
 	v1.GET("/apps/:app-id/deployments", c.handleDeploymentList)
 	v1.GET("/apps/:app-id/deployments/:deployment-name", c.handleDeploymentGet)
 	v1.PUT("/apps/:app-id/deployments/:deployment-name/tarball", c.handleDeploymentUpload)
+
+	v1.GET("/auth/github-ssh", c.handleAuthGithubSSH)
 
 	return g.Handler()
 }

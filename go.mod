@@ -8,6 +8,7 @@ require (
 	github.com/gin-contrib/zap v0.1.0
 	github.com/gin-gonic/gin v1.9.0
 	github.com/go-playground/validator/v10 v10.11.2
+	github.com/golang-jwt/jwt/v5 v5.0.0
 	github.com/golang-migrate/migrate/v4 v4.15.2
 	github.com/hashicorp/golang-lru/v2 v2.0.2
 	github.com/jmoiron/sqlx v1.3.5
@@ -21,7 +22,9 @@ require (
 	go.uber.org/zap v1.24.0
 	gocloud.dev v0.29.0
 	golang.org/x/crypto v0.9.0
+	golang.org/x/net v0.10.0
 	golang.org/x/sync v0.2.0
+	golang.org/x/time v0.3.0
 	modernc.org/sqlite v1.22.1
 )
 
@@ -112,7 +115,6 @@ require (
 	go.uber.org/multierr v1.9.0 // indirect
 	golang.org/x/arch v0.0.0-20210923205945-b76863e36670 // indirect
 	golang.org/x/mod v0.8.0 // indirect
-	golang.org/x/net v0.10.0 // indirect
 	golang.org/x/oauth2 v0.8.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/term v0.8.0 // indirect
