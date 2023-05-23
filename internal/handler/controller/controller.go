@@ -6,11 +6,23 @@ import (
 
 	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	"github.com/go-playground/validator/v10"
+	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/storage"
 	apptime "github.com/oursky/pageship/internal/time"
 	"go.uber.org/zap"
 )
+
+func init() {
+	validate := binding.Validator.Engine().(*validator.Validate)
+
+	validate.RegisterValidation("dnsLabel", func(fl validator.FieldLevel) bool {
+		value := fl.Field().String()
+		return config.ValidateDNSLabel(value)
+	})
+}
 
 type Controller struct {
 	Clock   apptime.Clock

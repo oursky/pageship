@@ -26,6 +26,28 @@ func NewClient(endpoint string) *Client {
 	return NewClientWithTransport(endpoint, http.DefaultTransport)
 }
 
+func (c *Client) CreateApp(ctx context.Context, appID string) (*APIApp, error) {
+	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps")
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := newJSONRequest(ctx, "POST", endpoint, map[string]any{
+		"id": appID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return decodeJSONResponse[*APIApp](resp)
+}
+
 func (c *Client) ListApps(ctx context.Context) ([]APIApp, error) {
 	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps")
 	if err != nil {
@@ -69,12 +91,14 @@ func (c *Client) ConfigureApp(ctx context.Context, appID string, conf *config.Ap
 }
 
 func (c *Client) CreateSite(ctx context.Context, appID string, siteName string) (*APISite, error) {
-	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "sites", siteName)
+	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "sites")
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := newJSONRequest(ctx, "POST", endpoint, map[string]any{})
+	req, err := newJSONRequest(ctx, "POST", endpoint, map[string]any{
+		"name": siteName,
+	})
 	if err != nil {
 		return nil, err
 	}

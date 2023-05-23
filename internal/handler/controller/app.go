@@ -23,7 +23,7 @@ func (c *Controller) makeAPIApp(app *models.App) apiApp {
 
 func (c *Controller) handleAppCreate(ctx *gin.Context) {
 	var request struct {
-		ID string `json:"id" binding:"required"`
+		ID string `json:"id" binding:"required,dnsLabel"`
 	}
 	if err := checkBind(ctx, ctx.ShouldBindJSON(&request)); err != nil {
 		return
