@@ -53,7 +53,7 @@ func (c *Controller) handleDeploymentCreate(ctx *gin.Context) {
 	appID := ctx.Param("app-id")
 
 	var request struct {
-		Name       string             `json:"name" binding:"required,max=32"`
+		Name       string             `json:"name" binding:"required,dnsLabel"`
 		Files      []models.FileEntry `json:"files" binding:"required"`
 		SiteConfig *config.SiteConfig `json:"site_config" binding:"required"`
 	}
