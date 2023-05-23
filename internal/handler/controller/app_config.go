@@ -9,12 +9,11 @@ import (
 )
 
 func (c *Controller) handleAppConfigGet(ctx *gin.Context) {
-	_, ok := c.requireAuthn(ctx)
-	if !ok {
+	id := ctx.Param("app-id")
+
+	if !c.requireAuthn(ctx) || !c.requireAuthz(ctx, authzReadApp(id)) {
 		return
 	}
-
-	id := ctx.Param("app-id")
 
 	config, err := tx(ctx, c.DB, func(conn db.Conn) (*config.AppConfig, error) {
 		app, err := conn.GetApp(ctx, id)
@@ -28,12 +27,11 @@ func (c *Controller) handleAppConfigGet(ctx *gin.Context) {
 }
 
 func (c *Controller) handleAppConfigSet(ctx *gin.Context) {
-	_, ok := c.requireAuthn(ctx)
-	if !ok {
+	id := ctx.Param("app-id")
+
+	if !c.requireAuthn(ctx) || !c.requireAuthz(ctx, authzWriteApp(id)) {
 		return
 	}
-
-	id := ctx.Param("app-id")
 
 	var request struct {
 		Config *config.AppConfig `json:"config" binding:"required"`

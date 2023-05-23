@@ -58,3 +58,40 @@ func (c Conn) CreateUserWithCredential(ctx context.Context, user *models.User, c
 
 	return nil
 }
+
+func (c Conn) AssignAppUser(ctx context.Context, appID string, userID string) error {
+	_, err := c.tx.ExecContext(ctx, `
+		INSERT INTO user_app (user_id, app_id)
+			VALUES (?, ?)
+			ON CONFLICT (user_id, app_id) DO NOTHING
+	`, userID, appID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c Conn) UnassignAppUser(ctx context.Context, appID string, userID string) error {
+	_, err := c.tx.ExecContext(ctx, `
+		DELETE FROM user_app WHERE user_id = ? AND app_id = ?
+	`, userID, appID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c Conn) IsAppAccessible(ctx context.Context, appID string, userID string) error {
+	err := c.tx.GetContext(ctx, new(string), `
+		SELECT app_id FROM user_app WHERE user_id = ? AND app_id = ?
+	`, userID, appID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return models.ErrAppNotFound
+	} else if err != nil {
+		return err
+	}
+
+	return nil
+}

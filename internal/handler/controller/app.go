@@ -19,8 +19,7 @@ func (c *Controller) makeAPIApp(app *models.App) *apiApp {
 }
 
 func (c *Controller) handleAppCreate(ctx *gin.Context) {
-	_, ok := c.requireAuthn(ctx)
-	if !ok {
+	if !c.requireAuthn(ctx) {
 		return
 	}
 
@@ -31,10 +30,16 @@ func (c *Controller) handleAppCreate(ctx *gin.Context) {
 		return
 	}
 
+	userID := ctx.GetString(contextUserID)
 	app, err := tx(ctx, c.DB, func(conn db.Conn) (*apiApp, error) {
 		app := models.NewApp(c.Clock.Now().UTC(), request.ID)
 
 		err := conn.CreateApp(ctx, app)
+		if err != nil {
+			return nil, err
+		}
+
+		err = conn.AssignAppUser(ctx, app.ID, userID)
 		if err != nil {
 			return nil, err
 		}
@@ -46,12 +51,11 @@ func (c *Controller) handleAppCreate(ctx *gin.Context) {
 }
 
 func (c *Controller) handleAppGet(ctx *gin.Context) {
-	_, ok := c.requireAuthn(ctx)
-	if !ok {
+	id := ctx.Param("app-id")
+
+	if !c.requireAuthn(ctx) || !c.requireAuthz(ctx, authzReadApp(id)) {
 		return
 	}
-
-	id := ctx.Param("app-id")
 
 	app, err := tx(ctx, c.DB, func(conn db.Conn) (*apiApp, error) {
 		app, err := conn.GetApp(ctx, id)
@@ -66,13 +70,13 @@ func (c *Controller) handleAppGet(ctx *gin.Context) {
 }
 
 func (c *Controller) handleAppList(ctx *gin.Context) {
-	_, ok := c.requireAuthn(ctx)
-	if !ok {
+	if !c.requireAuthn(ctx) || !c.requireAuthz(ctx) {
 		return
 	}
 
+	userID := ctx.GetString(contextUserID)
 	apps, err := tx(ctx, c.DB, func(conn db.Conn) ([]*apiApp, error) {
-		apps, err := conn.ListApps(ctx)
+		apps, err := conn.ListApps(ctx, userID)
 		if err != nil {
 			return nil, err
 		}

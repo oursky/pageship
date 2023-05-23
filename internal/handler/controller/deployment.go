@@ -27,13 +27,12 @@ func (c *Controller) makeAPIDeployment(d *models.Deployment) *apiDeployment {
 }
 
 func (c *Controller) handleDeploymentGet(ctx *gin.Context) {
-	_, ok := c.requireAuthn(ctx)
-	if !ok {
-		return
-	}
-
 	appID := ctx.Param("app-id")
 	deploymentName := ctx.Param("deployment-name")
+
+	if !c.requireAuthn(ctx) || !c.requireAuthz(ctx, authzReadApp(appID)) {
+		return
+	}
 
 	deployment, err := tx(ctx, c.DB, func(conn db.Conn) (*apiDeployment, error) {
 		deployment, err := conn.GetDeployment(ctx, appID, deploymentName)
@@ -48,12 +47,11 @@ func (c *Controller) handleDeploymentGet(ctx *gin.Context) {
 }
 
 func (c *Controller) handleDeploymentCreate(ctx *gin.Context) {
-	_, ok := c.requireAuthn(ctx)
-	if !ok {
+	appID := ctx.Param("app-id")
+
+	if !c.requireAuthn(ctx) || !c.requireAuthz(ctx, authzWriteApp(appID)) {
 		return
 	}
-
-	appID := ctx.Param("app-id")
 
 	var request struct {
 		Name       string             `json:"name" binding:"required,dnsLabel"`
@@ -116,13 +114,12 @@ func (c *Controller) handleDeploymentCreate(ctx *gin.Context) {
 }
 
 func (c *Controller) handleDeploymentUpload(ctx *gin.Context) {
-	_, ok := c.requireAuthn(ctx)
-	if !ok {
-		return
-	}
-
 	appID := ctx.Param("app-id")
 	deploymentName := ctx.Param("deployment-name")
+
+	if !c.requireAuthn(ctx) || !c.requireAuthz(ctx, authzWriteApp(appID)) {
+		return
+	}
 
 	deployment, err := tx(ctx, c.DB, func(conn db.Conn) (*models.Deployment, error) {
 		deployment, err := conn.GetDeploymentByName(ctx, appID, deploymentName)
@@ -183,12 +180,11 @@ func (c *Controller) handleDeploymentUpload(ctx *gin.Context) {
 }
 
 func (c *Controller) handleDeploymentList(ctx *gin.Context) {
-	_, ok := c.requireAuthn(ctx)
-	if !ok {
+	appID := ctx.Param("app-id")
+
+	if !c.requireAuthn(ctx) || !c.requireAuthz(ctx, authzReadApp(appID)) {
 		return
 	}
-
-	appID := ctx.Param("app-id")
 
 	deployments, err := tx(ctx, c.DB, func(conn db.Conn) ([]*apiDeployment, error) {
 		deployments, err := conn.ListDeployments(ctx, appID)

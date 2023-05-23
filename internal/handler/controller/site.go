@@ -26,12 +26,11 @@ func (c *Controller) makeAPISite(app *models.App, site db.SiteInfo) *apiSite {
 }
 
 func (c *Controller) handleSiteList(ctx *gin.Context) {
-	_, ok := c.requireAuthn(ctx)
-	if !ok {
+	appID := ctx.Param("app-id")
+
+	if !c.requireAuthn(ctx) || !c.requireAuthz(ctx, authzReadApp(appID)) {
 		return
 	}
-
-	appID := ctx.Param("app-id")
 
 	sites, err := tx(ctx, c.DB, func(conn db.Conn) ([]*apiSite, error) {
 		app, err := conn.GetApp(ctx, appID)
@@ -53,12 +52,11 @@ func (c *Controller) handleSiteList(ctx *gin.Context) {
 }
 
 func (c *Controller) handleSiteCreate(ctx *gin.Context) {
-	_, ok := c.requireAuthn(ctx)
-	if !ok {
+	appID := ctx.Param("app-id")
+
+	if !c.requireAuthn(ctx) || !c.requireAuthz(ctx, authzWriteApp(appID)) {
 		return
 	}
-
-	appID := ctx.Param("app-id")
 
 	var request struct {
 		Name string `json:"name" binding:"required,dnsLabel"`
@@ -90,13 +88,12 @@ func (c *Controller) handleSiteCreate(ctx *gin.Context) {
 }
 
 func (c *Controller) handleSiteUpdate(ctx *gin.Context) {
-	_, ok := c.requireAuthn(ctx)
-	if !ok {
-		return
-	}
-
 	appID := ctx.Param("app-id")
 	siteName := ctx.Param("site-name")
+
+	if !c.requireAuthn(ctx) || !c.requireAuthz(ctx, authzWriteApp(appID)) {
+		return
+	}
 
 	var request struct {
 		DeploymentName *string `json:"deploymentName,omitempty" binding:"omitempty"`

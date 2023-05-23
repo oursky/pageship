@@ -15,6 +15,11 @@ import (
 
 const tokenValidDuration time.Duration = 30 * time.Minute
 
+const (
+	contextUserID    string = "user-id"
+	contextAuthnInfo string = "authn"
+)
+
 type authnInfo struct {
 	UserID string
 }
@@ -70,22 +75,23 @@ func (c *Controller) generateUserToken(
 	return token, nil
 }
 
-func (c *Controller) requireAuthn(ctx *gin.Context) (*authnInfo, bool) {
+func (c *Controller) requireAuthn(ctx *gin.Context) bool {
 	token, ok := parseAuthorizationHeader(ctx)
 	if !ok {
 		writeResponse(ctx, nil, models.ErrInvalidCredentials)
-		return nil, false
+		return false
 	}
 
 	authn, err := c.verifyToken(ctx, token)
 	if err != nil {
 		writeResponse(ctx, nil, err)
-		return nil, false
+		return false
 	}
 
-	ctx.Set("userID", authn.UserID)
+	ctx.Set(contextUserID, authn.UserID)
+	ctx.Set(contextAuthnInfo, authn)
 
-	return authn, true
+	return true
 }
 
 func (c *Controller) verifyToken(ctx context.Context, token string) (*authnInfo, error) {

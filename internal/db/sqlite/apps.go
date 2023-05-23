@@ -30,13 +30,14 @@ func (c Conn) CreateApp(ctx context.Context, app *models.App) error {
 	return nil
 }
 
-func (c Conn) ListApps(ctx context.Context) ([]*models.App, error) {
+func (c Conn) ListApps(ctx context.Context, userID string) ([]*models.App, error) {
 	apps := []*models.App{}
 	err := c.tx.SelectContext(ctx, &apps, `
-		SELECT id, created_at, updated_at, deleted_at, config FROM app
-			WHERE deleted_at IS NULL
-			ORDER BY id
-	`)
+		SELECT a.id, a.created_at, a.updated_at, a.deleted_at, a.config FROM app a
+			JOIN user_app ua ON (ua.app_id = a.id)
+			WHERE a.deleted_at IS NULL AND ua.user_id = ?
+			ORDER BY a.id
+	`, userID)
 	if err != nil {
 		return nil, err
 	}
