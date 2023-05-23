@@ -55,6 +55,13 @@ var getSitesCmd = &cobra.Command{
 	Short: "List sites",
 	Run: func(cmd *cobra.Command, args []string) {
 		appID := viper.GetString("app")
+		if appID == "" {
+			appID = tryLoadAppID()
+		}
+		if appID == "" {
+			Error("App ID is not set")
+			return
+		}
 
 		sites, err := apiClient.ListSites(cmd.Context(), appID)
 		if err != nil {
@@ -80,6 +87,13 @@ var getDeploymentsCmd = &cobra.Command{
 	Short: "List deployments",
 	Run: func(cmd *cobra.Command, args []string) {
 		appID := viper.GetString("app")
+		if appID == "" {
+			appID = tryLoadAppID()
+		}
+		if appID == "" {
+			Error("App ID is not set")
+			return
+		}
 
 		sites, err := apiClient.ListSites(cmd.Context(), appID)
 		if err != nil {
