@@ -58,7 +58,7 @@ func isTokenValid(token string) error {
 	if err != nil {
 		return err
 	}
-	if claims.ExpiresAt.Sub(time.Now()) < reauthThreshold {
+	if time.Until(claims.ExpiresAt.Time) < reauthThreshold {
 		// Expires soon, need reauth
 		return models.ErrInvalidCredentials
 	}
