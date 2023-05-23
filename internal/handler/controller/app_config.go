@@ -1,34 +1,25 @@
 package controller
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/db"
-	"github.com/oursky/pageship/internal/models"
 )
 
 func (c *Controller) handleAppConfigGet(ctx *gin.Context) {
 	id := ctx.Param("app-id")
 
-	err := db.WithTx(ctx, c.DB, func(conn db.Conn) error {
+	config, err := tx(ctx, c.DB, func(conn db.Conn) (*config.AppConfig, error) {
 		app, err := conn.GetApp(ctx, id)
-		if errors.Is(err, models.ErrAppNotFound) {
-			ctx.JSON(http.StatusNotFound, response{Error: err})
-			return db.ErrRollback
-		} else if err != nil {
-			return err
+		if err != nil {
+			return nil, err
 		}
-
-		ctx.JSON(http.StatusOK, response{Result: app.Config})
-		return nil
+		return app.Config, nil
 	})
 
-	if err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
-	}
+	writeResponse(ctx, config, err)
 }
 
 func (c *Controller) handleAppConfigSet(ctx *gin.Context) {
@@ -47,20 +38,14 @@ func (c *Controller) handleAppConfigSet(ctx *gin.Context) {
 		return
 	}
 
-	err := db.WithTx(ctx, c.DB, func(conn db.Conn) error {
+	config, err := tx(ctx, c.DB, func(conn db.Conn) (*config.AppConfig, error) {
 		app, err := conn.UpdateAppConfig(ctx, id, request.Config)
-		if errors.Is(err, models.ErrAppNotFound) {
-			ctx.JSON(http.StatusNotFound, response{Error: err})
-			return db.ErrRollback
-		} else if err != nil {
-			return err
+		if err != nil {
+			return nil, err
 		}
 
-		ctx.JSON(http.StatusOK, response{Result: app.Config})
-		return nil
+		return app.Config, nil
 	})
 
-	if err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
-	}
+	writeResponse(ctx, config, err)
 }

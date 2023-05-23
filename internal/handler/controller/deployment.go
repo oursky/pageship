@@ -19,34 +19,27 @@ type apiDeployment struct {
 	Sites []string `json:"sites"`
 }
 
-func (c *Controller) makeAPIDeployment(d *models.Deployment) apiDeployment {
+func (c *Controller) makeAPIDeployment(d *models.Deployment) *apiDeployment {
 	deployment := *d
 	deployment.Metadata.Files = nil // Avoid large file list
 
-	return apiDeployment{Deployment: d}
+	return &apiDeployment{Deployment: d}
 }
 
 func (c *Controller) handleDeploymentGet(ctx *gin.Context) {
 	appID := ctx.Param("app-id")
 	deploymentName := ctx.Param("deployment-name")
 
-	err := db.WithTx(ctx, c.DB, func(conn db.Conn) error {
+	deployment, err := tx(ctx, c.DB, func(conn db.Conn) (*apiDeployment, error) {
 		deployment, err := conn.GetDeployment(ctx, appID, deploymentName)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		ctx.JSON(http.StatusOK, response{Result: c.makeAPIDeployment(deployment)})
-		return nil
+		return c.makeAPIDeployment(deployment), nil
 	})
 
-	if err != nil {
-		if errors.Is(err, models.ErrDeploymentNotFound) {
-			ctx.JSON(http.StatusNotFound, response{Error: err})
-		} else {
-			ctx.AbortWithError(http.StatusInternalServerError, err)
-		}
-	}
+	writeResponse(ctx, deployment, err)
 }
 
 func (c *Controller) handleDeploymentCreate(ctx *gin.Context) {
@@ -89,13 +82,10 @@ func (c *Controller) handleDeploymentCreate(ctx *gin.Context) {
 		return
 	}
 
-	err := db.WithTx(ctx, c.DB, func(conn db.Conn) error {
+	deployment, err := tx(ctx, c.DB, func(conn db.Conn) (*apiDeployment, error) {
 		_, err := conn.GetApp(ctx, appID)
-		if errors.Is(err, models.ErrAppNotFound) {
-			ctx.JSON(http.StatusNotFound, response{Error: err})
-			return db.ErrRollback
-		} else if err != nil {
-			return err
+		if err != nil {
+			return nil, err
 		}
 
 		metadata := &models.DeploymentMetadata{
@@ -105,49 +95,35 @@ func (c *Controller) handleDeploymentCreate(ctx *gin.Context) {
 		deployment := models.NewDeployment(c.Clock.Now().UTC(), name, appID, c.Config.StorageKeyPrefix, metadata)
 
 		err = conn.CreateDeployment(ctx, deployment)
-		if errors.Is(err, models.ErrDeploymentUsedName) {
-			ctx.JSON(http.StatusBadRequest, response{Error: err})
-			return db.ErrRollback
-		} else if err != nil {
-			return err
+		if err != nil {
+			return nil, err
 		}
 
-		ctx.JSON(http.StatusOK, response{Result: c.makeAPIDeployment(deployment)})
-		return nil
+		return c.makeAPIDeployment(deployment), nil
 	})
 
-	if err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
-	}
+	writeResponse(ctx, deployment, err)
 }
 
 func (c *Controller) handleDeploymentUpload(ctx *gin.Context) {
 	appID := ctx.Param("app-id")
 	deploymentName := ctx.Param("deployment-name")
 
-	var deployment *models.Deployment
-	err := db.WithTx(ctx, c.DB, func(conn db.Conn) (err error) {
-		deployment, err = conn.GetDeploymentByName(ctx, appID, deploymentName)
+	deployment, err := tx(ctx, c.DB, func(conn db.Conn) (*models.Deployment, error) {
+		deployment, err := conn.GetDeploymentByName(ctx, appID, deploymentName)
 		if err != nil {
-			return
+			return nil, err
 		}
 
 		if deployment.UploadedAt != nil {
-			err = models.ErrDeploymentAlreadyUploaded
-			return
+			return nil, models.ErrDeploymentAlreadyUploaded
 		}
 
-		return
+		return deployment, nil
 	})
 
 	if err != nil {
-		if errors.Is(err, models.ErrDeploymentNotFound) {
-			ctx.JSON(http.StatusNotFound, response{Error: err})
-		} else if errors.Is(err, models.ErrDeploymentAlreadyUploaded) {
-			ctx.JSON(http.StatusConflict, response{Error: err})
-		} else {
-			ctx.AbortWithError(http.StatusInternalServerError, err)
-		}
+		writeResponse(ctx, nil, err)
 		return
 	}
 
@@ -170,52 +146,38 @@ func (c *Controller) handleDeploymentUpload(ctx *gin.Context) {
 	now := c.Clock.Now().UTC()
 
 	// Mark deployment as completed, but inactive
-	err = db.WithTx(ctx, c.DB, func(conn db.Conn) error {
+	result, err := tx(ctx, c.DB, func(conn db.Conn) (*apiDeployment, error) {
 		deployment, err = conn.GetDeployment(ctx, appID, deployment.ID)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		if deployment.UploadedAt != nil {
-			return models.ErrDeploymentAlreadyUploaded
+			return nil, models.ErrDeploymentAlreadyUploaded
 		}
 
 		err = conn.MarkDeploymentUploaded(ctx, now, deployment)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		ctx.JSON(http.StatusOK, response{Result: c.makeAPIDeployment(deployment)})
-		return nil
+		return c.makeAPIDeployment(deployment), nil
 	})
 
-	if err != nil {
-		if errors.Is(err, models.ErrDeploymentNotFound) {
-			ctx.JSON(http.StatusNotFound, response{Error: err})
-		} else if errors.Is(err, models.ErrDeploymentAlreadyUploaded) {
-			ctx.JSON(http.StatusConflict, response{Error: err})
-		} else {
-			ctx.AbortWithError(http.StatusInternalServerError, err)
-		}
-	}
+	writeResponse(ctx, result, err)
 }
 
 func (c *Controller) handleDeploymentList(ctx *gin.Context) {
 	appID := ctx.Param("app-id")
 
-	err := db.WithTx(ctx, c.DB, func(conn db.Conn) error {
+	deployments, err := tx(ctx, c.DB, func(conn db.Conn) ([]*apiDeployment, error) {
 		deployments, err := conn.ListDeployments(ctx, appID)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		result := mapModels(deployments, c.makeAPIDeployment)
-
-		ctx.JSON(http.StatusOK, response{Result: result})
-		return nil
+		return mapModels(deployments, c.makeAPIDeployment), nil
 	})
 
-	if err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
-	}
+	writeResponse(ctx, deployments, err)
 }

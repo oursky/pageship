@@ -1,9 +1,6 @@
 package controller
 
 import (
-	"errors"
-	"net/http"
-
 	"github.com/gin-gonic/gin"
 	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/models"
@@ -15,13 +12,13 @@ type apiSite struct {
 	DeploymentName *string `json:"deploymentName"`
 }
 
-func (c *Controller) makeAPISite(app *models.App, site db.SiteInfo) apiSite {
+func (c *Controller) makeAPISite(app *models.App, site db.SiteInfo) *apiSite {
 	hostID := site.AppID
 	if app.Config.DefaultSite != site.Name {
 		hostID = site.Name + "." + site.AppID
 	}
 
-	return apiSite{
+	return &apiSite{
 		Site:           site.Site,
 		URL:            c.Config.HostPattern.MakeURL(hostID),
 		DeploymentName: site.DeploymentName,
@@ -31,32 +28,23 @@ func (c *Controller) makeAPISite(app *models.App, site db.SiteInfo) apiSite {
 func (c *Controller) handleSiteList(ctx *gin.Context) {
 	appID := ctx.Param("app-id")
 
-	err := db.WithTx(ctx, c.DB, func(conn db.Conn) error {
+	sites, err := tx(ctx, c.DB, func(conn db.Conn) ([]*apiSite, error) {
 		app, err := conn.GetApp(ctx, appID)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		sites, err := conn.ListSitesInfo(ctx, appID)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		result := mapModels(sites, func(site db.SiteInfo) apiSite {
+		return mapModels(sites, func(site db.SiteInfo) *apiSite {
 			return c.makeAPISite(app, site)
-		})
-
-		ctx.JSON(http.StatusOK, response{Result: result})
-		return nil
+		}), nil
 	})
 
-	switch {
-	case errors.Is(err, models.ErrAppNotFound):
-		ctx.JSON(http.StatusNotFound, response{Error: err})
-
-	case err != nil:
-		ctx.AbortWithError(http.StatusInternalServerError, err)
-	}
+	writeResponse(ctx, sites, err)
 }
 
 func (c *Controller) handleSiteCreate(ctx *gin.Context) {
@@ -69,35 +57,26 @@ func (c *Controller) handleSiteCreate(ctx *gin.Context) {
 		return
 	}
 
-	err := db.WithTx(ctx, c.DB, func(conn db.Conn) error {
+	site, err := tx(ctx, c.DB, func(conn db.Conn) (*apiSite, error) {
 		app, err := conn.GetApp(ctx, appID)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		if _, ok := app.Config.ResolveSite(request.Name); !ok {
-			return models.ErrUndefinedSite
+			return nil, models.ErrUndefinedSite
 		}
 
 		site := models.NewSite(c.Clock.Now().UTC(), appID, request.Name)
 		info, err := conn.CreateSiteIfNotExist(ctx, site)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		result := c.makeAPISite(app, *info)
-
-		ctx.JSON(http.StatusOK, response{Result: result})
-		return nil
+		return c.makeAPISite(app, *info), nil
 	})
 
-	switch {
-	case errors.Is(err, models.ErrAppNotFound):
-		ctx.JSON(http.StatusNotFound, response{Error: err})
-
-	case err != nil:
-		ctx.AbortWithError(http.StatusInternalServerError, err)
-	}
+	writeResponse(ctx, site, err)
 }
 
 func (c *Controller) handleSiteUpdate(ctx *gin.Context) {
@@ -111,49 +90,40 @@ func (c *Controller) handleSiteUpdate(ctx *gin.Context) {
 		return
 	}
 
-	err := db.WithTx(ctx, c.DB, func(conn db.Conn) error {
+	site, err := tx(ctx, c.DB, func(conn db.Conn) (*apiSite, error) {
 		app, err := conn.GetApp(ctx, appID)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		site, err := conn.GetSiteByName(ctx, appID, siteName)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		if request.DeploymentName != nil {
 			deployment, err := conn.GetDeploymentByName(ctx, appID, *request.DeploymentName)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if deployment.UploadedAt == nil {
-				return models.ErrDeploymentNotUploaded
+				return nil, models.ErrDeploymentNotUploaded
 			}
 
 			err = conn.AssignDeploymentSite(ctx, deployment, site.ID)
 			if err != nil {
-				return err
+				return nil, err
 			}
 		}
 
 		info, err := conn.GetSiteInfo(ctx, appID, site.ID)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		ctx.JSON(http.StatusOK, response{Result: c.makeAPISite(app, *info)})
-		return nil
+		return c.makeAPISite(app, *info), nil
 	})
 
-	if err != nil {
-		if errors.Is(err, models.ErrDeploymentNotFound) {
-			ctx.JSON(http.StatusNotFound, response{Error: err})
-		} else if errors.Is(err, models.ErrDeploymentNotUploaded) {
-			ctx.JSON(http.StatusBadRequest, response{Error: err})
-		} else {
-			ctx.AbortWithError(http.StatusInternalServerError, err)
-		}
-	}
+	writeResponse(ctx, site, err)
 }

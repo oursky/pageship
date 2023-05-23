@@ -1,9 +1,6 @@
 package controller
 
 import (
-	"errors"
-	"net/http"
-
 	"github.com/gin-gonic/gin"
 	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/models"
@@ -14,8 +11,8 @@ type apiApp struct {
 	URL string `json:"url"`
 }
 
-func (c *Controller) makeAPIApp(app *models.App) apiApp {
-	return apiApp{
+func (c *Controller) makeAPIApp(app *models.App) *apiApp {
+	return &apiApp{
 		App: app,
 		URL: c.Config.HostPattern.MakeURL(app.ID),
 	}
@@ -29,61 +26,44 @@ func (c *Controller) handleAppCreate(ctx *gin.Context) {
 		return
 	}
 
-	err := db.WithTx(ctx, c.DB, func(conn db.Conn) error {
+	app, err := tx(ctx, c.DB, func(conn db.Conn) (*apiApp, error) {
 		app := models.NewApp(c.Clock.Now().UTC(), request.ID)
 
 		err := conn.CreateApp(ctx, app)
-		if errors.Is(err, models.ErrAppUsedID) {
-			ctx.JSON(http.StatusBadRequest, response{Error: err})
-			return db.ErrRollback
-		} else if err != nil {
-			return err
+		if err != nil {
+			return nil, err
 		}
 
-		ctx.JSON(http.StatusOK, response{Result: c.makeAPIApp(app)})
-		return nil
+		return c.makeAPIApp(app), nil
 	})
 
-	if err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
-	}
+	writeResponse(ctx, app, err)
 }
 
 func (c *Controller) handleAppGet(ctx *gin.Context) {
 	id := ctx.Param("app-id")
 
-	err := db.WithTx(ctx, c.DB, func(conn db.Conn) error {
+	app, err := tx(ctx, c.DB, func(conn db.Conn) (*apiApp, error) {
 		app, err := conn.GetApp(ctx, id)
-		if errors.Is(err, models.ErrAppNotFound) {
-			ctx.JSON(http.StatusNotFound, response{Error: err})
-			return db.ErrRollback
-		} else if err != nil {
-			return err
+		if err != nil {
+			return nil, err
 		}
 
-		ctx.JSON(http.StatusOK, response{Result: c.makeAPIApp(app)})
-		return nil
+		return c.makeAPIApp(app), nil
 	})
 
-	if err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
-	}
+	writeResponse(ctx, app, err)
 }
 
 func (c *Controller) handleAppList(ctx *gin.Context) {
-	err := db.WithTx(ctx, c.DB, func(conn db.Conn) error {
+	apps, err := tx(ctx, c.DB, func(conn db.Conn) ([]*apiApp, error) {
 		apps, err := conn.ListApps(ctx)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		result := mapModels(apps, c.makeAPIApp)
-
-		ctx.JSON(http.StatusOK, response{Result: result})
-		return nil
+		return mapModels(apps, c.makeAPIApp), nil
 	})
 
-	if err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
-	}
+	writeResponse(ctx, apps, err)
 }
