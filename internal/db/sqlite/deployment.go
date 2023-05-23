@@ -93,38 +93,13 @@ func (c Conn) MarkDeploymentUploaded(ctx context.Context, now time.Time, deploym
 	return nil
 }
 
-func (c Conn) AssignDeploymentSite(ctx context.Context, deployment *models.Deployment, siteID string) error {
-	_, err := c.tx.ExecContext(ctx, `
-		INSERT INTO site_deployment (deployment_id, site_id)
-			VALUES (?, ?)
-			ON CONFLICT (site_id) DO UPDATE SET deployment_id = excluded.deployment_id
-	`, deployment.ID, siteID)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c Conn) UnassignDeploymentSite(ctx context.Context, deployment *models.Deployment, siteID string) error {
-	_, err := c.tx.ExecContext(ctx, `
-		DELETE FROM site_deployment WHERE deployment_id = ? AND site_id = ?
-	`, deployment.ID, siteID)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (c Conn) GetSiteDeployment(ctx context.Context, appID string, siteName string) (*models.Deployment, error) {
 	var deployment models.Deployment
 
 	err := c.tx.GetContext(ctx, &deployment, `
 		SELECT d.id, d.created_at, d.updated_at, d.deleted_at, d.name, d.app_id, d.storage_key_prefix, d.metadata, d.uploaded_at FROM site s
 			JOIN app a ON (a.id = s.app_id AND a.deleted_at IS NULL)
-			JOIN site_deployment sd ON (sd.site_id = s.id)
-			JOIN deployment d ON (d.id = sd.deployment_id AND d.deleted_at IS NULL)
+			JOIN deployment d ON (d.id = s.deployment_id AND d.deleted_at IS NULL)
 			WHERE d.app_id = ? AND s.name = ? AND d.deleted_at IS NULL
 	`, appID, siteName)
 	if errors.Is(err, sql.ErrNoRows) {
