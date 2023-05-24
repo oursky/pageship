@@ -20,6 +20,10 @@ var configTemplate = template.Must(template.New("").Parse(`
 [app]
 id={{.appID}}
 
+[app.deployments]
+# ttl="24h"
+# accessible=false
+
 [[app.sites]]
 name="main"
 
