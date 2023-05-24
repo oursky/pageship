@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"net/http"
 	"time"
-
-	"go.uber.org/zap"
 )
 
+type HTTPServerLogger interface {
+	Info(format string, args ...any)
+	Error(msg string, err error)
+}
+
 type HTTPServer struct {
-	Logger  *zap.Logger
+	Logger  HTTPServerLogger
 	Addr    string
 	Handler http.Handler
 }
@@ -25,6 +28,7 @@ func (s *HTTPServer) Run(ctx context.Context) error {
 	shutdown := make(chan struct{})
 	go func() {
 		<-ctx.Done()
+		s.Logger.Info("server stopping...")
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
@@ -32,11 +36,11 @@ func (s *HTTPServer) Run(ctx context.Context) error {
 		close(shutdown)
 	}()
 
-	s.Logger.Info("server starting", zap.String("addr", server.Addr))
+	s.Logger.Info("server starting at %s", server.Addr)
 
 	err := server.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		s.Logger.Error("failed to start server", zap.Error(err))
+		s.Logger.Error("failed to start server", err)
 		return fmt.Errorf("failed to start server: %w", err)
 	}
 	<-shutdown

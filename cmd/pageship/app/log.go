@@ -15,3 +15,17 @@ func Info(format string, args ...any) {
 func Error(format string, args ...any) {
 	color.Red(" ERROR   "+format, args...)
 }
+
+type logger struct{}
+
+func (logger) Debug(format string, args ...any) {
+	Debug(format, args...)
+}
+
+func (logger) Info(format string, args ...any) {
+	Info(format, args...)
+}
+
+func (logger) Error(msg string, err error) {
+	Error(msg+": %s", err)
+}

@@ -24,16 +24,6 @@ func init() {
 	serveCmd.PersistentFlags().String("addr", ":8000", "listen address")
 }
 
-type siteLogger struct{}
-
-func (siteLogger) Debug(format string, args ...any) {
-	Debug(format, args...)
-}
-
-func (siteLogger) Error(msg string, err error) {
-	Error(msg+": %s", err)
-}
-
 func loadSitesConfig(fsys fs.FS) (*config.SitesConfig, error) {
 	loader := config.NewLoader(config.SitesConfigName)
 
@@ -79,7 +69,7 @@ func makeHandler(prefix string) (http.Handler, error) {
 	}
 	Info("site resolution mode: %s", resolver.Kind())
 
-	handler, err := handler.NewHandler(siteLogger{}, resolver, handler.HandlerConfig{
+	handler, err := handler.NewHandler(logger{}, resolver, handler.HandlerConfig{
 		HostPattern: sitesConf.HostPattern,
 		Middlewares: middleware.Default,
 	})
@@ -104,6 +94,7 @@ var serveCmd = &cobra.Command{
 		}
 
 		server := &command.HTTPServer{
+			Logger:  logger{},
 			Addr:    addr,
 			Handler: handler,
 		}
