@@ -66,6 +66,23 @@ func (c *Collector) Files() []models.FileEntry {
 	return c.files
 }
 
+func (c *Collector) AddDir(path string) {
+	header := &tar.Header{
+		Typeflag: tar.TypeDir,
+		Name:     path,
+		ModTime:  c.modTime,
+		Size:     0,
+	}
+	c.writer.WriteHeader(header)
+
+	c.files = append(c.files, models.FileEntry{
+		Path:        header.Name,
+		Size:        header.Size,
+		Hash:        "",
+		ContentType: "",
+	})
+}
+
 func (c *Collector) AddFile(path string, data []byte) error {
 	h := NewFileHash()
 	_, err := io.Copy(h, bytes.NewBuffer(data))

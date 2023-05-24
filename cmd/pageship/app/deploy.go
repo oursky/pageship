@@ -37,6 +37,8 @@ func packTar(dir string, tarfile *os.File, conf *config.Config) ([]models.FileEn
 	}
 	defer collector.Close()
 
+	collector.AddDir("/")
+
 	publicDir := filepath.Join(dir, conf.Site.Public)
 	conf.Site.Public = "public"
 
