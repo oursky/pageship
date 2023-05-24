@@ -136,3 +136,19 @@ func (c Conn) SetDeploymentExpiry(ctx context.Context, deployment *models.Deploy
 
 	return nil
 }
+
+func (c Conn) DeleteExpiredDeployments(ctx context.Context, now time.Time, expireBefore time.Time) (int64, error) {
+	result, err := c.tx.ExecContext(ctx, `
+		UPDATE deployment SET deleted_at = ? WHERE deleted_at IS NULL AND expire_at < ?
+	`, now, expireBefore)
+	if err != nil {
+		return 0, err
+	}
+
+	n, err := result.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+
+	return n, nil
+}

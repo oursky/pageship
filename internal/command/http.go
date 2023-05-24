@@ -17,8 +17,6 @@ type HTTPServer struct {
 }
 
 func (s *HTTPServer) Run(ctx context.Context) error {
-	logger := zap.L().Named("server")
-
 	server := http.Server{
 		Addr:    s.Addr,
 		Handler: s.Handler,
@@ -34,11 +32,11 @@ func (s *HTTPServer) Run(ctx context.Context) error {
 		close(shutdown)
 	}()
 
-	logger.Info("server starting", zap.String("addr", server.Addr))
+	s.Logger.Info("server starting", zap.String("addr", server.Addr))
 
 	err := server.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		logger.Error("failed to start server", zap.Error(err))
+		s.Logger.Error("failed to start server", zap.Error(err))
 		return fmt.Errorf("failed to start server: %w", err)
 	}
 	<-shutdown

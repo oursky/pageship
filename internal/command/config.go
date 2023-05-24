@@ -19,9 +19,8 @@ func setCommandFlags(cmd *cobra.Command) {
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
 		if viper.IsSet(f.Name) {
 			cmd.Flags().Set(f.Name, viper.GetString(f.Name))
-		} else {
-			viper.BindPFlag(f.Name, f)
 		}
+		viper.BindPFlag(f.Name, f)
 	})
 
 	for _, child := range cmd.Commands() {

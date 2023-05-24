@@ -1,17 +1,25 @@
 package app
 
 import (
+	"github.com/dustin/go-humanize"
+	"github.com/go-playground/validator/v10"
 	"github.com/oursky/pageship/internal/command"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
+var validate = validator.New()
 var debugMode bool
 
 var logger *zap.Logger
 
 func init() {
+	validate.RegisterValidation("size", func(fl validator.FieldLevel) bool {
+		_, err := humanize.ParseBytes(fl.Field().String())
+		return err == nil
+	})
+
 	rootCmd.PersistentFlags().Bool("debug", false, "debug mode")
 
 	cobra.OnInitialize(initConfig)

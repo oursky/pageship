@@ -1,10 +1,13 @@
 package app
 
 import (
+	"time"
+
 	"github.com/dustin/go-humanize"
 	"github.com/gin-gonic/gin"
 	"github.com/oursky/pageship/internal/command"
 	"github.com/oursky/pageship/internal/config"
+	"github.com/oursky/pageship/internal/cron"
 	"github.com/oursky/pageship/internal/db"
 	_ "github.com/oursky/pageship/internal/db/sqlite"
 	"github.com/oursky/pageship/internal/handler/controller"
@@ -32,45 +35,57 @@ func init() {
 	startCmd.PersistentFlags().String("token-authority", "pageship", "auth token authority")
 	startCmd.PersistentFlags().String("token-sign-secret", "", "auth token sign secret")
 	startCmd.MarkPersistentFlagRequired("token-sign-secret")
+
+	startCmd.PersistentFlags().String("cleanup-expired-crontab", "", "cleanup expired schedule")
+	startCmd.PersistentFlags().String("keep-after-expired", "24h", "keep-after-expired")
 }
 
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start controller server",
 	Run: func(cmd *cobra.Command, args []string) {
-		database := viper.GetString("database")
-		storageEndpoint := viper.GetString("storage-endpoint")
-		addr := viper.GetString("addr")
-
-		maxDeploymentSize, err := humanize.ParseBytes(viper.GetString("max-deployment-size"))
-		if err != nil {
-			logger.Fatal("invalid max deployment size", zap.Error(err))
+		var cmdArgs struct {
+			Database              string        `mapstructure:"database" validate:"url"`
+			StorageEndpoint       string        `mapstructure:"storage-endpoint" validate:"url"`
+			Addr                  string        `mapstructure:"addr" validate:"hostname_port"`
+			MaxDeploymentSize     string        `mapstructure:"max-deployment-size" validate:"size"`
+			StorageKeyPrefix      string        `mapstructure:"storage-key-prefix"`
+			HostPattern           string        `mapstructure:"host-pattern"`
+			TokenSignSecret       string        `mapstructure:"token-sign-secret"`
+			TokenAuthority        string        `mapstructure:"token-authority"`
+			CleanupExpiredCrontab string        `mapstructure:"cleanup-expired-crontab" validate:"omitempty,cron"`
+			KeepAfterExpired      time.Duration `mapstructure:"keep-after-expired" validate:"min=0"`
+		}
+		if err := viper.Unmarshal(&cmdArgs); err != nil {
+			logger.Fatal("invalid config", zap.Error(err))
 			return
 		}
-		storageKeyPrefix := viper.GetString("storage-key-prefix")
-		hostPattern := viper.GetString("host-pattern")
-		tokenSignSecret := viper.GetString("token-sign-secret")
-		tokenAuthority := viper.GetString("token-authority")
+		if err := validate.Struct(cmdArgs); err != nil {
+			logger.Fatal("invalid config", zap.Error(err))
+			return
+		}
 
 		if !debugMode {
 			gin.SetMode(gin.ReleaseMode)
 		}
 
+		maxDeploymentSize, _ := humanize.ParseBytes(cmdArgs.MaxDeploymentSize)
+
 		config := controller.Config{
 			MaxDeploymentSize: int64(maxDeploymentSize),
-			StorageKeyPrefix:  storageKeyPrefix,
-			HostPattern:       config.NewHostPattern(hostPattern),
-			TokenSignSecret:   []byte(tokenSignSecret),
-			TokenAuthority:    tokenAuthority,
+			StorageKeyPrefix:  cmdArgs.StorageKeyPrefix,
+			HostPattern:       config.NewHostPattern(cmdArgs.HostPattern),
+			TokenSignSecret:   []byte(cmdArgs.TokenSignSecret),
+			TokenAuthority:    cmdArgs.TokenAuthority,
 		}
 
-		db, err := db.New(database)
+		db, err := db.New(cmdArgs.Database)
 		if err != nil {
 			logger.Fatal("failed to setup database", zap.Error(err))
 			return
 		}
 
-		storage, err := storage.New(cmd.Context(), storageEndpoint)
+		storage, err := storage.New(cmd.Context(), cmdArgs.StorageEndpoint)
 		if err != nil {
 			logger.Fatal("failed to setup object storage", zap.Error(err))
 			return
@@ -82,10 +97,26 @@ var startCmd = &cobra.Command{
 			Storage: storage,
 			DB:      db,
 		}
-		server := command.HTTPServer{Addr: addr, Handler: ctrl.Handler()}
+		server := command.HTTPServer{
+			Logger:  logger.Named("server"),
+			Addr:    cmdArgs.Addr,
+			Handler: ctrl.Handler(),
+		}
+
+		cronr := command.CronRunner{
+			Logger: zap.L().Named("cron"),
+			Jobs: []command.CronJob{
+				&cron.CleanupExpired{
+					Schedule:         cmdArgs.CleanupExpiredCrontab,
+					KeepAfterExpired: cmdArgs.KeepAfterExpired,
+					DB:               db,
+				},
+			},
+		}
 
 		command.Run([]command.WorkFunc{
 			server.Run,
+			cronr.Run,
 		})
 	},
 }

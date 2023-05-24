@@ -67,6 +67,7 @@ type DeploymentsDB interface {
 	GetSiteDeployment(ctx context.Context, appID string, siteName string) (*models.Deployment, error)
 	CountDeploymentSites(ctx context.Context, deployment *models.Deployment) (int, error)
 	SetDeploymentExpiry(ctx context.Context, deployment *models.Deployment) error
+	DeleteExpiredDeployments(ctx context.Context, now time.Time, expireBefore time.Time) (int64, error)
 }
 
 type UserDB interface {
