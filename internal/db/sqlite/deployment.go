@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/models"
 )
 
@@ -64,11 +65,13 @@ func (c Conn) GetDeploymentByName(ctx context.Context, appID string, name string
 	return &deployment, nil
 }
 
-func (c Conn) ListDeployments(ctx context.Context, appID string) ([]*models.Deployment, error) {
-	var deployments []*models.Deployment
+func (c Conn) ListDeployments(ctx context.Context, appID string) ([]db.DeploymentInfo, error) {
+	var deployments []db.DeploymentInfo
 	err := c.tx.SelectContext(ctx, &deployments, `
-		SELECT d.id, d.created_at, d.updated_at, d.deleted_at, d.name, d.app_id, d.storage_key_prefix, d.metadata, d.uploaded_at, d.expire_at FROM deployment d
+		SELECT d.id, d.created_at, d.updated_at, d.deleted_at, d.name, d.app_id, d.storage_key_prefix, d.metadata, d.uploaded_at, d.expire_at, min(s.name) as site_name FROM deployment d
+			LEFT JOIN site s ON (s.deployment_id = d.id AND s.deleted_at IS NULL)
 			WHERE d.app_id = ? AND d.deleted_at IS NULL
+			GROUP BY d.id
 			ORDER BY d.app_id, d.created_at
 	`, appID)
 	if err != nil {
@@ -111,19 +114,20 @@ func (c Conn) GetSiteDeployment(ctx context.Context, appID string, siteName stri
 	return &deployment, nil
 }
 
-func (c Conn) CountDeploymentSites(ctx context.Context, deployment *models.Deployment) (int, error) {
-	var n int
-	err := c.tx.GetContext(ctx, &n, `
-		SELECT COUNT(*) FROM site s
+func (c Conn) GetDeploymentSiteNames(ctx context.Context, deployment *models.Deployment) ([]string, error) {
+	var names []string
+	err := c.tx.SelectContext(ctx, &names, `
+		SELECT s.name FROM site s
 			JOIN app a ON (a.id = s.app_id AND a.deleted_at IS NULL)
 			JOIN deployment d ON (d.id = s.deployment_id AND d.deleted_at IS NULL)
 			WHERE d.app_id = ? AND d.id = ? AND s.deleted_at IS NULL
+			ORDER BY s.name
 	`, deployment.AppID, deployment.ID)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
-	return n, nil
+	return names, nil
 }
 
 func (c Conn) SetDeploymentExpiry(ctx context.Context, deployment *models.Deployment) error {

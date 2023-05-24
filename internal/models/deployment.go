@@ -47,6 +47,22 @@ func NewDeployment(
 	}
 }
 
+func (d *Deployment) IsExpired(now time.Time) bool {
+	return d.ExpireAt != nil && !now.Before(*d.ExpireAt)
+}
+
+func (d *Deployment) CheckAlive(now time.Time) error {
+	if d.UploadedAt == nil {
+		// Not yet uploaded
+		return ErrDeploymentNotUploaded
+	}
+	if d.IsExpired(now) {
+		// Expired
+		return ErrDeploymentExpired
+	}
+	return nil
+}
+
 type DeploymentMetadata struct {
 	Files  []FileEntry       `json:"files,omitempty"`
 	Config config.SiteConfig `json:"config"`

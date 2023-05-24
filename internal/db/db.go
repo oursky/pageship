@@ -60,12 +60,12 @@ type DeploymentsDB interface {
 	CreateDeployment(ctx context.Context, deployment *models.Deployment) error
 	GetDeployment(ctx context.Context, appID string, id string) (*models.Deployment, error)
 	GetDeploymentByName(ctx context.Context, appID string, name string) (*models.Deployment, error)
-	ListDeployments(ctx context.Context, appID string) ([]*models.Deployment, error)
+	ListDeployments(ctx context.Context, appID string) ([]DeploymentInfo, error)
 	MarkDeploymentUploaded(ctx context.Context, now time.Time, deployment *models.Deployment) error
 	AssignDeploymentSite(ctx context.Context, deployment *models.Deployment, siteID string) error
 	UnassignDeploymentSite(ctx context.Context, deployment *models.Deployment, siteID string) error
 	GetSiteDeployment(ctx context.Context, appID string, siteName string) (*models.Deployment, error)
-	CountDeploymentSites(ctx context.Context, deployment *models.Deployment) (int, error)
+	GetDeploymentSiteNames(ctx context.Context, deployment *models.Deployment) ([]string, error)
 	SetDeploymentExpiry(ctx context.Context, deployment *models.Deployment) error
 	DeleteExpiredDeployments(ctx context.Context, now time.Time, expireBefore time.Time) (int64, error)
 }
@@ -80,8 +80,12 @@ type UserDB interface {
 	IsAppAccessible(ctx context.Context, appID string, userID string) error
 }
 
+type DeploymentInfo struct {
+	*models.Deployment
+	FirstSiteName *string `db:"site_name"`
+}
+
 type SiteInfo struct {
 	*models.Site
-	DeploymentID   *string `db:"deployment_id"`
 	DeploymentName *string `db:"deployment_name"`
 }

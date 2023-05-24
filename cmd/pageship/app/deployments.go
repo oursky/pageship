@@ -3,7 +3,6 @@ package app
 import (
 	"fmt"
 	"os"
-	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -29,49 +28,36 @@ var deploymentsCmd = &cobra.Command{
 			return
 		}
 
-		sites, err := apiClient.ListSites(cmd.Context(), appID)
-		if err != nil {
-			Error("Failed to list sites: %s", err)
-			return
-		}
-
 		deployments, err := apiClient.ListDeployments(cmd.Context(), appID)
 		if err != nil {
 			Error("Failed to list deployments: %s", err)
 			return
 		}
 
-		deploymentSites := map[string][]string{}
-		for _, site := range sites {
-			if site.DeploymentName == nil {
-				continue
-			}
-
-			n := deploymentSites[*site.DeploymentName]
-			n = append(n, site.Name)
-			deploymentSites[*site.DeploymentName] = n
-		}
-
 		now := time.Now()
 		w := tabwriter.NewWriter(os.Stdout, 1, 4, 4, ' ', 0)
-		fmt.Fprintln(w, "NAME\tCREATED AT\tSTATUS\tSITES")
+		fmt.Fprintln(w, "NAME\tCREATED AT\tSTATUS\tURL")
 		for _, deployment := range deployments {
 			createdAt := deployment.CreatedAt.Local().Format(time.DateTime)
-			sites := strings.Join(deploymentSites[deployment.Name], ",")
 
 			var status string
 			switch {
-			case deployment.ExpireAt != nil && now.After(*deployment.ExpireAt):
+			case deployment.IsExpired(now):
 				status = "EXPIRED"
 			case deployment.UploadedAt == nil:
 				status = "PENDING"
-			case len(deploymentSites[deployment.Name]) > 0:
+			case deployment.SiteName != nil:
 				status = "ACTIVE"
 			default:
 				status = "INACTIVE"
 			}
 
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", deployment.Name, createdAt, status, sites)
+			url := ""
+			if deployment.URL != nil {
+				url = *deployment.URL
+			}
+
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", deployment.Name, createdAt, status, url)
 		}
 		w.Flush()
 	},

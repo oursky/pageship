@@ -125,11 +125,8 @@ func (c *Controller) handleSiteUpdate(ctx *gin.Context) {
 					return nil, err
 				}
 
-				if deployment.ExpireAt != nil && now.After(*deployment.ExpireAt) {
-					return nil, models.ErrDeploymentExpired
-				}
-				if deployment.UploadedAt == nil {
-					return nil, models.ErrDeploymentNotUploaded
+				if err := deployment.CheckAlive(now); err != nil {
+					return nil, err
 				}
 
 				err = conn.AssignDeploymentSite(ctx, deployment, site.ID)
@@ -159,12 +156,12 @@ func (c *Controller) handleSiteUpdate(ctx *gin.Context) {
 						return nil, err
 					}
 
-					numSites, err := conn.CountDeploymentSites(ctx, deployment)
+					sites, err := conn.GetDeploymentSiteNames(ctx, deployment)
 					if err != nil {
 						return nil, err
 					}
 
-					if numSites == 0 {
+					if len(sites) == 0 {
 						deploymentTTL, err := time.ParseDuration(app.Config.Deployments.TTL)
 						if err != nil {
 							return nil, err

@@ -17,6 +17,8 @@ type APISite struct {
 
 type APIDeployment struct {
 	*models.Deployment
+	SiteName *string `json:"siteName"`
+	URL      *string `json:"url"`
 }
 
 type APIUser struct {

@@ -17,14 +17,35 @@ import (
 
 type apiDeployment struct {
 	*models.Deployment
-	Sites []string `json:"sites"`
+	FirstSiteName *string `json:"siteName"`
+	URL           string  `json:"url,omitempty"`
 }
 
-func (c *Controller) makeAPIDeployment(d *models.Deployment) *apiDeployment {
-	deployment := *d
+func (c *Controller) makeAPIDeployment(app *models.App, d db.DeploymentInfo) *apiDeployment {
+	deployment := *d.Deployment
 	deployment.Metadata.Files = nil // Avoid large file list
 
-	return &apiDeployment{Deployment: d}
+	siteName := ""
+	if d.FirstSiteName != nil {
+		siteName = *d.FirstSiteName
+	} else if app.Config.Deployments.Accessible {
+		siteName = d.Name
+	}
+
+	url := ""
+	if d.CheckAlive(c.Clock.Now().UTC()) == nil && siteName != "" {
+		hostID := app.ID
+		if siteName != app.Config.DefaultSite {
+			hostID = siteName + "." + app.ID
+		}
+		url = c.Config.HostPattern.MakeURL(hostID)
+	}
+
+	return &apiDeployment{
+		Deployment:    &deployment,
+		FirstSiteName: d.FirstSiteName,
+		URL:           url,
+	}
 }
 
 func (c *Controller) handleDeploymentGet(ctx *gin.Context) {
@@ -36,12 +57,29 @@ func (c *Controller) handleDeploymentGet(ctx *gin.Context) {
 	}
 
 	deployment, err := tx(ctx, c.DB, func(conn db.Conn) (*apiDeployment, error) {
+		app, err := conn.GetApp(ctx, appID)
+		if err != nil {
+			return nil, err
+		}
+
 		deployment, err := conn.GetDeployment(ctx, appID, deploymentName)
 		if err != nil {
 			return nil, err
 		}
 
-		return c.makeAPIDeployment(deployment), nil
+		sites, err := conn.GetDeploymentSiteNames(ctx, deployment)
+		if err != nil {
+			return nil, err
+		}
+		var siteName *string
+		if len(sites) > 0 {
+			siteName = &sites[0]
+		}
+
+		return c.makeAPIDeployment(app, db.DeploymentInfo{
+			Deployment:    deployment,
+			FirstSiteName: siteName,
+		}), nil
 	})
 
 	writeResponse(ctx, deployment, err)
@@ -117,7 +155,10 @@ func (c *Controller) handleDeploymentCreate(ctx *gin.Context) {
 			return nil, err
 		}
 
-		return c.makeAPIDeployment(deployment), nil
+		return c.makeAPIDeployment(app, db.DeploymentInfo{
+			Deployment:    deployment,
+			FirstSiteName: nil,
+		}), nil
 	})
 
 	writeResponse(ctx, deployment, err)
@@ -137,7 +178,7 @@ func (c *Controller) handleDeploymentUpload(ctx *gin.Context) {
 			return nil, err
 		}
 
-		if deployment.ExpireAt != nil && c.Clock.Now().After(*deployment.ExpireAt) {
+		if deployment.IsExpired(c.Clock.Now().UTC()) {
 			return nil, models.ErrDeploymentExpired
 		}
 		if deployment.UploadedAt != nil {
@@ -172,6 +213,11 @@ func (c *Controller) handleDeploymentUpload(ctx *gin.Context) {
 
 	// Mark deployment as completed, but inactive
 	result, err := tx(ctx, c.DB, func(conn db.Conn) (*apiDeployment, error) {
+		app, err := conn.GetApp(ctx, appID)
+		if err != nil {
+			return nil, err
+		}
+
 		deployment, err = conn.GetDeployment(ctx, appID, deployment.ID)
 		if err != nil {
 			return nil, err
@@ -186,7 +232,10 @@ func (c *Controller) handleDeploymentUpload(ctx *gin.Context) {
 			return nil, err
 		}
 
-		return c.makeAPIDeployment(deployment), nil
+		return c.makeAPIDeployment(app, db.DeploymentInfo{
+			Deployment:    deployment,
+			FirstSiteName: nil,
+		}), nil
 	})
 
 	writeResponse(ctx, result, err)
@@ -200,12 +249,19 @@ func (c *Controller) handleDeploymentList(ctx *gin.Context) {
 	}
 
 	deployments, err := tx(ctx, c.DB, func(conn db.Conn) ([]*apiDeployment, error) {
+		app, err := conn.GetApp(ctx, appID)
+		if err != nil {
+			return nil, err
+		}
+
 		deployments, err := conn.ListDeployments(ctx, appID)
 		if err != nil {
 			return nil, err
 		}
 
-		return mapModels(deployments, c.makeAPIDeployment), nil
+		return mapModels(deployments, func(d db.DeploymentInfo) *apiDeployment {
+			return c.makeAPIDeployment(app, d)
+		}), nil
 	})
 
 	writeResponse(ctx, deployments, err)
