@@ -14,10 +14,16 @@ func newID(kind string) string {
 }
 
 func RandomID(n int) string {
+	if n == 0 {
+		panic("id: n == 0")
+	}
+
 	data := make([]byte, n)
 	_, err := rand.Read(data)
 	if err != nil {
 		panic(err)
 	}
+	data[0] &= 0x7f // Ensure first char is alphabetic
+
 	return strings.ToLower(idEncoding.EncodeToString(data[:]))
 }

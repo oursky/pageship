@@ -165,7 +165,7 @@ var deployCmd = &cobra.Command{
 		}
 
 		if name == "" {
-			name = "d-" + models.RandomID(4)
+			name = models.RandomID(4)
 		}
 		if !config.ValidateDNSLabel(name) {
 			Error("Invalid deployment name: must be a valid DNS label")
