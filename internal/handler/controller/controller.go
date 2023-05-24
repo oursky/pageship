@@ -18,6 +18,8 @@ import (
 func init() {
 	validate := binding.Validator.Engine().(*validator.Validate)
 
+	binding.EnableDecoderDisallowUnknownFields = true
+
 	validate.RegisterValidation("dnsLabel", func(fl validator.FieldLevel) bool {
 		value := fl.Field().String()
 		return config.ValidateDNSLabel(value)

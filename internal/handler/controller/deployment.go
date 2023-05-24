@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/dustin/go-humanize"
 	"github.com/gin-gonic/gin"
@@ -91,16 +92,25 @@ func (c *Controller) handleDeploymentCreate(ctx *gin.Context) {
 	}
 
 	deployment, err := tx(ctx, c.DB, func(conn db.Conn) (*apiDeployment, error) {
-		_, err := conn.GetApp(ctx, appID)
+		app, err := conn.GetApp(ctx, appID)
 		if err != nil {
 			return nil, err
 		}
+
+		now := c.Clock.Now().UTC()
 
 		metadata := &models.DeploymentMetadata{
 			Files:  files,
 			Config: *siteConfig,
 		}
-		deployment := models.NewDeployment(c.Clock.Now().UTC(), name, appID, c.Config.StorageKeyPrefix, metadata)
+		deployment := models.NewDeployment(now, name, appID, c.Config.StorageKeyPrefix, metadata)
+
+		deploymentTTL, err := time.ParseDuration(app.Config.Deployments.TTL)
+		if err != nil {
+			return nil, err
+		}
+		expireAt := now.Add(deploymentTTL)
+		deployment.ExpireAt = &expireAt
 
 		err = conn.CreateDeployment(ctx, deployment)
 		if err != nil {
@@ -127,6 +137,9 @@ func (c *Controller) handleDeploymentUpload(ctx *gin.Context) {
 			return nil, err
 		}
 
+		if deployment.ExpireAt != nil && c.Clock.Now().After(*deployment.ExpireAt) {
+			return nil, models.ErrDeploymentExpired
+		}
 		if deployment.UploadedAt != nil {
 			return nil, models.ErrDeploymentAlreadyUploaded
 		}

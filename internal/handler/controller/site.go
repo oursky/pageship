@@ -1,6 +1,9 @@
 package controller
 
 import (
+	"errors"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/models"
@@ -102,6 +105,8 @@ func (c *Controller) handleSiteUpdate(ctx *gin.Context) {
 		return
 	}
 
+	now := c.Clock.Now().UTC()
+
 	site, err := tx(ctx, c.DB, func(conn db.Conn) (*apiSite, error) {
 		app, err := conn.GetApp(ctx, appID)
 		if err != nil {
@@ -114,18 +119,65 @@ func (c *Controller) handleSiteUpdate(ctx *gin.Context) {
 		}
 
 		if request.DeploymentName != nil {
-			deployment, err := conn.GetDeploymentByName(ctx, appID, *request.DeploymentName)
-			if err != nil {
-				return nil, err
-			}
+			if *request.DeploymentName != "" {
+				deployment, err := conn.GetDeploymentByName(ctx, appID, *request.DeploymentName)
+				if err != nil {
+					return nil, err
+				}
 
-			if deployment.UploadedAt == nil {
-				return nil, models.ErrDeploymentNotUploaded
-			}
+				if deployment.ExpireAt != nil && now.After(*deployment.ExpireAt) {
+					return nil, models.ErrDeploymentExpired
+				}
+				if deployment.UploadedAt == nil {
+					return nil, models.ErrDeploymentNotUploaded
+				}
 
-			err = conn.AssignDeploymentSite(ctx, deployment, site.ID)
-			if err != nil {
-				return nil, err
+				err = conn.AssignDeploymentSite(ctx, deployment, site.ID)
+				if err != nil {
+					return nil, err
+				}
+
+				if deployment.ExpireAt != nil {
+					deployment.ExpireAt = nil
+					err = conn.SetDeploymentExpiry(ctx, deployment)
+					if err != nil {
+						return nil, err
+					}
+				}
+			} else {
+				deployment, err := conn.GetSiteDeployment(ctx, appID, siteName)
+				if errors.Is(err, models.ErrDeploymentNotFound) {
+					err = nil
+				}
+				if err != nil {
+					return nil, err
+				}
+
+				if deployment != nil {
+					err = conn.UnassignDeploymentSite(ctx, deployment, siteName)
+					if err != nil {
+						return nil, err
+					}
+
+					numSites, err := conn.CountDeploymentSites(ctx, deployment)
+					if err != nil {
+						return nil, err
+					}
+
+					if numSites == 0 {
+						deploymentTTL, err := time.ParseDuration(app.Config.Deployments.TTL)
+						if err != nil {
+							return nil, err
+						}
+
+						expireAt := now.Add(deploymentTTL)
+						deployment.ExpireAt = &expireAt
+						err = conn.SetDeploymentExpiry(ctx, deployment)
+						if err != nil {
+							return nil, err
+						}
+					}
+				}
 			}
 		}
 

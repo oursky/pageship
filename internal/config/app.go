@@ -7,9 +7,10 @@ import (
 )
 
 type AppConfig struct {
-	ID          string          `json:"id" pageship:"required,dnsLabel"`
-	DefaultSite string          `json:"defaultSite" pageship:"required,dnsLabel"`
-	Sites       []AppSiteConfig `json:"sites" pageship:"max=10"`
+	ID          string               `json:"id" pageship:"required,dnsLabel"`
+	DefaultSite string               `json:"defaultSite" pageship:"required,dnsLabel"`
+	Sites       []AppSiteConfig      `json:"sites" pageship:"max=10"`
+	Deployments AppDeploymentsConfig `json:"deployments"`
 }
 
 func DefaultAppConfig() AppConfig {
@@ -38,6 +39,8 @@ func (c *AppConfig) SetDefaults() {
 		defaultSite := AppSiteConfig{Name: c.DefaultSite}
 		c.Sites = append(c.Sites, defaultSite)
 	}
+
+	c.Deployments.SetDefaults()
 }
 
 func (c *AppConfig) ResolveSite(site string) (resolved AppSiteConfig, ok bool) {

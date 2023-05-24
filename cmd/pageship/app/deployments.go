@@ -52,12 +52,26 @@ var deploymentsCmd = &cobra.Command{
 			deploymentSites[*site.DeploymentName] = n
 		}
 
+		now := time.Now()
 		w := tabwriter.NewWriter(os.Stdout, 1, 4, 4, ' ', 0)
-		fmt.Fprintln(w, "NAME\tCREATED AT\tSITES")
+		fmt.Fprintln(w, "NAME\tCREATED AT\tSTATUS\tSITES")
 		for _, deployment := range deployments {
 			createdAt := deployment.CreatedAt.Local().Format(time.DateTime)
 			sites := strings.Join(deploymentSites[deployment.Name], ",")
-			fmt.Fprintf(w, "%s\t%s\t%s\n", deployment.Name, createdAt, sites)
+
+			var status string
+			switch {
+			case deployment.ExpireAt != nil && now.After(*deployment.ExpireAt):
+				status = "EXPIRED"
+			case deployment.UploadedAt == nil:
+				status = "PENDING"
+			case len(deploymentSites[deployment.Name]) > 0:
+				status = "ACTIVE"
+			default:
+				status = "INACTIVE"
+			}
+
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", deployment.Name, createdAt, status, sites)
 		}
 		w.Flush()
 	},

@@ -12,6 +12,7 @@ var ErrDeploymentNotFound = errors.New("deployment not found")
 var ErrDeploymentUsedName = errors.New("used deployment name")
 var ErrDeploymentNotUploaded = errors.New("deployment is not uploaded")
 var ErrDeploymentAlreadyUploaded = errors.New("deployment is already uploaded")
+var ErrDeploymentExpired = errors.New("deployment expired")
 
 var ErrUserNotFound = errors.New("user not found")
 var ErrDeleteCurrentUser = errors.New("cannot delete current user")

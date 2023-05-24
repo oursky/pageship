@@ -11,8 +11,8 @@ import (
 
 func (c Conn) CreateDeployment(ctx context.Context, deployment *models.Deployment) error {
 	result, err := c.tx.NamedExecContext(ctx, `
-		INSERT INTO deployment (id, created_at, updated_at, deleted_at, name, app_id, storage_key_prefix, metadata, uploaded_at)
-			VALUES (:id, :created_at, :updated_at, :deleted_at, :name, :app_id, :storage_key_prefix, :metadata, :uploaded_at)
+		INSERT INTO deployment (id, created_at, updated_at, deleted_at, name, app_id, storage_key_prefix, metadata, uploaded_at, expire_at)
+			VALUES (:id, :created_at, :updated_at, :deleted_at, :name, :app_id, :storage_key_prefix, :metadata, :uploaded_at, :expire_at)
 			ON CONFLICT (app_id, name) WHERE deleted_at IS NULL DO NOTHING
 	`, deployment)
 	if err != nil {
@@ -34,7 +34,7 @@ func (c Conn) GetDeployment(ctx context.Context, appID string, id string) (*mode
 	var deployment models.Deployment
 
 	err := c.tx.GetContext(ctx, &deployment, `
-		SELECT d.id, d.created_at, d.updated_at, d.deleted_at, d.name, d.app_id, d.storage_key_prefix, d.metadata, d.uploaded_at FROM deployment d
+		SELECT d.id, d.created_at, d.updated_at, d.deleted_at, d.name, d.app_id, d.storage_key_prefix, d.metadata, d.uploaded_at, d.expire_at FROM deployment d
 			JOIN app a ON (a.id = d.app_id AND a.deleted_at IS NULL)
 			WHERE d.app_id = ? AND d.id = ? AND d.deleted_at IS NULL
 	`, appID, id)
@@ -51,7 +51,7 @@ func (c Conn) GetDeploymentByName(ctx context.Context, appID string, name string
 	var deployment models.Deployment
 
 	err := c.tx.GetContext(ctx, &deployment, `
-		SELECT d.id, d.created_at, d.updated_at, d.deleted_at, d.name, d.app_id, d.storage_key_prefix, d.metadata, d.uploaded_at FROM deployment d
+		SELECT d.id, d.created_at, d.updated_at, d.deleted_at, d.name, d.app_id, d.storage_key_prefix, d.metadata, d.uploaded_at, d.expire_at FROM deployment d
 			JOIN app a ON (a.id = d.app_id AND a.deleted_at IS NULL)
 			WHERE d.app_id = ? AND d.name = ? AND d.deleted_at IS NULL
 	`, appID, name)
@@ -67,7 +67,7 @@ func (c Conn) GetDeploymentByName(ctx context.Context, appID string, name string
 func (c Conn) ListDeployments(ctx context.Context, appID string) ([]*models.Deployment, error) {
 	var deployments []*models.Deployment
 	err := c.tx.SelectContext(ctx, &deployments, `
-		SELECT d.id, d.created_at, d.updated_at, d.deleted_at, d.name, d.app_id, d.storage_key_prefix, d.metadata, d.uploaded_at FROM deployment d
+		SELECT d.id, d.created_at, d.updated_at, d.deleted_at, d.name, d.app_id, d.storage_key_prefix, d.metadata, d.uploaded_at, d.expire_at FROM deployment d
 			WHERE d.app_id = ? AND d.deleted_at IS NULL
 			ORDER BY d.app_id, d.created_at
 	`, appID)
@@ -97,10 +97,10 @@ func (c Conn) GetSiteDeployment(ctx context.Context, appID string, siteName stri
 	var deployment models.Deployment
 
 	err := c.tx.GetContext(ctx, &deployment, `
-		SELECT d.id, d.created_at, d.updated_at, d.deleted_at, d.name, d.app_id, d.storage_key_prefix, d.metadata, d.uploaded_at FROM site s
+		SELECT d.id, d.created_at, d.updated_at, d.deleted_at, d.name, d.app_id, d.storage_key_prefix, d.metadata, d.uploaded_at, d.expire_at FROM site s
 			JOIN app a ON (a.id = s.app_id AND a.deleted_at IS NULL)
 			JOIN deployment d ON (d.id = s.deployment_id AND d.deleted_at IS NULL)
-			WHERE d.app_id = ? AND s.name = ? AND d.deleted_at IS NULL
+			WHERE d.app_id = ? AND s.name = ? AND s.deleted_at IS NULL
 	`, appID, siteName)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, models.ErrDeploymentNotFound
@@ -109,4 +109,30 @@ func (c Conn) GetSiteDeployment(ctx context.Context, appID string, siteName stri
 	}
 
 	return &deployment, nil
+}
+
+func (c Conn) CountDeploymentSites(ctx context.Context, deployment *models.Deployment) (int, error) {
+	var n int
+	err := c.tx.GetContext(ctx, &n, `
+		SELECT COUNT(*) FROM site s
+			JOIN app a ON (a.id = s.app_id AND a.deleted_at IS NULL)
+			JOIN deployment d ON (d.id = s.deployment_id AND d.deleted_at IS NULL)
+			WHERE d.app_id = ? AND d.id = ? AND s.deleted_at IS NULL
+	`, deployment.AppID, deployment.ID)
+	if err != nil {
+		return 0, err
+	}
+
+	return n, nil
+}
+
+func (c Conn) SetDeploymentExpiry(ctx context.Context, deployment *models.Deployment) error {
+	_, err := c.tx.ExecContext(ctx, `
+		UPDATE deployment SET expire_at = ? WHERE id = ?
+	`, deployment.ExpireAt, deployment.ID)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

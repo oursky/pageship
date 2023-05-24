@@ -21,6 +21,7 @@ type Deployment struct {
 	StorageKeyPrefix string              `json:"-" db:"storage_key_prefix"`
 	Metadata         *DeploymentMetadata `json:"metadata" db:"metadata"`
 	UploadedAt       *time.Time          `json:"uploadedAt" db:"uploaded_at"`
+	ExpireAt         *time.Time          `json:"expireAt" db:"expire_at"`
 }
 
 func NewDeployment(
@@ -42,6 +43,7 @@ func NewDeployment(
 		StorageKeyPrefix: fmt.Sprintf("%s%s/%s", storageKeyPrefix, appID, id),
 		Metadata:         metadata,
 		UploadedAt:       nil,
+		ExpireAt:         nil,
 	}
 }
 

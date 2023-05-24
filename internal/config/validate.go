@@ -2,6 +2,7 @@ package config
 
 import (
 	"regexp"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -10,6 +11,7 @@ var validate = validator.New()
 
 func init() {
 	validate.SetTagName("pageship")
+
 	validate.RegisterValidation("regexp", func(fl validator.FieldLevel) bool {
 		value := fl.Field().String()
 		_, err := regexp.Compile(value)
@@ -19,6 +21,11 @@ func init() {
 	validate.RegisterValidation("dnsLabel", func(fl validator.FieldLevel) bool {
 		value := fl.Field().String()
 		return ValidateDNSLabel(value)
+	})
+
+	validate.RegisterValidation("duration", func(fl validator.FieldLevel) bool {
+		value := fl.Field().String()
+		return ValidateDuration(value)
 	})
 }
 
@@ -31,6 +38,17 @@ func ValidateDNSLabel(value string) bool {
 		return false
 	}
 	if !dnsLabel.MatchString(value) {
+		return false
+	}
+	return true
+}
+
+func ValidateDuration(value string) bool {
+	d, err := time.ParseDuration(value)
+	if err != nil {
+		return false
+	}
+	if d <= 0 {
 		return false
 	}
 	return true

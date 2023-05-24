@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/models"
@@ -50,6 +51,11 @@ func (r *resolver) Resolve(ctx context.Context, matchedID string) (*site.Descrip
 			return site.ErrSiteNotFound
 		} else if err != nil {
 			return err
+		}
+
+		if deployment.ExpireAt != nil && time.Now().After(*deployment.ExpireAt) {
+			// Expired deployments
+			return site.ErrSiteNotFound
 		}
 
 		if deployment.UploadedAt == nil {

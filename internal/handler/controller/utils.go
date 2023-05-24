@@ -47,6 +47,8 @@ func writeResponse(ctx *gin.Context, result any, err error) {
 		ctx.JSON(http.StatusBadRequest, response{Error: err})
 	case errors.Is(err, models.ErrDeploymentAlreadyUploaded):
 		ctx.JSON(http.StatusBadRequest, response{Error: err})
+	case errors.Is(err, models.ErrDeploymentExpired):
+		ctx.JSON(http.StatusBadRequest, response{Error: err})
 	case errors.Is(err, models.ErrUserNotFound):
 		ctx.JSON(http.StatusNotFound, response{Error: err})
 	case errors.Is(err, models.ErrDeleteCurrentUser):

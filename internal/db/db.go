@@ -65,6 +65,8 @@ type DeploymentsDB interface {
 	AssignDeploymentSite(ctx context.Context, deployment *models.Deployment, siteID string) error
 	UnassignDeploymentSite(ctx context.Context, deployment *models.Deployment, siteID string) error
 	GetSiteDeployment(ctx context.Context, appID string, siteName string) (*models.Deployment, error)
+	CountDeploymentSites(ctx context.Context, deployment *models.Deployment) (int, error)
+	SetDeploymentExpiry(ctx context.Context, deployment *models.Deployment) error
 }
 
 type UserDB interface {
