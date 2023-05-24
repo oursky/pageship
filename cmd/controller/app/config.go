@@ -4,6 +4,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/go-playground/validator/v10"
 	"github.com/oursky/pageship/internal/command"
+	"github.com/oursky/pageship/internal/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -18,6 +19,9 @@ func init() {
 	validate.RegisterValidation("size", func(fl validator.FieldLevel) bool {
 		_, err := humanize.ParseBytes(fl.Field().String())
 		return err == nil
+	})
+	validate.RegisterValidation("hostidscheme", func(fl validator.FieldLevel) bool {
+		return config.HostIDScheme(fl.Field().String()).IsValid()
 	})
 
 	rootCmd.PersistentFlags().Bool("debug", false, "debug mode")

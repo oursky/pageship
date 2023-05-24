@@ -6,24 +6,22 @@ import (
 	"strings"
 	"time"
 
+	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/models"
 	"github.com/oursky/pageship/internal/site"
 	"github.com/oursky/pageship/internal/storage"
 )
 
-type resolver struct {
-	db      db.DB
-	storage *storage.Storage
+type Resolver struct {
+	DB           db.DB
+	Storage      *storage.Storage
+	HostIDScheme config.HostIDScheme
 }
 
-func NewResolver(db db.DB, storage *storage.Storage) site.Resolver {
-	return &resolver{db: db, storage: storage}
-}
+func (r *Resolver) Kind() string { return "database" }
 
-func (r *resolver) Kind() string { return "database" }
-
-func (r *resolver) resolveDeployment(
+func (r *Resolver) resolveDeployment(
 	ctx context.Context,
 	c db.Conn,
 	app *models.App,
@@ -63,15 +61,11 @@ func (r *resolver) resolveDeployment(
 	return deployment, nil
 }
 
-func (r *resolver) Resolve(ctx context.Context, matchedID string) (*site.Descriptor, error) {
-	siteName, appID, hasSite := strings.Cut(matchedID, ".")
-	if !hasSite {
-		appID = siteName
-		siteName = ""
-	}
+func (r *Resolver) Resolve(ctx context.Context, matchedID string) (*site.Descriptor, error) {
+	appID, siteName := r.HostIDScheme.Split(matchedID)
 
 	var desc *site.Descriptor
-	err := db.WithTx(ctx, r.db, func(c db.Conn) error {
+	err := db.WithTx(ctx, r.DB, func(c db.Conn) error {
 		app, err := c.GetApp(ctx, appID)
 		if errors.Is(err, models.ErrAppNotFound) {
 			return site.ErrSiteNotFound
@@ -96,7 +90,7 @@ func (r *resolver) Resolve(ctx context.Context, matchedID string) (*site.Descrip
 		desc = &site.Descriptor{
 			ID:     id,
 			Config: &deployment.Metadata.Config,
-			FS:     newStorageFS(r.storage, deployment),
+			FS:     newStorageFS(r.Storage, deployment),
 		}
 		return nil
 	})

@@ -14,7 +14,9 @@ type apiApp struct {
 func (c *Controller) makeAPIApp(app *models.App) *apiApp {
 	return &apiApp{
 		App: app,
-		URL: c.Config.HostPattern.MakeURL(app.ID),
+		URL: c.Config.HostPattern.MakeURL(
+			c.Config.HostIDScheme.Make(app.ID, ""),
+		),
 	}
 }
 

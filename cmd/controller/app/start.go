@@ -31,6 +31,7 @@ func init() {
 	startCmd.PersistentFlags().String("max-deployment-size", "200M", "max deployment files size")
 	startCmd.PersistentFlags().String("storage-key-prefix", "", "storage key prefix")
 	startCmd.PersistentFlags().String("host-pattern", config.DefaultHostPattern, "host match pattern")
+	startCmd.PersistentFlags().String("host-id-scheme", string(config.HostIDSchemeDefault), "host ID scheme")
 
 	startCmd.PersistentFlags().String("token-authority", "pageship", "auth token authority")
 	startCmd.PersistentFlags().String("token-sign-secret", "", "auth token sign secret")
@@ -45,16 +46,17 @@ var startCmd = &cobra.Command{
 	Short: "Start controller server",
 	Run: func(cmd *cobra.Command, args []string) {
 		var cmdArgs struct {
-			Database              string        `mapstructure:"database" validate:"url"`
-			StorageEndpoint       string        `mapstructure:"storage-endpoint" validate:"url"`
-			Addr                  string        `mapstructure:"addr" validate:"hostname_port"`
-			MaxDeploymentSize     string        `mapstructure:"max-deployment-size" validate:"size"`
-			StorageKeyPrefix      string        `mapstructure:"storage-key-prefix"`
-			HostPattern           string        `mapstructure:"host-pattern"`
-			TokenSignSecret       string        `mapstructure:"token-sign-secret"`
-			TokenAuthority        string        `mapstructure:"token-authority"`
-			CleanupExpiredCrontab string        `mapstructure:"cleanup-expired-crontab" validate:"omitempty,cron"`
-			KeepAfterExpired      time.Duration `mapstructure:"keep-after-expired" validate:"min=0"`
+			Database              string              `mapstructure:"database" validate:"url"`
+			StorageEndpoint       string              `mapstructure:"storage-endpoint" validate:"url"`
+			Addr                  string              `mapstructure:"addr" validate:"hostname_port"`
+			MaxDeploymentSize     string              `mapstructure:"max-deployment-size" validate:"size"`
+			StorageKeyPrefix      string              `mapstructure:"storage-key-prefix"`
+			HostPattern           string              `mapstructure:"host-pattern"`
+			HostIDScheme          config.HostIDScheme `mapstructure:"host-id-scheme" validate:"hostidscheme"`
+			TokenSignSecret       string              `mapstructure:"token-sign-secret"`
+			TokenAuthority        string              `mapstructure:"token-authority"`
+			CleanupExpiredCrontab string              `mapstructure:"cleanup-expired-crontab" validate:"omitempty,cron"`
+			KeepAfterExpired      time.Duration       `mapstructure:"keep-after-expired" validate:"min=0"`
 		}
 		if err := viper.Unmarshal(&cmdArgs); err != nil {
 			logger.Fatal("invalid config", zap.Error(err))
@@ -74,6 +76,7 @@ var startCmd = &cobra.Command{
 		config := controller.Config{
 			MaxDeploymentSize: int64(maxDeploymentSize),
 			StorageKeyPrefix:  cmdArgs.StorageKeyPrefix,
+			HostIDScheme:      cmdArgs.HostIDScheme,
 			HostPattern:       config.NewHostPattern(cmdArgs.HostPattern),
 			TokenSignSecret:   []byte(cmdArgs.TokenSignSecret),
 			TokenAuthority:    cmdArgs.TokenAuthority,

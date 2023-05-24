@@ -16,14 +16,16 @@ type apiSite struct {
 }
 
 func (c *Controller) makeAPISite(app *models.App, site db.SiteInfo) *apiSite {
-	hostID := site.AppID
-	if app.Config.DefaultSite != site.Name {
-		hostID = site.Name + "." + site.AppID
+	sub := site.Name
+	if site.Name == app.Config.DefaultSite {
+		sub = ""
 	}
 
 	return &apiSite{
-		Site:           site.Site,
-		URL:            c.Config.HostPattern.MakeURL(hostID),
+		Site: site.Site,
+		URL: c.Config.HostPattern.MakeURL(
+			c.Config.HostIDScheme.Make(site.AppID, sub),
+		),
 		DeploymentName: site.DeploymentName,
 	}
 }

@@ -34,11 +34,13 @@ func (c *Controller) makeAPIDeployment(app *models.App, d db.DeploymentInfo) *ap
 
 	url := ""
 	if d.CheckAlive(c.Clock.Now().UTC()) == nil && siteName != "" {
-		hostID := app.ID
-		if siteName != app.Config.DefaultSite {
-			hostID = siteName + "." + app.ID
+		sub := siteName
+		if siteName == app.Config.DefaultSite {
+			sub = ""
 		}
-		url = c.Config.HostPattern.MakeURL(hostID)
+		url = c.Config.HostPattern.MakeURL(
+			c.Config.HostIDScheme.Make(app.ID, sub),
+		)
 	}
 
 	return &apiDeployment{
