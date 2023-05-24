@@ -36,51 +36,50 @@ func (c *Cache[T]) getCell(id string) *cell[T] {
 		return ce
 	}
 
-	ce = new(cell[T])
+	ce = &cell[T]{id: id}
 	c.cache.Add(id, ce)
 	return ce
 }
 
-func (c *Cache[T]) Load(
-	id string,
-	load func(id string) (*T, error),
-) (*T, error) {
+func (c *Cache[T]) Load(id string, load func(id string) (T, error)) (T, error) {
 	cell := c.getCell(id)
-	return cell.Load(func() (*T, error) { return load(id) })
+	return cell.Load(load)
 }
 
 type cell[T any] struct {
 	m        sync.RWMutex
+	id       string
 	expireAt time.Time
-	value    *T
+	loaded   bool
+	value    T
 	err      error
 }
 
-func (c *cell[T]) Load(fn func() (*T, error)) (*T, error) {
+func (c *cell[T]) Load(fn func(id string) (T, error)) (T, error) {
 	if value, err, ok := c.loadCached(); ok {
 		return value, err
 	}
 	return c.loadNew(fn)
 }
 
-func (c *cell[T]) checkCachedValue() (*T, error, bool) {
-	if c.value == nil {
-		return nil, nil, false
+func (c *cell[T]) checkCachedValue() (value T, err error, ok bool) {
+	if !c.loaded {
+		return
 	}
 	if time.Now().After(c.expireAt) {
-		return nil, nil, false
+		return
 	}
 	return c.value, c.err, true
 }
 
-func (c *cell[T]) loadCached() (*T, error, bool) {
+func (c *cell[T]) loadCached() (T, error, bool) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 
 	return c.checkCachedValue()
 }
 
-func (c *cell[T]) loadNew(fn func() (*T, error)) (*T, error) {
+func (c *cell[T]) loadNew(fn func(id string) (T, error)) (T, error) {
 	c.m.Lock()
 	defer c.m.Unlock()
 
@@ -88,7 +87,8 @@ func (c *cell[T]) loadNew(fn func() (*T, error)) (*T, error) {
 		return value, err
 	}
 
-	c.value, c.err = fn()
+	c.value, c.err = fn(c.id)
+	c.loaded = true
 	c.expireAt = time.Now().Add(cacheTTL)
 	return c.value, c.err
 }

@@ -6,7 +6,8 @@ import (
 	"github.com/oursky/pageship/internal/db"
 	_ "github.com/oursky/pageship/internal/db/sqlite"
 	"github.com/oursky/pageship/internal/handler/site"
-	sitedb "github.com/oursky/pageship/internal/handler/site/db"
+	"github.com/oursky/pageship/internal/handler/site/middleware"
+	sitedb "github.com/oursky/pageship/internal/site/db"
 	"github.com/oursky/pageship/internal/storage"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -66,6 +67,7 @@ var startCmd = &cobra.Command{
 			resolver,
 			site.HandlerConfig{
 				HostPattern: hostPattern,
+				Middlewares: middleware.Default,
 			},
 		)
 		if err != nil {

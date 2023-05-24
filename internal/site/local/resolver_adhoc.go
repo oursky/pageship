@@ -9,7 +9,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/oursky/pageship/internal/handler/site"
+	"github.com/oursky/pageship/internal/site"
 	"github.com/spf13/viper"
 )
 
@@ -54,6 +54,6 @@ func (h *resolverAdhoc) Resolve(ctx context.Context, matchedID string) (*site.De
 	return &site.Descriptor{
 		ID:     matchedID,
 		Config: &config.Site,
-		FSFunc: func(ctx context.Context) fs.FS { return fsys },
+		FS:     siteFS{fs: fsys},
 	}, nil
 }

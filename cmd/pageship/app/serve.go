@@ -10,8 +10,10 @@ import (
 
 	"github.com/oursky/pageship/internal/command"
 	"github.com/oursky/pageship/internal/config"
-	"github.com/oursky/pageship/internal/handler/site"
-	"github.com/oursky/pageship/internal/handler/site/local"
+	handler "github.com/oursky/pageship/internal/handler/site"
+	"github.com/oursky/pageship/internal/handler/site/middleware"
+	"github.com/oursky/pageship/internal/site"
+	"github.com/oursky/pageship/internal/site/local"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -65,20 +67,21 @@ func makeHandler(prefix string) (http.Handler, error) {
 	} else {
 		resolver = local.NewSingleSiteResolver(fsys)
 		sitesConf = &config.SitesConfig{
-			DefaultSite: "",
-			HostPattern: "(.*)",
+			DefaultSite: config.DefaultSite,
+			HostPattern: "",
 		}
 
 		// Check site on startup.
-		_, err = resolver.Resolve(context.Background(), config.DefaultSite)
+		_, err = resolver.Resolve(context.Background(), sitesConf.DefaultSite)
 		if err != nil {
 			return nil, err
 		}
 	}
 	Info("site resolution mode: %s", resolver.Kind())
 
-	handler, err := site.NewHandler(siteLogger{}, resolver, site.HandlerConfig{
+	handler, err := handler.NewHandler(siteLogger{}, resolver, handler.HandlerConfig{
 		HostPattern: sitesConf.HostPattern,
+		Middlewares: middleware.Default,
 	})
 	if err != nil {
 		return nil, err

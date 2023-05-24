@@ -3,11 +3,17 @@ package site
 import (
 	"errors"
 	"fmt"
-	"io/fs"
 	"net/http"
+	"time"
 
 	"github.com/oursky/pageship/internal/cache"
 	"github.com/oursky/pageship/internal/config"
+	"github.com/oursky/pageship/internal/site"
+)
+
+const (
+	cacheSize int           = 100
+	cacheTTL  time.Duration = time.Second * 1
 )
 
 type Logger interface {
@@ -17,17 +23,19 @@ type Logger interface {
 
 type HandlerConfig struct {
 	HostPattern string
+	Middlewares []Middleware
 }
 
 type Handler struct {
 	logger      Logger
-	resolver    Resolver
+	resolver    site.Resolver
 	hostPattern *config.HostPattern
-	cache       *cache.Cache[Descriptor]
+	cache       *cache.Cache[*SiteHandler]
+	middlewares []Middleware
 }
 
-func NewHandler(logger Logger, resolver Resolver, conf HandlerConfig) (*Handler, error) {
-	cache, err := newSiteCache()
+func NewHandler(logger Logger, resolver site.Resolver, conf HandlerConfig) (*Handler, error) {
+	cache, err := cache.NewCache[*SiteHandler](cacheSize, cacheTTL)
 	if err != nil {
 		return nil, fmt.Errorf("setup cache: %w", err)
 	}
@@ -37,24 +45,30 @@ func NewHandler(logger Logger, resolver Resolver, conf HandlerConfig) (*Handler,
 		resolver:    resolver,
 		hostPattern: config.NewHostPattern(conf.HostPattern),
 		cache:       cache,
+		middlewares: conf.Middlewares,
 	}, nil
 }
 
-func (h *Handler) resolveSite(r *http.Request) (*Descriptor, error) {
+func (h *Handler) resolveSite(r *http.Request) (*SiteHandler, error) {
 	matchedID, ok := h.hostPattern.MatchString(r.Host)
 	if !ok {
-		return nil, ErrSiteNotFound
+		return nil, site.ErrSiteNotFound
 	}
 
-	resolve := func(matchedID string) (*Descriptor, error) {
-		return h.resolver.Resolve(r.Context(), matchedID)
+	resolve := func(matchedID string) (*SiteHandler, error) {
+		desc, err := h.resolver.Resolve(r.Context(), matchedID)
+		if err != nil {
+			return nil, err
+		}
+
+		return NewSiteHandler(desc, h.middlewares), nil
 	}
 	return h.cache.Load(matchedID, resolve)
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	site, err := h.resolveSite(r)
-	if errors.Is(err, ErrSiteNotFound) {
+	handler, err := h.resolveSite(r)
+	if errors.Is(err, site.ErrSiteNotFound) {
 		http.NotFound(w, r)
 		return
 	} else if err != nil {
@@ -62,19 +76,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-	h.logger.Debug("resolved site: %s", site.ID)
+	h.logger.Debug("resolved site: %s", handler.ID())
 
-	h.serve(site, w, r)
-}
-
-func (h *Handler) serve(site *Descriptor, w http.ResponseWriter, r *http.Request) {
-	fsys := site.FSFunc(r.Context())
-	publicFS, err := fs.Sub(fsys, site.Config.Public)
-	if err != nil {
-		h.logger.Error("construct site fs", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	http.FileServer(http.FS(publicFS)).ServeHTTP(w, r)
+	handler.ServeHTTP(w, r)
 }

@@ -3,20 +3,9 @@ package site
 import (
 	"context"
 	"errors"
-	"io/fs"
-
-	"github.com/oursky/pageship/internal/config"
 )
 
 var ErrSiteNotFound = errors.New("site not found")
-
-type FSFunc func(context.Context) fs.FS
-
-type Descriptor struct {
-	ID     string
-	Config *config.SiteConfig
-	FSFunc FSFunc
-}
 
 type Resolver interface {
 	Kind() string

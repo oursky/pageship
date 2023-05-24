@@ -37,10 +37,10 @@ func (g *GitHubKeys) PublicKey(username string) (map[string]struct{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	return *pkeys, nil
+	return pkeys, nil
 }
 
-func (g *GitHubKeys) doLoad(username string) (*map[string]struct{}, error) {
+func (g *GitHubKeys) doLoad(username string) (map[string]struct{}, error) {
 	g.l.Wait(context.Background())
 
 	u := url.URL{
@@ -81,5 +81,5 @@ func (g *GitHubKeys) doLoad(username string) (*map[string]struct{}, error) {
 		data = rest
 	}
 
-	return &keys, nil
+	return keys, nil
 }

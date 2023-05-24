@@ -6,7 +6,7 @@ import (
 	"io/fs"
 
 	"github.com/oursky/pageship/internal/config"
-	"github.com/oursky/pageship/internal/handler/site"
+	"github.com/oursky/pageship/internal/site"
 )
 
 type resolverStatic struct {
@@ -44,6 +44,6 @@ func (h *resolverStatic) Resolve(ctx context.Context, matchedID string) (*site.D
 	return &site.Descriptor{
 		ID:     matchedID,
 		Config: &config.Site,
-		FSFunc: func(ctx context.Context) fs.FS { return fsys },
+		FS:     siteFS{fs: fsys},
 	}, nil
 }

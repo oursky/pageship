@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/oursky/pageship/internal/db"
-	"github.com/oursky/pageship/internal/handler/site"
 	"github.com/oursky/pageship/internal/models"
+	"github.com/oursky/pageship/internal/site"
 	"github.com/oursky/pageship/internal/storage"
 )
 
@@ -68,7 +68,7 @@ func (r *resolver) Resolve(ctx context.Context, matchedID string) (*site.Descrip
 		desc = &site.Descriptor{
 			ID:     id,
 			Config: &deployment.Metadata.Config,
-			FSFunc: newStorageFSFunc(r.storage, deployment),
+			FS:     newStorageFS(r.storage, deployment),
 		}
 		return nil
 	})

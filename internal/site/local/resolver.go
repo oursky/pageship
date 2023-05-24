@@ -1,11 +1,14 @@
 package local
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"io/fs"
+	"strings"
 
 	"github.com/oursky/pageship/internal/config"
-	"github.com/oursky/pageship/internal/handler/site"
+	"github.com/oursky/pageship/internal/site"
 )
 
 func NewMultiSiteResolver(fs fs.FS, conf *config.SitesConfig) site.Resolver {
@@ -44,4 +47,37 @@ func loadConfig(fs fs.FS) (*config.Config, error) {
 	}
 
 	return &conf, nil
+}
+
+type siteFS struct{ fs fs.FS }
+
+func (f siteFS) Stat(path string) (*site.FileInfo, error) {
+	i, err := fs.Stat(f.fs, fsPath(path))
+	if err != nil {
+		return nil, err
+	}
+
+	return &site.FileInfo{
+		IsDir:       i.IsDir(),
+		ModTime:     i.ModTime(),
+		Size:        i.Size(),
+		ContentType: "",
+		Hash:        "",
+	}, nil
+}
+
+func (f siteFS) Open(ctx context.Context, path string) (io.ReadSeekCloser, error) {
+	file, err := f.fs.Open(fsPath(path))
+	if err != nil {
+		return nil, err
+	}
+	return file.(io.ReadSeekCloser), nil
+}
+
+func fsPath(url string) string {
+	if url == "/" {
+		return "."
+	} else {
+		return strings.TrimPrefix(strings.TrimSuffix(url, "/"), "/")
+	}
 }
