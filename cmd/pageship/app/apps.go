@@ -3,7 +3,6 @@ package app
 import (
 	"fmt"
 	"os"
-	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -24,13 +23,9 @@ var appsCmd = &cobra.Command{
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 1, 4, 4, ' ', 0)
-		fmt.Fprintln(w, "ID\tENVIRONMENTS\tURL")
+		fmt.Fprintln(w, "ID\tURL")
 		for _, app := range apps {
-			var envs []string
-			for _, e := range app.Config.Environments {
-				envs = append(envs, e.Name)
-			}
-			fmt.Fprintf(w, "%s\t%s\t%s\n", app.ID, strings.Join(envs, ","), app.URL)
+			fmt.Fprintf(w, "%s\t%s\n", app.ID, app.URL)
 		}
 		w.Flush()
 	},

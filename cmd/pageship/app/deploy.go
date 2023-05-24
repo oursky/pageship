@@ -90,7 +90,7 @@ func doDeploy(ctx context.Context, appID string, siteName string, deploymentName
 	Info("%d files found. Tarball size: %s", len(files), humanize.Bytes(uint64(tarSize)))
 
 	Debug("Configuring app...")
-	_, err = apiClient.ConfigureApp(ctx, appID, &conf.AppConfig)
+	_, err = apiClient.ConfigureApp(ctx, appID, &conf.App)
 	if err != nil {
 		Error("Failed to configure app: %s", err)
 		return
@@ -181,28 +181,21 @@ var deployCmd = &cobra.Command{
 		}
 		conf.SetDefaults()
 
-		appID := conf.ID
-		if site == "" {
-			site = conf.DefaultSite
-		}
-
-		if !config.ValidateDNSLabel(site) {
-			Error("Invalid site name; site name must be a valid DNS label: %s", site)
-			return
-		}
-
-		env, ok := conf.ResolveSite(site)
-		if !ok {
-			Error("Site is not defined by any environment: %s", site)
-			return
+		appID := conf.App.ID
+		if site != "" {
+			_, ok := conf.App.ResolveSite(site)
+			if !ok {
+				Error("Site is not defined: %s", site)
+				return
+			}
 		}
 
 		if !yes {
 			var label string
-			if site == env.Name {
-				label = fmt.Sprintf("Deploy to site '%s' of app '%s'?", site, appID)
+			if site == "" {
+				label = fmt.Sprintf("Deploy to app %q?", appID)
 			} else {
-				label = fmt.Sprintf("Deploy to site '%s' (%s) of app '%s'?", site, env.Name, appID)
+				label = fmt.Sprintf("Deploy to site %q of app %q?", site, appID)
 			}
 
 			prompt := promptui.Prompt{Label: label, IsConfirm: true}

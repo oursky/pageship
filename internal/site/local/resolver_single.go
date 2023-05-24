@@ -29,7 +29,7 @@ func (h *resolverSingle) Resolve(ctx context.Context, matchedID string) (*site.D
 	}
 
 	return &site.Descriptor{
-		ID:     config.ID,
+		ID:     config.App.ID,
 		Config: &config.Site,
 		FS:     siteFS{fs: h.fs},
 	}, nil

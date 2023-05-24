@@ -1,15 +1,17 @@
 package config
 
 type Config struct {
-	ID string `json:"id" pageship:"required,dnsLabel"`
-
-	AppConfig `mapstructure:",squash"`
-	Site      SiteConfig `json:"site"`
+	App  AppConfig  `json:"app"`
+	Site SiteConfig `json:"site"`
 }
 
 func DefaultConfig() Config {
 	return Config{
-		AppConfig: DefaultAppConfig(),
-		Site:      DefaultSiteConfig(),
+		App:  DefaultAppConfig(),
+		Site: DefaultSiteConfig(),
 	}
+}
+
+func (c *Config) SetDefaults() {
+	c.App.SetDefaults()
 }

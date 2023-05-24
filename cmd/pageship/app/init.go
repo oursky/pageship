@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"text/template"
 
 	"github.com/manifoldco/promptui"
@@ -15,15 +16,17 @@ import (
 	"github.com/spf13/viper"
 )
 
-var configTemplate = template.Must(template.New("").Parse(`id={{.appID}}
+var configTemplate = template.Must(template.New("").Parse(`
+[app]
+id={{.appID}}
 
-[[environments]]
+[[app.sites]]
 name="main"
 
-# [[environments]]
+# [[app.sites]]
 # name="dev"
 
-# [[environments]]
+# [[app.sites]]
 # name="staging"
 
 [site]
@@ -133,8 +136,9 @@ var initCmd = &cobra.Command{
 			"appID":  strconv.Quote(appID),
 			"public": strconv.Quote(public),
 		})
+		conf := strings.TrimSpace(data.String()) + "\n"
 
-		err = os.WriteFile(filepath.Join(dir, config.SiteConfigName+".toml"), data.Bytes(), 0644)
+		err = os.WriteFile(filepath.Join(dir, config.SiteConfigName+".toml"), []byte(conf), 0644)
 		if err != nil {
 			Error("Failed to write config file: %s", err)
 			return

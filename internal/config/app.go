@@ -7,48 +7,47 @@ import (
 )
 
 type AppConfig struct {
-	DefaultSite  string              `json:"defaultSite" pageship:"required,dnsLabel"`
-	Environments []EnvironmentConfig `json:"environments" pageship:"max=10"`
+	ID          string          `json:"id" pageship:"required,dnsLabel"`
+	DefaultSite string          `json:"defaultSite" pageship:"required,dnsLabel"`
+	Sites       []AppSiteConfig `json:"sites" pageship:"max=10"`
 }
 
 func DefaultAppConfig() AppConfig {
 	return AppConfig{
-		DefaultSite:  DefaultSite,
-		Environments: make([]EnvironmentConfig, 0),
+		DefaultSite: DefaultSite,
+		Sites:       make([]AppSiteConfig, 0),
 	}
 }
 
 func (c *AppConfig) SetDefaults() {
-	if c.Environments == nil {
-		c.Environments = make([]EnvironmentConfig, 0)
+	if c.Sites == nil {
+		c.Sites = make([]AppSiteConfig, 0)
 	}
 
 	foundDefault := false
-	for i, env := range c.Environments {
-		env.SetDefaults()
-		c.Environments[i] = env
+	for i, s := range c.Sites {
+		c.Sites[i] = s
 
-		pattern, err := env.CompileSitePattern()
+		pattern, err := s.CompilePattern()
 		if err == nil && pattern.MatchString(c.DefaultSite) {
 			foundDefault = true
 		}
 	}
 
-	if !foundDefault && len(c.Environments) == 0 {
-		defaultEnv := EnvironmentConfig{Name: c.DefaultSite}
-		defaultEnv.SetDefaults()
-		c.Environments = append(c.Environments, defaultEnv)
+	if !foundDefault && len(c.Sites) == 0 {
+		defaultSite := AppSiteConfig{Name: c.DefaultSite}
+		c.Sites = append(c.Sites, defaultSite)
 	}
 }
 
-func (c *AppConfig) ResolveSite(site string) (resolved EnvironmentConfig, ok bool) {
-	for _, env := range c.Environments {
-		pattern, err := env.CompileSitePattern()
+func (c *AppConfig) ResolveSite(site string) (resolved AppSiteConfig, ok bool) {
+	for _, s := range c.Sites {
+		pattern, err := s.CompilePattern()
 		if err != nil {
 			break
 		}
 		if pattern.MatchString(site) {
-			resolved = env
+			resolved = s
 			ok = true
 			return
 		}

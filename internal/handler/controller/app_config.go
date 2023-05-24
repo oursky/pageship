@@ -40,7 +40,6 @@ func (c *Controller) handleAppConfigSet(ctx *gin.Context) {
 		return
 	}
 
-	request.Config.SetDefaults()
 	if err := config.ValidateAppConfig(request.Config); err != nil {
 		ctx.JSON(http.StatusNotFound, response{Error: err})
 		return

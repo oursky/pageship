@@ -36,16 +36,8 @@ func (r *resolver) Resolve(ctx context.Context, matchedID string) (*site.Descrip
 			return site.ErrSiteNotFound
 		}
 
-		if siteName == app.Config.DefaultSite {
-			// Default site cannot be accessed directly
+		if !site.CheckDefaultSite(&siteName, app.Config.DefaultSite) {
 			return site.ErrSiteNotFound
-		}
-		if siteName == "" {
-			if app.Config.DefaultSite == "" {
-				// Default site is disabled; treat as not found
-				return site.ErrSiteNotFound
-			}
-			siteName = app.Config.DefaultSite
 		}
 
 		_, ok := app.Config.ResolveSite(siteName)

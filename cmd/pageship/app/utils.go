@@ -14,5 +14,5 @@ func tryLoadAppID() string {
 		Debug("Failed to load config: %s", err)
 		return ""
 	}
-	return conf.ID
+	return conf.App.ID
 }
