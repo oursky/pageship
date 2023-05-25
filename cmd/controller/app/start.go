@@ -9,6 +9,7 @@ import (
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/cron"
 	"github.com/oursky/pageship/internal/db"
+	_ "github.com/oursky/pageship/internal/db/postgres"
 	_ "github.com/oursky/pageship/internal/db/sqlite"
 	"github.com/oursky/pageship/internal/handler/controller"
 	"github.com/oursky/pageship/internal/storage"

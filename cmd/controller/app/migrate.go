@@ -7,7 +7,8 @@ import (
 	"net/url"
 
 	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	"github.com/golang-migrate/migrate/v4/database"
+	"github.com/golang-migrate/migrate/v4/database/pgx"
 	_ "github.com/golang-migrate/migrate/v4/database/sqlite"
 	migratefs "github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/manifoldco/promptui"
@@ -24,6 +25,8 @@ func init() {
 	migrateCmd.MarkPersistentFlagRequired("database")
 
 	migrateCmd.PersistentFlags().Bool("down", false, "downgrade database")
+
+	database.Register("postgres", &pgx.Postgres{})
 }
 
 type migrateLogger struct{ *log.Logger }

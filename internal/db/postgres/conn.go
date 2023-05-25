@@ -1,4 +1,4 @@
-package sqlite
+package postgres
 
 import (
 	"github.com/jmoiron/sqlx"

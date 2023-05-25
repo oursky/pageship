@@ -6,7 +6,6 @@ import (
 	neturl "net/url"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/models"
 )
@@ -34,7 +33,8 @@ type DB interface {
 }
 
 type Conn interface {
-	Tx() *sqlx.Tx
+	Rollback() error
+	Commit() error
 
 	AppsDB
 	SitesDB

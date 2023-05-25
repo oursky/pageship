@@ -14,17 +14,17 @@ func WithTx(ctx context.Context, db DB, fn func(Conn) error) error {
 		return err
 	}
 
-	defer conn.Tx().Rollback()
+	defer conn.Rollback()
 
 	err = fn(conn)
 	if errors.Is(err, ErrRollback) {
-		err = conn.Tx().Rollback()
+		err = conn.Rollback()
 	}
 	if err != nil {
 		return err
 	}
 
-	if err := conn.Tx().Commit(); err != nil && !errors.Is(err, sql.ErrTxDone) {
+	if err := conn.Commit(); err != nil && !errors.Is(err, sql.ErrTxDone) {
 		return err
 	}
 	return nil
