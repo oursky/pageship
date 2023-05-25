@@ -76,6 +76,7 @@ func (c *Controller) Handler() http.Handler {
 	v1.GET("/apps/:app-id/deployments/:deployment-name", c.handleDeploymentGet)
 	v1.PUT("/apps/:app-id/deployments/:deployment-name/tarball", c.handleDeploymentUpload)
 
+	v1.GET("/auth/me", c.handleMe)
 	v1.GET("/auth/github-ssh", c.handleAuthGithubSSH)
 
 	return g.Handler()

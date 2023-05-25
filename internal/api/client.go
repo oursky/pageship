@@ -395,3 +395,26 @@ func (c *Client) OpenAuthGitHubSSH(ctx context.Context) (*websocket.Conn, error)
 	ws, err := websocket.DialConfig(config)
 	return ws, err
 }
+
+func (c *Client) GetMe(ctx context.Context) (*APIUser, error) {
+	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "auth", "me")
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.attachToken(req); err != nil {
+		return nil, err
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return decodeJSONResponse[*APIUser](resp)
+}

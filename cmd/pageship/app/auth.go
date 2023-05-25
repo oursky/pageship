@@ -4,11 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/manifoldco/promptui"
+	"github.com/oursky/pageship/internal/api"
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/models"
 	"github.com/oursky/pageship/internal/sshkey"
@@ -16,6 +19,8 @@ import (
 )
 
 const reauthThreshold time.Duration = time.Minute * 10
+
+var initialCheck atomic.Bool
 
 func ensureAuth(ctx context.Context) (string, error) {
 	conf, err := config.LoadClientConfig()
@@ -62,7 +67,16 @@ func isTokenValid(token string) error {
 		// Expires soon, need reauth
 		return models.ErrInvalidCredentials
 	}
-	return nil
+
+	if !initialCheck.Swap(true) {
+		_, err = apiClient.GetMe(context.Background())
+		if code, ok := api.ErrorStatusCode(err); ok && code == http.StatusUnauthorized {
+			err = models.ErrInvalidCredentials
+		} else {
+			err = nil
+		}
+	}
+	return err
 }
 
 func authGitHubSSH(ctx context.Context) (string, error) {

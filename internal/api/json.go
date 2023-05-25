@@ -5,20 +5,39 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 )
 
-type HTTPStatusCodeError string
-
-func (e HTTPStatusCodeError) Error() string {
-	return string(e)
+type HTTPStatusCodeError struct {
+	Status string
+	Code   int
 }
 
-type BadRequestError string
+func (e HTTPStatusCodeError) Error() string {
+	return e.Status
+}
+func (e HTTPStatusCodeError) StatusCode() int {
+	return e.Code
+}
 
-func (e BadRequestError) Error() string {
-	return fmt.Sprintf("bad request: %s", string(e))
+type ServerError struct {
+	Message string
+	Code    int
+}
+
+func (e ServerError) Error() string {
+	return e.Message
+}
+func (e ServerError) StatusCode() int {
+	return e.Code
+}
+
+func ErrorStatusCode(err error) (int, bool) {
+	var e interface{ StatusCode() int }
+	if errors.As(err, &e) {
+		return e.StatusCode(), true
+	}
+	return 0, false
 }
 
 func newJSONRequest(ctx context.Context, method string, endpoint string, v any) (*http.Request, error) {
@@ -43,20 +62,20 @@ func decodeJSONResponse[T any](resp *http.Response) (result T, err error) {
 		Result T       `json:"result"`
 	}
 	if resp.StatusCode != http.StatusOK && (resp.StatusCode < 400 || resp.StatusCode >= 500) {
-		err = HTTPStatusCodeError(resp.Status)
+		err = HTTPStatusCodeError{Status: resp.Status, Code: resp.StatusCode}
 		return
 	}
 
 	var v response
 	if err = json.NewDecoder(resp.Body).Decode(&v); err != nil {
 		if resp.StatusCode != http.StatusOK {
-			err = HTTPStatusCodeError(resp.Status)
+			err = HTTPStatusCodeError{Status: resp.Status, Code: resp.StatusCode}
 		}
 		return
 	}
 
 	if v.Error != nil {
-		err = errors.New(*v.Error)
+		err = ServerError{Message: *v.Error, Code: resp.StatusCode}
 		return
 	}
 	result = v.Result
