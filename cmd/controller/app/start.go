@@ -36,7 +36,6 @@ func init() {
 
 	startCmd.PersistentFlags().String("token-authority", "pageship", "auth token authority")
 	startCmd.PersistentFlags().String("token-sign-secret", "", "auth token sign secret")
-	startCmd.MarkPersistentFlagRequired("token-sign-secret")
 
 	startCmd.PersistentFlags().String("cleanup-expired-crontab", "", "cleanup expired schedule")
 	startCmd.PersistentFlags().String("keep-after-expired", "24h", "keep-after-expired")
@@ -73,13 +72,18 @@ var startCmd = &cobra.Command{
 		}
 
 		maxDeploymentSize, _ := humanize.ParseBytes(cmdArgs.MaxDeploymentSize)
+		tokenSignSecret := cmdArgs.TokenSignSecret
+		if tokenSignSecret == "" {
+			logger.Warn("token sign secret not specified; a generated secret would be used for this run only.")
+			tokenSignSecret = generateSecret()
+		}
 
 		config := controller.Config{
 			MaxDeploymentSize: int64(maxDeploymentSize),
 			StorageKeyPrefix:  cmdArgs.StorageKeyPrefix,
 			HostIDScheme:      cmdArgs.HostIDScheme,
 			HostPattern:       config.NewHostPattern(cmdArgs.HostPattern),
-			TokenSignSecret:   []byte(cmdArgs.TokenSignSecret),
+			TokenSignSecret:   []byte(tokenSignSecret),
 			TokenAuthority:    cmdArgs.TokenAuthority,
 		}
 
