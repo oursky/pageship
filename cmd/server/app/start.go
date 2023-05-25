@@ -18,11 +18,11 @@ import (
 func init() {
 	rootCmd.AddCommand(startCmd)
 
-	startCmd.PersistentFlags().String("database", "", "database URL")
-	startCmd.MarkPersistentFlagRequired("database")
+	startCmd.PersistentFlags().String("database-url", "", "database URL")
+	startCmd.MarkPersistentFlagRequired("database-url")
 
-	startCmd.PersistentFlags().String("storage-endpoint", "", "object storage endpoint")
-	startCmd.MarkPersistentFlagRequired("storage-endpoint")
+	startCmd.PersistentFlags().String("storage-url", "", "object storage URL")
+	startCmd.MarkPersistentFlagRequired("storage-url")
 
 	startCmd.PersistentFlags().String("host-pattern", config.DefaultHostPattern, "host match pattern")
 	startCmd.PersistentFlags().String("host-id-scheme", string(config.HostIDSchemeDefault), "host ID scheme")
@@ -47,11 +47,11 @@ var startCmd = &cobra.Command{
 	Short: "Start server",
 	Run: func(cmd *cobra.Command, args []string) {
 		var cmdArgs struct {
-			Database        string              `mapstructure:"database" validate:"url"`
-			StorageEndpoint string              `mapstructure:"storage-endpoint" validate:"url"`
-			Addr            string              `mapstructure:"addr" validate:"hostname_port"`
-			HostPattern     string              `mapstructure:"host-pattern"`
-			HostIDScheme    config.HostIDScheme `mapstructure:"host-id-scheme" validate:"hostidscheme"`
+			DatabaseURL  string              `mapstructure:"database-url" validate:"url"`
+			StorageURL   string              `mapstructure:"storage-url" validate:"url"`
+			Addr         string              `mapstructure:"addr" validate:"hostname_port"`
+			HostPattern  string              `mapstructure:"host-pattern"`
+			HostIDScheme config.HostIDScheme `mapstructure:"host-id-scheme" validate:"hostidscheme"`
 		}
 		if err := viper.Unmarshal(&cmdArgs); err != nil {
 			logger.Fatal("invalid config", zap.Error(err))
@@ -62,13 +62,13 @@ var startCmd = &cobra.Command{
 			return
 		}
 
-		db, err := db.New(cmdArgs.Database)
+		db, err := db.New(cmdArgs.DatabaseURL)
 		if err != nil {
 			logger.Fatal("failed to setup database", zap.Error(err))
 			return
 		}
 
-		storage, err := storage.New(cmd.Context(), cmdArgs.StorageEndpoint)
+		storage, err := storage.New(cmd.Context(), cmdArgs.StorageURL)
 		if err != nil {
 			logger.Fatal("failed to setup object storage", zap.Error(err))
 			return

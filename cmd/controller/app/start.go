@@ -21,11 +21,11 @@ import (
 func init() {
 	rootCmd.AddCommand(startCmd)
 
-	startCmd.PersistentFlags().String("database", "", "database URL")
-	startCmd.MarkPersistentFlagRequired("database")
+	startCmd.PersistentFlags().String("database-url", "", "database URL")
+	startCmd.MarkPersistentFlagRequired("database-url")
 
-	startCmd.PersistentFlags().String("storage-endpoint", "", "object storage endpoint")
-	startCmd.MarkPersistentFlagRequired("storage-endpoint")
+	startCmd.PersistentFlags().String("storage-url", "", "object storage URL")
+	startCmd.MarkPersistentFlagRequired("storage-url")
 
 	startCmd.PersistentFlags().String("addr", ":8001", "listen address")
 
@@ -47,8 +47,8 @@ var startCmd = &cobra.Command{
 	Short: "Start controller server",
 	Run: func(cmd *cobra.Command, args []string) {
 		var cmdArgs struct {
-			Database              string              `mapstructure:"database" validate:"url"`
-			StorageEndpoint       string              `mapstructure:"storage-endpoint" validate:"url"`
+			DatabaseURL           string              `mapstructure:"database-url" validate:"url"`
+			StorageURL            string              `mapstructure:"storage-url" validate:"url"`
 			Addr                  string              `mapstructure:"addr" validate:"hostname_port"`
 			MaxDeploymentSize     string              `mapstructure:"max-deployment-size" validate:"size"`
 			StorageKeyPrefix      string              `mapstructure:"storage-key-prefix"`
@@ -83,13 +83,13 @@ var startCmd = &cobra.Command{
 			TokenAuthority:    cmdArgs.TokenAuthority,
 		}
 
-		db, err := db.New(cmdArgs.Database)
+		db, err := db.New(cmdArgs.DatabaseURL)
 		if err != nil {
 			logger.Fatal("failed to setup database", zap.Error(err))
 			return
 		}
 
-		storage, err := storage.New(cmd.Context(), cmdArgs.StorageEndpoint)
+		storage, err := storage.New(cmd.Context(), cmdArgs.StorageURL)
 		if err != nil {
 			logger.Fatal("failed to setup object storage", zap.Error(err))
 			return
