@@ -22,6 +22,7 @@ func init() {
 	rootCmd.AddCommand(serveCmd)
 
 	serveCmd.PersistentFlags().String("addr", ":8000", "listen address")
+	serveCmd.PersistentFlags().String("directory", ".", "base directory")
 }
 
 func loadSitesConfig(fsys fs.FS) (*config.SitesConfig, error) {
@@ -81,13 +82,13 @@ func makeHandler(prefix string) (http.Handler, error) {
 }
 
 var serveCmd = &cobra.Command{
-	Use:   "serve directory",
+	Use:   "serve",
 	Short: "Start local server",
-	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		addr := viper.GetString("addr")
+		dir := viper.GetString("directory")
 
-		handler, err := makeHandler(args[0])
+		handler, err := makeHandler(dir)
 		if err != nil {
 			Error("Failed to setup server: %s", err)
 			return
