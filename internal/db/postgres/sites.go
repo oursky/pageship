@@ -67,7 +67,7 @@ func (c Conn) GetSiteInfo(ctx context.Context, appID string, siteID string) (*db
 func (c Conn) ListSitesInfo(ctx context.Context, appID string) ([]db.SiteInfo, error) {
 	var info []db.SiteInfo
 	err := c.tx.SelectContext(ctx, &info, `
-		SELECT s.id, s.app_id, s.name, s.created_at, s.updated_at, s.deleted_at, s.deployment_id, d.name AS deployment_name FROM site s
+		SELECT s.id, s.app_id, s.name, s.created_at, s.updated_at, s.deleted_at, s.deployment_id, s.deployment_id, d.name AS deployment_name FROM site s
 			JOIN app a ON (a.id = s.app_id AND a.deleted_at IS NULL)
 			LEFT JOIN deployment d ON (d.id = s.deployment_id AND d.deleted_at IS NULL)
 			WHERE s.app_id = $1 AND s.deleted_at IS NULL

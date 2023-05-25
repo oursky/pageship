@@ -36,7 +36,7 @@ func (c Conn) CreateSiteIfNotExist(ctx context.Context, site *models.Site) (*db.
 func (c Conn) GetSiteByName(ctx context.Context, appID string, name string) (*models.Site, error) {
 	var site models.Site
 	err := c.tx.GetContext(ctx, &site, `
-		SELECT s.id, s.app_id, s.name, s.created_at, s.updated_at, s.deleted_at FROM site s
+		SELECT s.id, s.app_id, s.name, s.created_at, s.updated_at, s.deleted_at, s.deployment_id FROM site s
 			JOIN app a ON (a.id = s.app_id AND a.deleted_at IS NULL)
 			WHERE s.app_id = ? AND s.name = ? AND s.deleted_at IS NULL
 	`, appID, name)

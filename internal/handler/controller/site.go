@@ -1,10 +1,11 @@
 package controller
 
 import (
-	"errors"
+	"context"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/models"
 )
@@ -92,6 +93,106 @@ func (c *Controller) handleSiteCreate(ctx *gin.Context) {
 	writeResponse(ctx, site, err)
 }
 
+func (c *Controller) updateDeploymentExpiry(
+	ctx context.Context,
+	conn db.Conn,
+	now time.Time,
+	conf *config.AppConfig,
+	deployment *models.Deployment,
+) error {
+	sites, err := conn.GetDeploymentSiteNames(ctx, deployment)
+	if err != nil {
+		return err
+	}
+
+	if len(sites) == 0 && deployment.ExpireAt == nil {
+		deploymentTTL, err := time.ParseDuration(conf.Deployments.TTL)
+		if err != nil {
+			return err
+		}
+
+		expireAt := now.Add(deploymentTTL)
+		deployment.ExpireAt = &expireAt
+		err = conn.SetDeploymentExpiry(ctx, deployment)
+		if err != nil {
+			return err
+		}
+	} else if len(sites) > 0 && deployment.ExpireAt != nil {
+		deployment.ExpireAt = nil
+		err = conn.SetDeploymentExpiry(ctx, deployment)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *Controller) siteUpdateDeploymentName(
+	ctx context.Context,
+	conn db.Conn,
+	now time.Time,
+	conf *config.AppConfig,
+	site *models.Site,
+	deploymentName string,
+) error {
+	var currentDeployment *models.Deployment
+	if site.DeploymentID != nil {
+		d, err := conn.GetDeployment(ctx, site.AppID, *site.DeploymentID)
+		if err != nil {
+			return err
+		}
+
+		if d.Name == deploymentName {
+			// Same deployment
+			return nil
+		}
+		currentDeployment = d
+	} else if deploymentName == "" {
+		// Same deployment
+		return nil
+	}
+
+	var newDeployment *models.Deployment
+	if deploymentName != "" {
+		d, err := conn.GetDeploymentByName(ctx, site.AppID, deploymentName)
+		if err != nil {
+			return err
+		}
+
+		if err := d.CheckAlive(now); err != nil {
+			return err
+		}
+
+		err = conn.AssignDeploymentSite(ctx, d, site.ID)
+		if err != nil {
+			return err
+		}
+		site.DeploymentID = &d.ID
+		newDeployment = d
+	} else {
+		err := conn.UnassignDeploymentSite(ctx, currentDeployment, site.ID)
+		if err != nil {
+			return err
+		}
+		site.DeploymentID = nil
+		newDeployment = nil
+	}
+
+	if currentDeployment != nil {
+		if err := c.updateDeploymentExpiry(ctx, conn, now, conf, currentDeployment); err != nil {
+			return err
+		}
+	}
+	if newDeployment != nil {
+		if err := c.updateDeploymentExpiry(ctx, conn, now, conf, newDeployment); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (c *Controller) handleSiteUpdate(ctx *gin.Context) {
 	appID := ctx.Param("app-id")
 	siteName := ctx.Param("site-name")
@@ -121,62 +222,8 @@ func (c *Controller) handleSiteUpdate(ctx *gin.Context) {
 		}
 
 		if request.DeploymentName != nil {
-			if *request.DeploymentName != "" {
-				deployment, err := conn.GetDeploymentByName(ctx, appID, *request.DeploymentName)
-				if err != nil {
-					return nil, err
-				}
-
-				if err := deployment.CheckAlive(now); err != nil {
-					return nil, err
-				}
-
-				err = conn.AssignDeploymentSite(ctx, deployment, site.ID)
-				if err != nil {
-					return nil, err
-				}
-
-				if deployment.ExpireAt != nil {
-					deployment.ExpireAt = nil
-					err = conn.SetDeploymentExpiry(ctx, deployment)
-					if err != nil {
-						return nil, err
-					}
-				}
-			} else {
-				deployment, err := conn.GetSiteDeployment(ctx, appID, siteName)
-				if errors.Is(err, models.ErrDeploymentNotFound) {
-					err = nil
-				}
-				if err != nil {
-					return nil, err
-				}
-
-				if deployment != nil {
-					err = conn.UnassignDeploymentSite(ctx, deployment, siteName)
-					if err != nil {
-						return nil, err
-					}
-
-					sites, err := conn.GetDeploymentSiteNames(ctx, deployment)
-					if err != nil {
-						return nil, err
-					}
-
-					if len(sites) == 0 {
-						deploymentTTL, err := time.ParseDuration(app.Config.Deployments.TTL)
-						if err != nil {
-							return nil, err
-						}
-
-						expireAt := now.Add(deploymentTTL)
-						deployment.ExpireAt = &expireAt
-						err = conn.SetDeploymentExpiry(ctx, deployment)
-						if err != nil {
-							return nil, err
-						}
-					}
-				}
+			if err := c.siteUpdateDeploymentName(ctx, conn, now, app.Config, site, *request.DeploymentName); err != nil {
+				return nil, err
 			}
 		}
 
