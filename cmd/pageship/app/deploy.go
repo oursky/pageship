@@ -121,7 +121,6 @@ func doDeploy(ctx context.Context, appID string, siteName string, deploymentName
 	}
 
 	Debug("Deployment ID: %s", deployment.ID)
-	Debug("Deployment Name: %s", deployment.Name)
 
 	bar := progressbar.DefaultBytes(tarSize, "uploading")
 	body := io.TeeReader(tarfile, bar)
@@ -140,6 +139,16 @@ func doDeploy(ctx context.Context, appID string, siteName string, deploymentName
 			Error("Failed to activate deployment: %s", err)
 			return
 		}
+	}
+
+	d, err := apiClient.GetDeployment(ctx, appID, deploymentName)
+	if err != nil {
+		Error("Failed to get deployment: %s", err)
+		return
+	}
+
+	if d.URL != nil {
+		Info("You can access the deployment at: %s", *d.URL)
 	}
 
 	Info("Done!")

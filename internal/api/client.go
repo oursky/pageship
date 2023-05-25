@@ -272,6 +272,29 @@ func (c *Client) UpdateSite(
 	return decodeJSONResponse[*APISite](resp)
 }
 
+func (c *Client) GetDeployment(ctx context.Context, appID string, deploymentName string) (*APIDeployment, error) {
+	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "deployments", deploymentName)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.attachToken(req); err != nil {
+		return nil, err
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return decodeJSONResponse[*APIDeployment](resp)
+}
+
 func (c *Client) ListDeployments(ctx context.Context, appID string) ([]APIDeployment, error) {
 	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "deployments")
 	if err != nil {
@@ -331,10 +354,10 @@ func (c *Client) SetupDeployment(
 func (c *Client) UploadDeploymentTarball(
 	ctx context.Context,
 	appID string,
-	deploymentID string,
+	deploymentName string,
 	tarball io.Reader,
 ) (*models.Deployment, error) {
-	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "deployments", deploymentID, "tarball")
+	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "deployments", deploymentName, "tarball")
 	if err != nil {
 		return nil, err
 	}

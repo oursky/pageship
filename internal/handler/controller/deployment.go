@@ -64,7 +64,7 @@ func (c *Controller) handleDeploymentGet(ctx *gin.Context) {
 			return nil, err
 		}
 
-		deployment, err := conn.GetDeployment(ctx, appID, deploymentName)
+		deployment, err := conn.GetDeploymentByName(ctx, appID, deploymentName)
 		if err != nil {
 			return nil, err
 		}
