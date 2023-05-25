@@ -22,7 +22,7 @@ func init() {
 	rootCmd.AddCommand(migrateCmd)
 
 	migrateCmd.PersistentFlags().String("database-url", "", "database URL")
-	migrateCmd.MarkPersistentFlagRequired("database")
+	migrateCmd.MarkPersistentFlagRequired("database-url")
 
 	migrateCmd.PersistentFlags().Bool("down", false, "downgrade database")
 
@@ -71,10 +71,7 @@ var migrateCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		database := viper.GetString("database-url")
 		down := viper.GetBool("down")
-		if database == "" {
-			logger.Fatal("missing database URL")
-			return
-		}
+
 		if down {
 			prompt := promptui.Prompt{
 				Label:     "Downgrade database? (DELETE all data)",

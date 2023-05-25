@@ -27,6 +27,7 @@ func init() {
 	startCmd.PersistentFlags().String("storage-url", "", "object storage URL")
 	startCmd.MarkPersistentFlagRequired("storage-url")
 
+	startCmd.PersistentFlags().Bool("migrate", false, "migrate before starting")
 	startCmd.PersistentFlags().String("addr", ":8001", "listen address")
 
 	startCmd.PersistentFlags().String("max-deployment-size", "200M", "max deployment files size")
@@ -38,12 +39,24 @@ func init() {
 	startCmd.PersistentFlags().String("token-sign-secret", "", "auth token sign secret")
 
 	startCmd.PersistentFlags().String("cleanup-expired-crontab", "", "cleanup expired schedule")
-	startCmd.PersistentFlags().String("keep-after-expired", "24h", "keep-after-expired")
+	startCmd.PersistentFlags().Duration("keep-after-expired", time.Hour*24, "keep-after-expired")
 }
 
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start controller server",
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		migrate := viper.GetBool("migrate")
+		if migrate {
+			logger.Info("migrating database before starting...")
+			err := doMigrate(viper.GetString("database-url"), false)
+			if err != nil {
+				logger.Fatal("failed to migrate", zap.Error(err))
+				return err
+			}
+		}
+		return nil
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		var cmdArgs struct {
 			DatabaseURL           string              `mapstructure:"database-url" validate:"url"`
