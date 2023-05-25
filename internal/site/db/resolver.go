@@ -39,22 +39,26 @@ func (r *Resolver) resolveDeployment(
 
 	if errors.Is(err, models.ErrDeploymentNotFound) {
 		// Site not found, check deployment with same name
-		if app.Config.Deployments.Accessible {
-			deployment, err = c.GetDeploymentByName(ctx, app.ID, siteName)
-
-			sites, cerr := c.GetDeploymentSiteNames(ctx, deployment)
-			if cerr != nil {
-				return nil, cerr
-			}
-			if len(sites) > 0 {
-				// Deployments assigned to site must be accessed through site
-				return nil, site.ErrSiteNotFound
-			}
+		if !app.Config.Deployments.Accessible {
+			return nil, site.ErrSiteNotFound
 		}
-	}
 
-	if errors.Is(err, models.ErrDeploymentNotFound) {
-		return nil, site.ErrSiteNotFound
+		deployment, err = c.GetDeploymentByName(ctx, app.ID, siteName)
+		if errors.Is(err, models.ErrDeploymentNotFound) {
+			return nil, site.ErrSiteNotFound
+		} else if err != nil {
+			return nil, err
+		}
+
+		sites, cerr := c.GetDeploymentSiteNames(ctx, deployment)
+		if cerr != nil {
+			return nil, cerr
+		}
+		if len(sites) > 0 {
+			// Deployments assigned to site must be accessed through site
+			return nil, site.ErrSiteNotFound
+		}
+
 	} else if err != nil {
 		return nil, err
 	}
