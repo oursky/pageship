@@ -67,7 +67,7 @@ func (c *Controller) generateUserToken(
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(tokenValidDuration)),
 		},
-	}).SignedString(c.Config.TokenSignSecret)
+	}).SignedString(c.Config.TokenSigningKey)
 	if err != nil {
 		return "", fmt.Errorf("sign token: %w", err)
 	}
@@ -99,7 +99,7 @@ func (c *Controller) verifyToken(ctx context.Context, token string) (*authnInfo,
 	_, err := jwt.ParseWithClaims(
 		token,
 		claims,
-		func(t *jwt.Token) (any, error) { return c.Config.TokenSignSecret, nil },
+		func(t *jwt.Token) (any, error) { return c.Config.TokenSigningKey, nil },
 		jwt.WithValidMethods([]string{"HS256"}),
 		jwt.WithAudience(c.Config.TokenAuthority),
 		jwt.WithTimeFunc(c.Clock.Now),

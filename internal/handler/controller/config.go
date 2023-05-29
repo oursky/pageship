@@ -8,5 +8,5 @@ type Config struct {
 	HostIDScheme      config.HostIDScheme
 	HostPattern       *config.HostPattern
 	TokenAuthority    string
-	TokenSignSecret   []byte
+	TokenSigningKey   []byte
 }

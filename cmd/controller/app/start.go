@@ -36,7 +36,7 @@ func init() {
 	startCmd.PersistentFlags().String("host-id-scheme", string(config.HostIDSchemeDefault), "host ID scheme")
 
 	startCmd.PersistentFlags().String("token-authority", "pageship", "auth token authority")
-	startCmd.PersistentFlags().String("token-sign-secret", "", "auth token sign secret")
+	startCmd.PersistentFlags().String("token-signing-key", "", "auth token signing key")
 
 	startCmd.PersistentFlags().String("cleanup-expired-crontab", "", "cleanup expired schedule")
 	startCmd.PersistentFlags().Duration("keep-after-expired", time.Hour*24, "keep-after-expired")
@@ -66,7 +66,7 @@ var startCmd = &cobra.Command{
 			StorageKeyPrefix      string              `mapstructure:"storage-key-prefix"`
 			HostPattern           string              `mapstructure:"host-pattern"`
 			HostIDScheme          config.HostIDScheme `mapstructure:"host-id-scheme" validate:"hostidscheme"`
-			TokenSignSecret       string              `mapstructure:"token-sign-secret"`
+			TokenSigningKey       string              `mapstructure:"token-signing-key"`
 			TokenAuthority        string              `mapstructure:"token-authority"`
 			CleanupExpiredCrontab string              `mapstructure:"cleanup-expired-crontab" validate:"omitempty,cron"`
 			KeepAfterExpired      time.Duration       `mapstructure:"keep-after-expired" validate:"min=0"`
@@ -85,10 +85,10 @@ var startCmd = &cobra.Command{
 		}
 
 		maxDeploymentSize, _ := humanize.ParseBytes(cmdArgs.MaxDeploymentSize)
-		tokenSignSecret := cmdArgs.TokenSignSecret
-		if tokenSignSecret == "" {
-			logger.Warn("token sign secret not specified; a generated secret would be used for this run only.")
-			tokenSignSecret = generateSecret()
+		tokenSigningKey := cmdArgs.TokenSigningKey
+		if tokenSigningKey == "" {
+			logger.Warn("token signing key not specified; a temporary generated key would be used.")
+			tokenSigningKey = generateSecret()
 		}
 
 		config := controller.Config{
@@ -96,7 +96,7 @@ var startCmd = &cobra.Command{
 			StorageKeyPrefix:  cmdArgs.StorageKeyPrefix,
 			HostIDScheme:      cmdArgs.HostIDScheme,
 			HostPattern:       config.NewHostPattern(cmdArgs.HostPattern),
-			TokenSignSecret:   []byte(tokenSignSecret),
+			TokenSigningKey:   []byte(tokenSigningKey),
 			TokenAuthority:    cmdArgs.TokenAuthority,
 		}
 
