@@ -95,9 +95,11 @@ var serveCmd = &cobra.Command{
 		}
 
 		server := &command.HTTPServer{
-			Logger:  logger{},
-			Addr:    addr,
-			Handler: handler,
+			Logger: logger{},
+			Server: http.Server{
+				Addr:    addr,
+				Handler: handler,
+			},
 		}
 		command.Run([]command.WorkFunc{server.Run})
 	},

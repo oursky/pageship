@@ -13,5 +13,9 @@ func (l zapLogger) Info(format string, args ...any) {
 }
 
 func (l zapLogger) Error(msg string, err error) {
-	l.Logger.Error(msg, zap.Error(err))
+	if err == nil {
+		l.Logger.Error(msg)
+	} else {
+		l.Logger.Error(msg, zap.Error(err))
+	}
 }

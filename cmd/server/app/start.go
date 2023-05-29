@@ -1,6 +1,8 @@
 package app
 
 import (
+	"net/http"
+
 	"github.com/oursky/pageship/internal/command"
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/db"
@@ -28,18 +30,6 @@ func init() {
 	startCmd.PersistentFlags().String("host-id-scheme", string(config.HostIDSchemeDefault), "host ID scheme")
 
 	startCmd.PersistentFlags().String("addr", ":8000", "listen address")
-}
-
-type siteLogger struct {
-	log *zap.Logger
-}
-
-func (l siteLogger) Debug(format string, args ...any) {
-	l.log.Sugar().Debugf(format, args...)
-}
-
-func (l siteLogger) Error(msg string, err error) {
-	l.log.Error(msg, zap.Error(err))
 }
 
 var startCmd = &cobra.Command{
@@ -80,7 +70,7 @@ var startCmd = &cobra.Command{
 			Storage:      storage,
 		}
 		handler, err := site.NewHandler(
-			siteLogger{log: logger.Named("site")},
+			zapLogger{logger.Named("site")},
 			resolver,
 			site.HandlerConfig{
 				HostPattern: cmdArgs.HostPattern,
@@ -93,9 +83,11 @@ var startCmd = &cobra.Command{
 		}
 
 		server := command.HTTPServer{
-			Logger:  zapLogger{logger.Named("server")},
-			Addr:    cmdArgs.Addr,
-			Handler: handler,
+			Logger: zapLogger{logger.Named("server")},
+			Server: http.Server{
+				Addr:    cmdArgs.Addr,
+				Handler: handler,
+			},
 		}
 
 		command.Run([]command.WorkFunc{

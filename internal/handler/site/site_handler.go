@@ -8,7 +8,9 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 
+	"github.com/oursky/pageship/internal/httputil"
 	"github.com/oursky/pageship/internal/site"
 )
 
@@ -78,7 +80,8 @@ func (h *SiteHandler) serveFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer reader.Close()
 
-	http.ServeContent(w, r, path.Base(r.URL.Path), info.ModTime, reader)
+	writer := httputil.NewTimeoutResponseWriter(w, 10*time.Second)
+	http.ServeContent(writer, r, path.Base(r.URL.Path), info.ModTime, reader)
 }
 
 type lazyReader struct {

@@ -12,6 +12,7 @@ import (
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/deploy"
+	"github.com/oursky/pageship/internal/httputil"
 	"github.com/oursky/pageship/internal/models"
 )
 
@@ -202,7 +203,15 @@ func (c *Controller) handleDeploymentUpload(ctx *gin.Context) {
 		return c.Storage.Upload(ctx, key, r)
 	}
 
-	err = deploy.ExtractFiles(ctx.Request.Body, deployment.Metadata.Files, handleFile)
+	reader := io.LimitReader(
+		httputil.NewTimeoutReader(
+			ctx.Request.Body,
+			http.NewResponseController(ctx.Writer),
+			10*time.Second,
+		),
+		c.Config.MaxDeploymentSize,
+	)
+	err = deploy.ExtractFiles(reader, deployment.Metadata.Files, handleFile)
 	if errors.As(err, new(deploy.Error)) {
 		ctx.JSON(http.StatusBadRequest, response{Error: err})
 		return

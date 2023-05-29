@@ -27,5 +27,9 @@ func (logger) Info(format string, args ...any) {
 }
 
 func (logger) Error(msg string, err error) {
-	Error(msg+": %s", err)
+	if err == nil {
+		Error(msg)
+	} else {
+		Error(msg+": %s", err)
+	}
 }
