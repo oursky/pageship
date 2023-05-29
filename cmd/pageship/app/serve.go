@@ -70,7 +70,7 @@ func makeHandler(prefix string) (http.Handler, error) {
 	}
 	Info("site resolution mode: %s", resolver.Kind())
 
-	handler, err := handler.NewHandler(logger{}, resolver, handler.HandlerConfig{
+	handler, err := handler.NewHandler(zapLogger, resolver, handler.HandlerConfig{
 		HostPattern: sitesConf.HostPattern,
 		Middlewares: middleware.Default,
 	})
@@ -95,7 +95,7 @@ var serveCmd = &cobra.Command{
 		}
 
 		server := &command.HTTPServer{
-			Logger: logger{},
+			Logger: zapLogger,
 			Server: http.Server{
 				Addr:    addr,
 				Handler: handler,

@@ -9,6 +9,7 @@ import (
 	"github.com/oursky/pageship/internal/cache"
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/site"
+	"go.uber.org/zap"
 )
 
 const (
@@ -16,25 +17,20 @@ const (
 	cacheTTL  time.Duration = time.Second * 1
 )
 
-type Logger interface {
-	Debug(format string, args ...any)
-	Error(msg string, err error)
-}
-
 type HandlerConfig struct {
 	HostPattern string
 	Middlewares []Middleware
 }
 
 type Handler struct {
-	logger      Logger
+	logger      *zap.Logger
 	resolver    site.Resolver
 	hostPattern *config.HostPattern
 	cache       *cache.Cache[*SiteHandler]
 	middlewares []Middleware
 }
 
-func NewHandler(logger Logger, resolver site.Resolver, conf HandlerConfig) (*Handler, error) {
+func NewHandler(logger *zap.Logger, resolver site.Resolver, conf HandlerConfig) (*Handler, error) {
 	cache, err := cache.NewCache[*SiteHandler](cacheSize, cacheTTL)
 	if err != nil {
 		return nil, fmt.Errorf("setup cache: %w", err)
@@ -72,11 +68,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	} else if err != nil {
-		h.logger.Error("failed to resolve site", err)
+		h.logger.Error("failed to resolve site", zap.Error(err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-	h.logger.Debug("resolved site: %s", handler.ID())
+	h.logger.Debug("resolved site", zap.String("site", handler.ID()))
 
 	handler.ServeHTTP(w, r)
 }

@@ -70,7 +70,7 @@ var startCmd = &cobra.Command{
 			Storage:      storage,
 		}
 		handler, err := site.NewHandler(
-			zapLogger{logger.Named("site")},
+			logger.Named("site"),
 			resolver,
 			site.HandlerConfig{
 				HostPattern: cmdArgs.HostPattern,
@@ -83,7 +83,7 @@ var startCmd = &cobra.Command{
 		}
 
 		server := command.HTTPServer{
-			Logger: zapLogger{logger.Named("server")},
+			Logger: logger.Named("server"),
 			Server: http.Server{
 				Addr:    cmdArgs.Addr,
 				Handler: handler,

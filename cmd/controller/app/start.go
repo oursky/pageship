@@ -120,7 +120,7 @@ var startCmd = &cobra.Command{
 			DB:      db,
 		}
 		server := command.HTTPServer{
-			Logger: zapLogger{Logger: logger.Named("server")},
+			Logger: logger.Named("server"),
 			Server: http.Server{
 				Addr:    cmdArgs.Addr,
 				Handler: ctrl.Handler(),
