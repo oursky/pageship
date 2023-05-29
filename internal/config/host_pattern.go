@@ -63,9 +63,6 @@ func (p *HostPattern) MatchString(s string) (string, bool) {
 
 	s = strings.TrimSuffix(s, ".")
 
-	if len(s) == 0 {
-		return "", false
-	}
 	return s, true
 }
 func (p *HostPattern) MakeURL(value string) string {
