@@ -23,7 +23,6 @@ func init() {
 	rootCmd.AddCommand(serveCmd)
 
 	serveCmd.PersistentFlags().String("addr", ":8000", "listen address")
-	serveCmd.PersistentFlags().String("directory", ".", "base directory")
 	serveCmd.PersistentFlags().Bool("tls", false, "use TLS")
 	serveCmd.PersistentFlags().String("tls-domain", "", "TLS certificate domain")
 	serveCmd.PersistentFlags().String("tls-addr", ":443", "TLS listen address")
@@ -88,16 +87,21 @@ func makeHandler(prefix string) (*handler.Handler, error) {
 }
 
 var serveCmd = &cobra.Command{
-	Use:   "serve",
+	Use:   "serve [site directory]",
 	Short: "Start local server",
+	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		addr := viper.GetString("addr")
-		dir := viper.GetString("directory")
 		useTLS := viper.GetBool("tls")
 		tlsDomain := viper.GetString("tls-domain")
 		tlsAddr := viper.GetString("tls-addr")
 		tlsAcmeEndpoint := viper.GetString("tls-acme-endpoint")
 		tlsAcmeEmail := viper.GetString("tls-acme-email")
+
+		dir := "."
+		if len(args) > 0 {
+			dir = args[0]
+		}
 
 		handler, err := makeHandler(dir)
 		if err != nil {
