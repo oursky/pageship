@@ -29,7 +29,8 @@ func init() {
 	})
 }
 
-var dnsLabel = regexp.MustCompile("^[a-z]([-a-z0-9]*[a-z0-9])?$")
+// ref: RFC1123
+var dnsLabel = regexp.MustCompile("^[a-z0-9]([-a-z0-9]*[a-z0-9])?$")
 
 const dnsLabelMaxLength = 63
 

@@ -23,7 +23,6 @@ func RandomID(n int) string {
 	if err != nil {
 		panic(err)
 	}
-	data[0] &= 0x7f // Ensure first char is alphabetic
 
 	return strings.ToLower(idEncoding.EncodeToString(data[:]))
 }
