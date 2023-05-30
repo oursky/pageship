@@ -4,14 +4,15 @@ import (
 	"context"
 	"errors"
 	"io/fs"
-	"net/http"
 	"os"
 	"path/filepath"
 
+	"github.com/caddyserver/certmagic"
 	"github.com/oursky/pageship/internal/command"
 	"github.com/oursky/pageship/internal/config"
 	handler "github.com/oursky/pageship/internal/handler/site"
 	"github.com/oursky/pageship/internal/handler/site/middleware"
+	"github.com/oursky/pageship/internal/httputil"
 	"github.com/oursky/pageship/internal/site"
 	"github.com/oursky/pageship/internal/site/local"
 	"github.com/spf13/cobra"
@@ -23,6 +24,11 @@ func init() {
 
 	serveCmd.PersistentFlags().String("addr", ":8000", "listen address")
 	serveCmd.PersistentFlags().String("directory", ".", "base directory")
+	serveCmd.PersistentFlags().Bool("tls", false, "use TLS")
+	serveCmd.PersistentFlags().String("tls-domain", "", "TLS certificate domain")
+	serveCmd.PersistentFlags().String("tls-addr", ":443", "TLS listen address")
+	serveCmd.PersistentFlags().String("tls-acme-endpoint", "", "TLS ACME directory endpoint")
+	serveCmd.PersistentFlags().String("tls-acme-email", "", "TLS ACME directory account email")
 }
 
 func loadSitesConfig(fsys fs.FS) (*config.SitesConfig, error) {
@@ -36,7 +42,7 @@ func loadSitesConfig(fsys fs.FS) (*config.SitesConfig, error) {
 	return conf, nil
 }
 
-func makeHandler(prefix string) (http.Handler, error) {
+func makeHandler(prefix string) (*handler.Handler, error) {
 	dir, err := filepath.Abs(prefix)
 	if err != nil {
 		return nil, err
@@ -87,6 +93,11 @@ var serveCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		addr := viper.GetString("addr")
 		dir := viper.GetString("directory")
+		useTLS := viper.GetBool("tls")
+		tlsDomain := viper.GetString("tls-domain")
+		tlsAddr := viper.GetString("tls-addr")
+		tlsAcmeEndpoint := viper.GetString("tls-acme-endpoint")
+		tlsAcmeEmail := viper.GetString("tls-acme-email")
 
 		handler, err := makeHandler(dir)
 		if err != nil {
@@ -94,12 +105,29 @@ var serveCmd = &cobra.Command{
 			return
 		}
 
-		server := &command.HTTPServer{
-			Logger: zapLogger,
-			Server: http.Server{
-				Addr:    addr,
-				Handler: handler,
-			},
+		var tls *httputil.ServerTLSConfig
+		if useTLS {
+			tls = &httputil.ServerTLSConfig{
+				Storage:       certmagic.Default.Storage,
+				ACMEDirectory: tlsAcmeEndpoint,
+				ACMEEmail:     tlsAcmeEmail,
+				Addr:          tlsAddr,
+				CheckDomain:   handler.CheckValidDomain,
+			}
+
+			if len(tlsDomain) > 0 {
+				tls.DomainNames = []string{tlsDomain}
+			} else if handler.AllowAnyDomain() {
+				Error("Must provide domain name via --tls-domain to enable TLS")
+				return
+			}
+		}
+
+		server := &httputil.Server{
+			Logger:  zapLogger,
+			Addr:    addr,
+			Handler: handler,
+			TLS:     tls,
 		}
 		command.Run([]command.WorkFunc{server.Run})
 	},

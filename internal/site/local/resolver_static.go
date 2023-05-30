@@ -17,6 +17,8 @@ type resolverStatic struct {
 
 func (h *resolverStatic) Kind() string { return "static config" }
 
+func (h *resolverStatic) AllowAnyDomain() bool { return false }
+
 func (h *resolverStatic) Resolve(ctx context.Context, matchedID string) (*site.Descriptor, error) {
 	if !site.CheckDefaultSite(&matchedID, h.defaultSite) {
 		return nil, site.ErrSiteNotFound

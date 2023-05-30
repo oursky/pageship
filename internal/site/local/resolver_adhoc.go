@@ -20,6 +20,8 @@ type resolverAdhoc struct {
 
 func (h *resolverAdhoc) Kind() string { return "ad-hoc" }
 
+func (h *resolverAdhoc) AllowAnyDomain() bool { return false }
+
 func (h *resolverAdhoc) Resolve(ctx context.Context, matchedID string) (*site.Descriptor, error) {
 	if !site.CheckDefaultSite(&matchedID, h.defaultSite) {
 		return nil, site.ErrSiteNotFound

@@ -30,6 +30,8 @@ func New(url string) (DB, error) {
 
 type DB interface {
 	BeginTx(ctx context.Context) (Conn, error)
+
+	CertificateDB
 }
 
 type Conn interface {
@@ -78,6 +80,20 @@ type UserDB interface {
 	UnassignAppUser(ctx context.Context, appID string, userID string) error
 	ListAppUsers(ctx context.Context, appID string) ([]*models.User, error)
 	IsAppAccessible(ctx context.Context, appID string, userID string) error
+}
+
+type CertificateDB interface {
+	GetCertDataEntry(ctx context.Context, key string) (*models.CertDataEntry, error)
+	SetCertDataEntry(ctx context.Context, entry *models.CertDataEntry) error
+	DeleteCertificateData(ctx context.Context, key string) error
+	ListCertificateData(ctx context.Context, prefix string) ([]string, error)
+	Locker(ctx context.Context) (CertificateDBLocker, error)
+}
+
+type CertificateDBLocker interface {
+	Close() error
+	Lock(ctx context.Context, name string) error
+	Unlock(ctx context.Context, name string) error
 }
 
 type DeploymentInfo struct {

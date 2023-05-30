@@ -1,7 +1,6 @@
 package app
 
 import (
-	"net/http"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -13,6 +12,7 @@ import (
 	_ "github.com/oursky/pageship/internal/db/postgres"
 	_ "github.com/oursky/pageship/internal/db/sqlite"
 	"github.com/oursky/pageship/internal/handler/controller"
+	"github.com/oursky/pageship/internal/httputil"
 	"github.com/oursky/pageship/internal/storage"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -30,6 +30,13 @@ func init() {
 
 	startCmd.PersistentFlags().Bool("migrate", false, "migrate before starting")
 	startCmd.PersistentFlags().String("addr", ":8001", "listen address")
+
+	startCmd.PersistentFlags().Bool("tls", false, "use TLS")
+	startCmd.PersistentFlags().String("tls-domain", "", "TLS certificate domain")
+	startCmd.PersistentFlags().String("tls-addr", ":443", "TLS listen address")
+	startCmd.PersistentFlags().String("tls-acme-endpoint", "", "TLS ACME directory endpoint")
+	startCmd.PersistentFlags().String("tls-acme-email", "", "TLS ACME directory account email")
+	startCmd.PersistentFlags().String("tls-protect-key", "", "TLS data protection key")
 
 	startCmd.PersistentFlags().String("max-deployment-size", "200M", "max deployment files size")
 	startCmd.PersistentFlags().String("storage-key-prefix", "", "storage key prefix")
@@ -63,6 +70,12 @@ var startCmd = &cobra.Command{
 			DatabaseURL           string              `mapstructure:"database-url" validate:"url"`
 			StorageURL            string              `mapstructure:"storage-url" validate:"url"`
 			Addr                  string              `mapstructure:"addr" validate:"hostname_port"`
+			TLS                   bool                `mapstructure:"tls"`
+			TLSDomain             string              `mapstructure:"tls-domain" validate:"required_if=TLS true"`
+			TLSAddr               string              `mapstructure:"tls-addr" validate:"hostname_port"`
+			TLSACMEEndpoint       string              `mapstructure:"tls-acme-endpoint"`
+			TLSACMEEmail          string              `mapstructure:"tls-acme-email"`
+			TLSProtectKey         string              `mapstructure:"tls-protect-key"`
 			MaxDeploymentSize     string              `mapstructure:"max-deployment-size" validate:"size"`
 			StorageKeyPrefix      string              `mapstructure:"storage-key-prefix"`
 			HostPattern           string              `mapstructure:"host-pattern"`
@@ -101,7 +114,7 @@ var startCmd = &cobra.Command{
 			TokenAuthority:    cmdArgs.TokenAuthority,
 		}
 
-		db, err := db.New(cmdArgs.DatabaseURL)
+		database, err := db.New(cmdArgs.DatabaseURL)
 		if err != nil {
 			logger.Fatal("failed to setup database", zap.Error(err))
 			return
@@ -117,14 +130,28 @@ var startCmd = &cobra.Command{
 			Logger:  logger.Named("controller"),
 			Config:  config,
 			Storage: storage,
-			DB:      db,
+			DB:      database,
 		}
-		server := command.HTTPServer{
-			Logger: logger.Named("server"),
-			Server: http.Server{
-				Addr:    cmdArgs.Addr,
-				Handler: ctrl.Handler(),
-			},
+
+		var tls *httputil.ServerTLSConfig
+		if cmdArgs.TLS {
+			if cmdArgs.TLSProtectKey == "" {
+				logger.Warn("TLS protect key not specified; certificate private keys would be stored in plain text.")
+			}
+			tls = &httputil.ServerTLSConfig{
+				Storage:       db.NewCertStorage(database, cmdArgs.TLSProtectKey),
+				ACMEDirectory: cmdArgs.TLSACMEEndpoint,
+				ACMEEmail:     cmdArgs.TLSACMEEmail,
+				Addr:          cmdArgs.TLSAddr,
+				DomainNames:   []string{cmdArgs.TLSDomain},
+			}
+		}
+
+		server := httputil.Server{
+			Logger:  logger.Named("server"),
+			Addr:    cmdArgs.Addr,
+			Handler: ctrl.Handler(),
+			TLS:     tls,
 		}
 
 		cronr := command.CronRunner{
@@ -133,7 +160,7 @@ var startCmd = &cobra.Command{
 				&cron.CleanupExpired{
 					Schedule:         cmdArgs.CleanupExpiredCrontab,
 					KeepAfterExpired: cmdArgs.KeepAfterExpired,
-					DB:               db,
+					DB:               database,
 				},
 			},
 		}

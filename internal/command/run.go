@@ -30,5 +30,8 @@ func Run(works []WorkFunc) {
 		cancel()
 	}()
 
-	_ = g.Wait()
+	err := g.Wait()
+	if err != nil {
+		os.Exit(1)
+	}
 }

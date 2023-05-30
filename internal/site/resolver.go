@@ -9,6 +9,7 @@ var ErrSiteNotFound = errors.New("site not found")
 
 type Resolver interface {
 	Kind() string
+	AllowAnyDomain() bool
 	Resolve(ctx context.Context, matchedID string) (*Descriptor, error)
 }
 

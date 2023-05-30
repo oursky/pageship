@@ -17,3 +17,6 @@ var ErrDeploymentExpired = errors.New("deployment expired")
 var ErrUserNotFound = errors.New("user not found")
 var ErrDeleteCurrentUser = errors.New("cannot delete current user")
 var ErrInvalidCredentials = errors.New("invalid credentials")
+
+var ErrCertificateDataNotFound = errors.New("cert data not found")
+var ErrCertificateDataLocked = errors.New("cert locked")

@@ -1,6 +1,7 @@
 package site
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -45,14 +46,14 @@ func NewHandler(logger *zap.Logger, resolver site.Resolver, conf HandlerConfig) 
 	}, nil
 }
 
-func (h *Handler) resolveSite(r *http.Request) (*SiteHandler, error) {
-	matchedID, ok := h.hostPattern.MatchString(r.Host)
+func (h *Handler) resolveSite(host string) (*SiteHandler, error) {
+	matchedID, ok := h.hostPattern.MatchString(host)
 	if !ok {
 		return nil, site.ErrSiteNotFound
 	}
 
 	resolve := func(matchedID string) (*SiteHandler, error) {
-		desc, err := h.resolver.Resolve(r.Context(), matchedID)
+		desc, err := h.resolver.Resolve(context.Background(), matchedID)
 		if err != nil {
 			return nil, err
 		}
@@ -62,8 +63,20 @@ func (h *Handler) resolveSite(r *http.Request) (*SiteHandler, error) {
 	return h.cache.Load(matchedID, resolve)
 }
 
+func (h *Handler) AllowAnyDomain() bool {
+	return h.resolver.AllowAnyDomain()
+}
+
+func (h *Handler) CheckValidDomain(name string) error {
+	if h.resolver.AllowAnyDomain() {
+		return nil
+	}
+	_, err := h.resolveSite(name)
+	return err
+}
+
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	handler, err := h.resolveSite(r)
+	handler, err := h.resolveSite(r.Host)
 	if errors.Is(err, site.ErrSiteNotFound) {
 		http.NotFound(w, r)
 		return

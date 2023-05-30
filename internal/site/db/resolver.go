@@ -65,6 +65,8 @@ func (r *Resolver) resolveDeployment(
 	return deployment, nil
 }
 
+func (h *Resolver) AllowAnyDomain() bool { return false }
+
 func (r *Resolver) Resolve(ctx context.Context, matchedID string) (*site.Descriptor, error) {
 	appID, siteName := r.HostIDScheme.Split(matchedID)
 
