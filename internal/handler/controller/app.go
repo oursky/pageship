@@ -32,6 +32,11 @@ func (c *Controller) handleAppCreate(ctx *gin.Context) {
 		return
 	}
 
+	if _, reserved := c.Config.ReservedApps[request.ID]; reserved {
+		writeResponse(ctx, nil, models.ErrAppUsedID)
+		return
+	}
+
 	userID := ctx.GetString(contextUserID)
 	app, err := tx(ctx, c.DB, func(conn db.Conn) (*apiApp, error) {
 		app := models.NewApp(c.Clock.Now().UTC(), request.ID)

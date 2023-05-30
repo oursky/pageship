@@ -26,6 +26,8 @@ import (
 
 var errUnknownDomain = errors.New("unknown domain")
 
+const defaultControllerHostID = "api"
+
 func init() {
 	rootCmd.AddCommand(startCmd)
 
@@ -48,6 +50,7 @@ func init() {
 	startCmd.PersistentFlags().String("storage-key-prefix", "", "storage key prefix")
 	startCmd.PersistentFlags().String("host-pattern", config.DefaultHostPattern, "host match pattern")
 	startCmd.PersistentFlags().String("host-id-scheme", string(config.HostIDSchemeDefault), "host ID scheme")
+	startCmd.PersistentFlags().StringSlice("reserved-apps", []string{defaultControllerHostID}, "reserved app IDs")
 
 	startCmd.PersistentFlags().String("token-authority", "pageship", "auth token authority")
 	startCmd.PersistentFlags().String("token-signing-key", "", "auth token signing key")
@@ -75,7 +78,7 @@ type StartConfig struct {
 	Controller       bool   `mapstructure:"controller"`
 	Cron             bool   `mapstructure:"cron"`
 	Sites            bool   `mapstructure:"sites"`
-	ControllerDomain string `mapstructure:"controller-domain" validate:"required_if=Controller true"`
+	ControllerDomain string `mapstructure:"controller-domain" validate:"omitempty,hostname_rfc1123"`
 
 	StartSitesConfig      `mapstructure:",squash"`
 	StartControllerConfig `mapstructure:",squash"`
@@ -88,10 +91,11 @@ type StartSitesConfig struct {
 }
 
 type StartControllerConfig struct {
-	MaxDeploymentSize string `mapstructure:"max-deployment-size" validate:"size"`
-	StorageKeyPrefix  string `mapstructure:"storage-key-prefix"`
-	TokenSigningKey   string `mapstructure:"token-signing-key"`
-	TokenAuthority    string `mapstructure:"token-authority"`
+	MaxDeploymentSize string   `mapstructure:"max-deployment-size" validate:"size"`
+	StorageKeyPrefix  string   `mapstructure:"storage-key-prefix"`
+	TokenSigningKey   string   `mapstructure:"token-signing-key"`
+	TokenAuthority    string   `mapstructure:"token-authority"`
+	ReservedApps      []string `mapstructure:"reserved-apps"`
 }
 
 type StartCronConfig struct {
@@ -102,6 +106,7 @@ type StartCronConfig struct {
 type setup struct {
 	database         db.DB
 	storage          *storage.Storage
+	server           *httputil.Server
 	mux              *http.ServeMux
 	works            []command.WorkFunc
 	checkDomainFuncs []func(name string) error
@@ -148,11 +153,17 @@ func (s *setup) controller(domain string, conf StartControllerConfig, sitesConf 
 		tokenSigningKey = generateSecret()
 	}
 
+	reservedApps := make(map[string]struct{})
+	for _, app := range conf.ReservedApps {
+		reservedApps[app] = struct{}{}
+	}
+
 	controllerConf := controller.Config{
 		MaxDeploymentSize: int64(maxDeploymentSize),
 		StorageKeyPrefix:  conf.StorageKeyPrefix,
 		HostIDScheme:      sitesConf.HostIDScheme,
 		HostPattern:       config.NewHostPattern(sitesConf.HostPattern),
+		ReservedApps:      reservedApps,
 		TokenSigningKey:   []byte(tokenSigningKey),
 		TokenAuthority:    conf.TokenAuthority,
 	}
@@ -165,12 +176,18 @@ func (s *setup) controller(domain string, conf StartControllerConfig, sitesConf 
 	}
 
 	s.mux.Handle(domain+"/", ctrl.Handler())
+	if s.server.TLS != nil {
+		s.server.TLS.DomainNames = append(s.server.TLS.DomainNames, domain)
+	}
 	s.checkDomainFuncs = append(s.checkDomainFuncs, func(name string) error {
 		if name != domain {
 			return errUnknownDomain
 		}
 		return nil
 	})
+
+	logger.Info("setup controller", zap.String("domain", domain))
+
 	return nil
 }
 
@@ -236,37 +253,36 @@ var startCmd = &cobra.Command{
 			database: database,
 			storage:  storage,
 			mux:      new(http.ServeMux),
+			server: &httputil.Server{
+				Logger: logger.Named("server"),
+				Addr:   cmdArgs.Addr,
+			},
 		}
+		setup.server.Handler = setup.mux
+		setup.works = append(setup.works, setup.server.Run)
 
-		var tls *httputil.ServerTLSConfig
 		if cmdArgs.TLS {
 			if cmdArgs.TLSProtectKey == "" {
 				logger.Warn("TLS protect key not specified; certificate private keys would be stored in plain text.")
 			}
 
-			tls = &httputil.ServerTLSConfig{
+			setup.server.TLS = &httputil.ServerTLSConfig{
 				Storage:       db.NewCertStorage(database, cmdArgs.TLSProtectKey),
 				ACMEDirectory: cmdArgs.TLSACMEEndpoint,
 				ACMEEmail:     cmdArgs.TLSACMEEmail,
 				Addr:          cmdArgs.TLSAddr,
 				CheckDomain:   setup.checkDomain,
 			}
-
-			if cmdArgs.ControllerDomain != "" {
-				tls.DomainNames = append(tls.DomainNames, cmdArgs.ControllerDomain)
-			}
 		}
-
-		server := httputil.Server{
-			Logger:  logger.Named("server"),
-			Addr:    cmdArgs.Addr,
-			Handler: setup.mux,
-			TLS:     tls,
-		}
-		setup.works = append(setup.works, server.Run)
 
 		if cmdArgs.Controller {
-			if err := setup.controller(cmdArgs.ControllerDomain,
+			domain := cmdArgs.ControllerDomain
+			if domain == "" {
+				pattern := config.NewHostPattern(cmdArgs.HostPattern)
+				domain = pattern.MakeDomain(cmdArgs.HostIDScheme.Make(defaultControllerHostID, ""))
+			}
+
+			if err := setup.controller(domain,
 				cmdArgs.StartControllerConfig,
 				cmdArgs.StartSitesConfig,
 			); err != nil {

@@ -65,17 +65,20 @@ func (p *HostPattern) MatchString(s string) (string, bool) {
 
 	return s, true
 }
-func (p *HostPattern) MakeURL(value string) string {
-	url := p.LeadingScheme + p.Prefix + value
+
+func (p *HostPattern) MakeDomain(value string) string {
+	domain := p.Prefix + value
 
 	if p.Suffix != "" {
 		if value != "" {
-			url += "."
+			domain += "."
 		}
-		url += p.Suffix
+		domain += p.Suffix
 	}
 
-	url += p.TrailingPort
+	return domain
+}
 
-	return url
+func (p *HostPattern) MakeURL(value string) string {
+	return p.LeadingScheme + p.MakeDomain(value) + p.TrailingPort
 }

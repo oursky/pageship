@@ -7,6 +7,7 @@ type Config struct {
 	StorageKeyPrefix  string
 	HostIDScheme      config.HostIDScheme
 	HostPattern       *config.HostPattern
+	ReservedApps      map[string]struct{}
 	TokenAuthority    string
 	TokenSigningKey   []byte
 }
