@@ -2,7 +2,7 @@ package config
 
 import "strings"
 
-const DefaultHostPattern = `*.localhost`
+const DefaultHostPattern = `http://*.localhost:8001`
 
 type HostPattern struct {
 	Prefix        string
