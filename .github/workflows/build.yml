@@ -1,0 +1,24 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: stable
+
+      - name: Build snapshot
+        run: curl -sfL https://goreleaser.com/static/run | bash -s -- release --snapshot --clean
+        env:
+          VERSION: v1.18.2

@@ -1,0 +1,32 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '*'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - run: git fetch --force --tags
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: stable
+
+      - name: Build release
+        run: |
+          docker login ghcr.io -u "$DOCKER_USER" -p "$GITHUB_TOKEN"
+          curl -sfL https://goreleaser.com/static/run | bash -s -- release --clean
+        env:
+          VERSION: v1.18.2
+          DOCKER_USER: ${{ github.repository_owner }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

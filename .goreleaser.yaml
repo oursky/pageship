@@ -1,0 +1,77 @@
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: pageship
+    main: ./cmd/pageship
+    binary: pageship
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+  - id: controller
+    main: ./cmd/controller
+    binary: controller
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+dockers:
+  - id: pageship
+    image_templates:
+      - "ghcr.io/oursky/pageship:latest"
+      - "ghcr.io/oursky/pageship:{{ .Tag }}"
+    dockerfile: 'cmd/pageship/Dockerfile'
+
+  - id: controller
+    image_templates:
+      - "ghcr.io/oursky/pageship-controller:latest"
+      - "ghcr.io/oursky/pageship-controller:{{ .Tag }}"
+    dockerfile: 'cmd/controller/Dockerfile'
+
+archives:
+  - id: pageship
+    name_template: "pageship_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    builds:
+      - pageship
+  - id: controller
+    name_template: "controller_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    builds:
+      - controller
+
+checksum:
+  name_template: "checksums.txt"
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+release:
+  draft: true
+  replace_existing_draft: true
+  prerelease: auto
+
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
