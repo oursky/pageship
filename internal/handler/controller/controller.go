@@ -2,29 +2,14 @@ package controller
 
 import (
 	"net/http"
-	"time"
 
-	ginzap "github.com/gin-contrib/zap"
-	"github.com/gin-gonic/gin"
-	"github.com/gin-gonic/gin/binding"
-	"github.com/go-playground/validator/v10"
-	"github.com/oursky/pageship/internal/config"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/storage"
 	apptime "github.com/oursky/pageship/internal/time"
 	"go.uber.org/zap"
 )
-
-func init() {
-	validate := binding.Validator.Engine().(*validator.Validate)
-
-	binding.EnableDecoderDisallowUnknownFields = true
-
-	validate.RegisterValidation("dnsLabel", func(fl validator.FieldLevel) bool {
-		value := fl.Field().String()
-		return config.ValidateDNSLabel(value)
-	})
-}
 
 type Controller struct {
 	Logger  *zap.Logger
@@ -39,45 +24,31 @@ func (c *Controller) Handler() http.Handler {
 		c.Clock = apptime.SystemClock
 	}
 
-	logger := zap.L().Named("controller")
+	r := chi.NewRouter()
+	r.Use(middleware.Heartbeat("/healthz"))
+	r.Use(c.middlewareAuthn)
 
-	g := gin.New()
-	g.Use(ginzap.GinzapWithConfig(zap.L(), &ginzap.Config{
-		TimeFormat: time.RFC3339,
-		UTC:        true,
-		Context: func(c *gin.Context) []zap.Field {
-			var fields []zap.Field
-			if userID, ok := c.Get("userID"); ok {
-				fields = append(fields, zap.String("user-id", userID.(string)))
-			}
-			return fields
-		},
-	}))
-	g.Use(ginzap.RecoveryWithZap(logger, true))
+	r.Route("/api/v1", func(r chi.Router) {
+		r.With(c.requireAuth()).Get("/apps", c.handleAppList)
+		r.With(c.requireAuth()).Post("/apps", c.handleAppCreate)
+		r.With(c.requireAuth(authzReadApp)).Get("/apps/{app-id}", c.handleAppGet)
+		r.With(c.requireAuth(authzReadApp)).Get("/apps/{app-id}/config", c.handleAppConfigGet)
+		r.With(c.requireAuth(authzWriteApp)).Put("/apps/{app-id}/config", c.handleAppConfigSet)
+		r.With(c.requireAuth(authzReadApp)).Get("/apps/{app-id}/users", c.handleAppUserList)
+		r.With(c.requireAuth(authzWriteApp)).Post("/apps/{app-id}/users", c.handleAppUserAdd)
+		r.With(c.requireAuth(authzWriteApp)).Delete("/apps/{app-id}/users/{user-id}", c.handleAppUserDelete)
 
-	g.GET("/healthz", c.handleHealthz)
+		r.With(c.requireAuth(authzReadApp)).Get("/apps/{app-id}/sites", c.handleSiteList)
+		r.With(c.requireAuth(authzWriteApp)).Post("/apps/{app-id}/sites", c.handleSiteCreate)
+		r.With(c.requireAuth(authzWriteApp)).Patch("/apps/{app-id}/sites/{site-name}", c.handleSiteUpdate)
 
-	v1 := g.Group("/api/v1")
-	v1.POST("/apps", c.handleAppCreate)
-	v1.GET("/apps", c.handleAppList)
-	v1.GET("/apps/:app-id", c.handleAppGet)
-	v1.GET("/apps/:app-id/config", c.handleAppConfigGet)
-	v1.PUT("/apps/:app-id/config", c.handleAppConfigSet)
-	v1.GET("/apps/:app-id/users", c.handleAppUserList)
-	v1.POST("/apps/:app-id/users", c.handleAppUserAdd)
-	v1.DELETE("/apps/:app-id/users/:user-id", c.handleAppUserDelete)
+		r.With(c.requireAuth(authzReadApp)).Get("/apps/{app-id}/deployments", c.handleDeploymentList)
+		r.With(c.requireAuth(authzWriteApp)).Post("/apps/{app-id}/deployments", c.handleDeploymentCreate)
+		r.With(c.requireAuth(authzReadApp)).Get("/apps/{app-id}/deployments/{deployment-name}", c.handleDeploymentGet)
+		r.With(c.requireAuth(authzWriteApp)).Put("/apps/{app-id}/deployments/{deployment-name}/tarball", c.handleDeploymentUpload)
 
-	v1.GET("/apps/:app-id/sites", c.handleSiteList)
-	v1.POST("/apps/:app-id/sites", c.handleSiteCreate)
-	v1.PATCH("/apps/:app-id/sites/:site-name", c.handleSiteUpdate)
-
-	v1.POST("/apps/:app-id/deployments", c.handleDeploymentCreate)
-	v1.GET("/apps/:app-id/deployments", c.handleDeploymentList)
-	v1.GET("/apps/:app-id/deployments/:deployment-name", c.handleDeploymentGet)
-	v1.PUT("/apps/:app-id/deployments/:deployment-name/tarball", c.handleDeploymentUpload)
-
-	v1.GET("/auth/me", c.handleMe)
-	v1.GET("/auth/github-ssh", c.handleAuthGithubSSH)
-
-	return g.Handler()
+		r.With(c.requireAuth()).Get("/auth/me", c.handleMe)
+		r.Get("/auth/github-ssh", c.handleAuthGithubSSH)
+	})
+	return r
 }

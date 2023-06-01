@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"github.com/gin-gonic/gin"
+	"github.com/go-chi/chi/v5"
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/deploy"
@@ -51,26 +51,22 @@ func (c *Controller) makeAPIDeployment(app *models.App, d db.DeploymentInfo) *ap
 	}
 }
 
-func (c *Controller) handleDeploymentGet(ctx *gin.Context) {
-	appID := ctx.Param("app-id")
-	deploymentName := ctx.Param("deployment-name")
+func (c *Controller) handleDeploymentGet(w http.ResponseWriter, r *http.Request) {
+	appID := chi.URLParam(r, "app-id")
+	deploymentName := chi.URLParam(r, "deployment-name")
 
-	if !c.requireAuthn(ctx) || !c.requireAuthz(ctx, authzReadApp(appID)) {
-		return
-	}
-
-	deployment, err := tx(ctx, c.DB, func(conn db.Conn) (*apiDeployment, error) {
-		app, err := conn.GetApp(ctx, appID)
+	deployment, err := tx(r.Context(), c.DB, func(conn db.Conn) (*apiDeployment, error) {
+		app, err := conn.GetApp(r.Context(), appID)
 		if err != nil {
 			return nil, err
 		}
 
-		deployment, err := conn.GetDeploymentByName(ctx, appID, deploymentName)
+		deployment, err := conn.GetDeploymentByName(r.Context(), appID, deploymentName)
 		if err != nil {
 			return nil, err
 		}
 
-		sites, err := conn.GetDeploymentSiteNames(ctx, deployment)
+		sites, err := conn.GetDeploymentSiteNames(r.Context(), deployment)
 		if err != nil {
 			return nil, err
 		}
@@ -85,22 +81,18 @@ func (c *Controller) handleDeploymentGet(ctx *gin.Context) {
 		}), nil
 	})
 
-	writeResponse(ctx, deployment, err)
+	writeResponse(w, deployment, err)
 }
 
-func (c *Controller) handleDeploymentCreate(ctx *gin.Context) {
-	appID := ctx.Param("app-id")
-
-	if !c.requireAuthn(ctx) || !c.requireAuthz(ctx, authzWriteApp(appID)) {
-		return
-	}
+func (c *Controller) handleDeploymentCreate(w http.ResponseWriter, r *http.Request) {
+	appID := chi.URLParam(r, "app-id")
 
 	var request struct {
 		Name       string             `json:"name" binding:"required,dnsLabel"`
 		Files      []models.FileEntry `json:"files" binding:"required"`
 		SiteConfig *config.SiteConfig `json:"site_config" binding:"required"`
 	}
-	if err := checkBind(ctx, ctx.ShouldBindJSON(&request)); err != nil {
+	if !bindJSON(w, r, &request) {
 		return
 	}
 	name := request.Name
@@ -108,12 +100,12 @@ func (c *Controller) handleDeploymentCreate(ctx *gin.Context) {
 	siteConfig := request.SiteConfig
 
 	if len(files) > models.MaxFiles {
-		ctx.JSON(http.StatusBadRequest, response{Error: deploy.ErrTooManyFiles})
+		writeJSON(w, http.StatusBadRequest, response{Error: deploy.ErrTooManyFiles})
 		return
 	}
 
 	if err := config.ValidateSiteConfig(siteConfig); err != nil {
-		ctx.JSON(http.StatusBadRequest, response{Error: err})
+		writeJSON(w, http.StatusBadRequest, response{Error: err})
 		return
 	}
 
@@ -122,7 +114,7 @@ func (c *Controller) handleDeploymentCreate(ctx *gin.Context) {
 		totalSize += entry.Size
 	}
 	if totalSize > c.Config.MaxDeploymentSize {
-		ctx.JSON(http.StatusBadRequest, response{
+		writeJSON(w, http.StatusBadRequest, response{
 			Error: fmt.Errorf(
 				"deployment too large: %s > %s",
 				humanize.Bytes(uint64(totalSize)),
@@ -132,8 +124,8 @@ func (c *Controller) handleDeploymentCreate(ctx *gin.Context) {
 		return
 	}
 
-	deployment, err := tx(ctx, c.DB, func(conn db.Conn) (*apiDeployment, error) {
-		app, err := conn.GetApp(ctx, appID)
+	deployment, err := tx(r.Context(), c.DB, func(conn db.Conn) (*apiDeployment, error) {
+		app, err := conn.GetApp(r.Context(), appID)
 		if err != nil {
 			return nil, err
 		}
@@ -153,7 +145,7 @@ func (c *Controller) handleDeploymentCreate(ctx *gin.Context) {
 		expireAt := now.Add(deploymentTTL)
 		deployment.ExpireAt = &expireAt
 
-		err = conn.CreateDeployment(ctx, deployment)
+		err = conn.CreateDeployment(r.Context(), deployment)
 		if err != nil {
 			return nil, err
 		}
@@ -164,19 +156,15 @@ func (c *Controller) handleDeploymentCreate(ctx *gin.Context) {
 		}), nil
 	})
 
-	writeResponse(ctx, deployment, err)
+	writeResponse(w, deployment, err)
 }
 
-func (c *Controller) handleDeploymentUpload(ctx *gin.Context) {
-	appID := ctx.Param("app-id")
-	deploymentName := ctx.Param("deployment-name")
+func (c *Controller) handleDeploymentUpload(w http.ResponseWriter, r *http.Request) {
+	appID := chi.URLParam(r, "app-id")
+	deploymentName := chi.URLParam(r, "deployment-name")
 
-	if !c.requireAuthn(ctx) || !c.requireAuthz(ctx, authzWriteApp(appID)) {
-		return
-	}
-
-	deployment, err := tx(ctx, c.DB, func(conn db.Conn) (*models.Deployment, error) {
-		deployment, err := conn.GetDeploymentByName(ctx, appID, deploymentName)
+	deployment, err := tx(r.Context(), c.DB, func(conn db.Conn) (*models.Deployment, error) {
+		deployment, err := conn.GetDeploymentByName(r.Context(), appID, deploymentName)
 		if err != nil {
 			return nil, err
 		}
@@ -192,44 +180,44 @@ func (c *Controller) handleDeploymentUpload(ctx *gin.Context) {
 	})
 
 	if err != nil {
-		writeResponse(ctx, nil, err)
+		writeResponse(w, nil, err)
 		return
 	}
 
 	// Extract tarball to object stoarge
 
-	handleFile := func(e models.FileEntry, r io.Reader) error {
+	handleFile := func(e models.FileEntry, reader io.Reader) error {
 		key := deployment.StorageKeyPrefix + e.Path
-		return c.Storage.Upload(ctx, key, r)
+		return c.Storage.Upload(r.Context(), key, reader)
 	}
 
 	reader := io.LimitReader(
 		httputil.NewTimeoutReader(
-			ctx.Request.Body,
-			http.NewResponseController(ctx.Writer),
+			r.Body,
+			http.NewResponseController(w),
 			10*time.Second,
 		),
 		c.Config.MaxDeploymentSize,
 	)
 	err = deploy.ExtractFiles(reader, deployment.Metadata.Files, handleFile)
 	if errors.As(err, new(deploy.Error)) {
-		ctx.JSON(http.StatusBadRequest, response{Error: err})
+		writeJSON(w, http.StatusBadRequest, response{Error: err})
 		return
 	} else if err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
+		writeResponse(w, nil, err)
 		return
 	}
 
 	now := c.Clock.Now().UTC()
 
 	// Mark deployment as completed, but inactive
-	result, err := tx(ctx, c.DB, func(conn db.Conn) (*apiDeployment, error) {
-		app, err := conn.GetApp(ctx, appID)
+	result, err := tx(r.Context(), c.DB, func(conn db.Conn) (*apiDeployment, error) {
+		app, err := conn.GetApp(r.Context(), appID)
 		if err != nil {
 			return nil, err
 		}
 
-		deployment, err = conn.GetDeployment(ctx, appID, deployment.ID)
+		deployment, err = conn.GetDeployment(r.Context(), appID, deployment.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -238,7 +226,7 @@ func (c *Controller) handleDeploymentUpload(ctx *gin.Context) {
 			return nil, models.ErrDeploymentAlreadyUploaded
 		}
 
-		err = conn.MarkDeploymentUploaded(ctx, now, deployment)
+		err = conn.MarkDeploymentUploaded(r.Context(), now, deployment)
 		if err != nil {
 			return nil, err
 		}
@@ -249,23 +237,19 @@ func (c *Controller) handleDeploymentUpload(ctx *gin.Context) {
 		}), nil
 	})
 
-	writeResponse(ctx, result, err)
+	writeResponse(w, result, err)
 }
 
-func (c *Controller) handleDeploymentList(ctx *gin.Context) {
-	appID := ctx.Param("app-id")
+func (c *Controller) handleDeploymentList(w http.ResponseWriter, r *http.Request) {
+	appID := chi.URLParam(r, "app-id")
 
-	if !c.requireAuthn(ctx) || !c.requireAuthz(ctx, authzReadApp(appID)) {
-		return
-	}
-
-	deployments, err := tx(ctx, c.DB, func(conn db.Conn) ([]*apiDeployment, error) {
-		app, err := conn.GetApp(ctx, appID)
+	deployments, err := tx(r.Context(), c.DB, func(conn db.Conn) ([]*apiDeployment, error) {
+		app, err := conn.GetApp(r.Context(), appID)
 		if err != nil {
 			return nil, err
 		}
 
-		deployments, err := conn.ListDeployments(ctx, appID)
+		deployments, err := conn.ListDeployments(r.Context(), appID)
 		if err != nil {
 			return nil, err
 		}
@@ -275,5 +259,5 @@ func (c *Controller) handleDeploymentList(ctx *gin.Context) {
 		}), nil
 	})
 
-	writeResponse(ctx, deployments, err)
+	writeResponse(w, deployments, err)
 }

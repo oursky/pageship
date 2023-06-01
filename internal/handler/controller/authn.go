@@ -4,21 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/oursky/pageship/internal/db"
+	"github.com/oursky/pageship/internal/httputil"
 	"github.com/oursky/pageship/internal/models"
 )
 
 const tokenValidDuration time.Duration = 30 * time.Minute
 
-const (
-	contextUserID    string = "user-id"
-	contextAuthnInfo string = "authn"
-)
+type authnContextKey struct{}
 
 type authnInfo struct {
 	UserID string
@@ -75,26 +74,32 @@ func (c *Controller) generateUserToken(
 	return token, nil
 }
 
-func (c *Controller) requireAuthn(ctx *gin.Context) bool {
-	token, ok := parseAuthorizationHeader(ctx)
-	if !ok {
-		writeResponse(ctx, nil, models.ErrInvalidCredentials)
-		return false
-	}
+func (c *Controller) middlewareAuthn(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token, ok := parseAuthorizationHeader(r)
+		if !ok {
+			writeResponse(w, nil, models.ErrInvalidCredentials)
+			return
+		}
 
-	authn, err := c.verifyToken(ctx, token)
-	if err != nil {
-		writeResponse(ctx, nil, err)
-		return false
-	}
+		var authn *authnInfo
+		if token != "" {
+			info, err := c.verifyToken(r, token)
+			if err != nil {
+				writeResponse(w, nil, err)
+				return
+			}
+			authn = info
 
-	ctx.Set(contextUserID, authn.UserID)
-	ctx.Set(contextAuthnInfo, authn)
+			middleware.GetLogEntry(r).(*httputil.LogEntry).User = authn.UserID
+		}
 
-	return true
+		r = r.WithContext(context.WithValue(r.Context(), authnContextKey{}, authn))
+		next.ServeHTTP(w, r)
+	})
 }
 
-func (c *Controller) verifyToken(ctx context.Context, token string) (*authnInfo, error) {
+func (c *Controller) verifyToken(r *http.Request, token string) (*authnInfo, error) {
 	claims := &models.TokenClaims{}
 	_, err := jwt.ParseWithClaims(
 		token,
@@ -108,8 +113,8 @@ func (c *Controller) verifyToken(ctx context.Context, token string) (*authnInfo,
 		return nil, models.ErrInvalidCredentials
 	}
 
-	user, err := tx(ctx, c.DB, func(conn db.Conn) (*models.User, error) {
-		user, err := conn.GetUser(ctx, claims.Subject)
+	user, err := tx(r.Context(), c.DB, func(conn db.Conn) (*models.User, error) {
+		user, err := conn.GetUser(r.Context(), claims.Subject)
 		if errors.Is(err, models.ErrUserNotFound) {
 			return nil, models.ErrInvalidCredentials
 		} else if err != nil {
@@ -125,10 +130,14 @@ func (c *Controller) verifyToken(ctx context.Context, token string) (*authnInfo,
 	return &authnInfo{UserID: user.ID}, nil
 }
 
-func parseAuthorizationHeader(ctx *gin.Context) (string, bool) {
-	auth := ctx.GetHeader("Authorization")
+func authn(r *http.Request) *authnInfo {
+	return r.Context().Value(authnContextKey{}).(*authnInfo)
+}
+
+func parseAuthorizationHeader(r *http.Request) (string, bool) {
+	auth := r.Header.Get("Authorization")
 	if auth == "" {
-		return "", false
+		return "", true
 	}
 
 	bearer, token, ok := strings.Cut(auth, " ")

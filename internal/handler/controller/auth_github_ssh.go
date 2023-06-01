@@ -4,9 +4,9 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"fmt"
+	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/oursky/pageship/internal/models"
 	"github.com/oursky/pageship/internal/sshkey"
 	"go.uber.org/zap"
@@ -34,9 +34,9 @@ func init() {
 	}
 }
 
-func (c *Controller) handleAuthGithubSSH(ctx *gin.Context) {
+func (c *Controller) handleAuthGithubSSH(w http.ResponseWriter, r *http.Request) {
 	s := websocket.Server{Handler: c.handleAuthGithubSSHConn}
-	s.ServeHTTP(ctx.Writer, ctx.Request)
+	s.ServeHTTP(w, r)
 }
 
 func (c *Controller) handleAuthGithubSSHConn(conn *websocket.Conn) {

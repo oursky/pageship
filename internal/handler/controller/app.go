@@ -1,7 +1,9 @@
 package controller
 
 import (
-	"github.com/gin-gonic/gin"
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
 	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/models"
 )
@@ -20,52 +22,29 @@ func (c *Controller) makeAPIApp(app *models.App) *apiApp {
 	}
 }
 
-func (c *Controller) handleAppCreate(ctx *gin.Context) {
-	if !c.requireAuthn(ctx) {
-		return
-	}
-
+func (c *Controller) handleAppCreate(w http.ResponseWriter, r *http.Request) {
 	var request struct {
 		ID string `json:"id" binding:"required,dnsLabel"`
 	}
-	if err := checkBind(ctx, ctx.ShouldBindJSON(&request)); err != nil {
+	if !bindJSON(w, r, &request) {
 		return
 	}
 
 	if _, reserved := c.Config.ReservedApps[request.ID]; reserved {
-		writeResponse(ctx, nil, models.ErrAppUsedID)
+		writeResponse(w, nil, models.ErrAppUsedID)
 		return
 	}
 
-	userID := ctx.GetString(contextUserID)
-	app, err := tx(ctx, c.DB, func(conn db.Conn) (*apiApp, error) {
+	userID := authn(r).UserID
+	app, err := tx(r.Context(), c.DB, func(conn db.Conn) (*apiApp, error) {
 		app := models.NewApp(c.Clock.Now().UTC(), request.ID)
 
-		err := conn.CreateApp(ctx, app)
+		err := conn.CreateApp(r.Context(), app)
 		if err != nil {
 			return nil, err
 		}
 
-		err = conn.AssignAppUser(ctx, app.ID, userID)
-		if err != nil {
-			return nil, err
-		}
-
-		return c.makeAPIApp(app), nil
-	})
-
-	writeResponse(ctx, app, err)
-}
-
-func (c *Controller) handleAppGet(ctx *gin.Context) {
-	id := ctx.Param("app-id")
-
-	if !c.requireAuthn(ctx) || !c.requireAuthz(ctx, authzReadApp(id)) {
-		return
-	}
-
-	app, err := tx(ctx, c.DB, func(conn db.Conn) (*apiApp, error) {
-		app, err := conn.GetApp(ctx, id)
+		err = conn.AssignAppUser(r.Context(), app.ID, userID)
 		if err != nil {
 			return nil, err
 		}
@@ -73,17 +52,28 @@ func (c *Controller) handleAppGet(ctx *gin.Context) {
 		return c.makeAPIApp(app), nil
 	})
 
-	writeResponse(ctx, app, err)
+	writeResponse(w, app, err)
 }
 
-func (c *Controller) handleAppList(ctx *gin.Context) {
-	if !c.requireAuthn(ctx) || !c.requireAuthz(ctx) {
-		return
-	}
+func (c *Controller) handleAppGet(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "app-id")
 
-	userID := ctx.GetString(contextUserID)
-	apps, err := tx(ctx, c.DB, func(conn db.Conn) ([]*apiApp, error) {
-		apps, err := conn.ListApps(ctx, userID)
+	app, err := tx(r.Context(), c.DB, func(conn db.Conn) (*apiApp, error) {
+		app, err := conn.GetApp(r.Context(), id)
+		if err != nil {
+			return nil, err
+		}
+
+		return c.makeAPIApp(app), nil
+	})
+
+	writeResponse(w, app, err)
+}
+
+func (c *Controller) handleAppList(w http.ResponseWriter, r *http.Request) {
+	userID := authn(r).UserID
+	apps, err := tx(r.Context(), c.DB, func(conn db.Conn) ([]*apiApp, error) {
+		apps, err := conn.ListApps(r.Context(), userID)
 		if err != nil {
 			return nil, err
 		}
@@ -91,18 +81,14 @@ func (c *Controller) handleAppList(ctx *gin.Context) {
 		return mapModels(apps, c.makeAPIApp), nil
 	})
 
-	writeResponse(ctx, apps, err)
+	writeResponse(w, apps, err)
 }
 
-func (c *Controller) handleAppUserList(ctx *gin.Context) {
-	id := ctx.Param("app-id")
+func (c *Controller) handleAppUserList(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "app-id")
 
-	if !c.requireAuthn(ctx) || !c.requireAuthz(ctx, authzReadApp(id)) {
-		return
-	}
-
-	users, err := tx(ctx, c.DB, func(conn db.Conn) ([]*apiUser, error) {
-		users, err := conn.ListAppUsers(ctx, id)
+	users, err := tx(r.Context(), c.DB, func(conn db.Conn) ([]*apiUser, error) {
+		users, err := conn.ListAppUsers(r.Context(), id)
 		if err != nil {
 			return nil, err
 		}
@@ -110,30 +96,26 @@ func (c *Controller) handleAppUserList(ctx *gin.Context) {
 		return mapModels(users, c.makeAPIUser), nil
 	})
 
-	writeResponse(ctx, users, err)
+	writeResponse(w, users, err)
 }
 
-func (c *Controller) handleAppUserAdd(ctx *gin.Context) {
-	appID := ctx.Param("app-id")
-
-	if !c.requireAuthn(ctx) || !c.requireAuthz(ctx, authzWriteApp(appID)) {
-		return
-	}
+func (c *Controller) handleAppUserAdd(w http.ResponseWriter, r *http.Request) {
+	appID := chi.URLParam(r, "app-id")
 
 	var request struct {
 		UserID string `json:"userID" binding:"required"`
 	}
-	if err := checkBind(ctx, ctx.ShouldBindJSON(&request)); err != nil {
+	if !bindJSON(w, r, &request) {
 		return
 	}
 
-	result, err := tx(ctx, c.DB, func(conn db.Conn) (*struct{}, error) {
-		user, err := conn.GetUser(ctx, request.UserID)
+	result, err := tx(r.Context(), c.DB, func(conn db.Conn) (*struct{}, error) {
+		user, err := conn.GetUser(r.Context(), request.UserID)
 		if err != nil {
 			return nil, err
 		}
 
-		err = conn.AssignAppUser(ctx, appID, user.ID)
+		err = conn.AssignAppUser(r.Context(), appID, user.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -141,24 +123,20 @@ func (c *Controller) handleAppUserAdd(ctx *gin.Context) {
 		return &struct{}{}, nil
 	})
 
-	writeResponse(ctx, result, err)
+	writeResponse(w, result, err)
 }
 
-func (c *Controller) handleAppUserDelete(ctx *gin.Context) {
-	appID := ctx.Param("app-id")
-	userID := ctx.Param("user-id")
+func (c *Controller) handleAppUserDelete(w http.ResponseWriter, r *http.Request) {
+	appID := chi.URLParam(r, "app-id")
+	userID := chi.URLParam(r, "user-id")
 
-	if !c.requireAuthn(ctx) || !c.requireAuthz(ctx, authzWriteApp(appID)) {
+	if userID == authn(r).UserID {
+		writeResponse(w, nil, models.ErrDeleteCurrentUser)
 		return
 	}
 
-	if userID == ctx.GetString(contextUserID) {
-		writeResponse(ctx, nil, models.ErrDeleteCurrentUser)
-		return
-	}
-
-	result, err := tx(ctx, c.DB, func(conn db.Conn) (*struct{}, error) {
-		err := conn.UnassignAppUser(ctx, appID, userID)
+	result, err := tx(r.Context(), c.DB, func(conn db.Conn) (*struct{}, error) {
+		err := conn.UnassignAppUser(r.Context(), appID, userID)
 		if err != nil {
 			return nil, err
 		}
@@ -166,5 +144,5 @@ func (c *Controller) handleAppUserDelete(ctx *gin.Context) {
 		return &struct{}{}, nil
 	})
 
-	writeResponse(ctx, result, err)
+	writeResponse(w, result, err)
 }

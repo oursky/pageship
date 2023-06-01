@@ -2,9 +2,10 @@ package controller
 
 import (
 	"context"
+	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
+	"github.com/go-chi/chi/v5"
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/models"
@@ -31,20 +32,16 @@ func (c *Controller) makeAPISite(app *models.App, site db.SiteInfo) *apiSite {
 	}
 }
 
-func (c *Controller) handleSiteList(ctx *gin.Context) {
-	appID := ctx.Param("app-id")
+func (c *Controller) handleSiteList(w http.ResponseWriter, r *http.Request) {
+	appID := chi.URLParam(r, "app-id")
 
-	if !c.requireAuthn(ctx) || !c.requireAuthz(ctx, authzReadApp(appID)) {
-		return
-	}
-
-	sites, err := tx(ctx, c.DB, func(conn db.Conn) ([]*apiSite, error) {
-		app, err := conn.GetApp(ctx, appID)
+	sites, err := tx(r.Context(), c.DB, func(conn db.Conn) ([]*apiSite, error) {
+		app, err := conn.GetApp(r.Context(), appID)
 		if err != nil {
 			return nil, err
 		}
 
-		sites, err := conn.ListSitesInfo(ctx, appID)
+		sites, err := conn.ListSitesInfo(r.Context(), appID)
 		if err != nil {
 			return nil, err
 		}
@@ -54,25 +51,21 @@ func (c *Controller) handleSiteList(ctx *gin.Context) {
 		}), nil
 	})
 
-	writeResponse(ctx, sites, err)
+	writeResponse(w, sites, err)
 }
 
-func (c *Controller) handleSiteCreate(ctx *gin.Context) {
-	appID := ctx.Param("app-id")
-
-	if !c.requireAuthn(ctx) || !c.requireAuthz(ctx, authzWriteApp(appID)) {
-		return
-	}
+func (c *Controller) handleSiteCreate(w http.ResponseWriter, r *http.Request) {
+	appID := chi.URLParam(r, "app-id")
 
 	var request struct {
 		Name string `json:"name" binding:"required,dnsLabel"`
 	}
-	if err := checkBind(ctx, ctx.ShouldBindJSON(&request)); err != nil {
+	if !bindJSON(w, r, &request) {
 		return
 	}
 
-	site, err := tx(ctx, c.DB, func(conn db.Conn) (*apiSite, error) {
-		app, err := conn.GetApp(ctx, appID)
+	site, err := tx(r.Context(), c.DB, func(conn db.Conn) (*apiSite, error) {
+		app, err := conn.GetApp(r.Context(), appID)
 		if err != nil {
 			return nil, err
 		}
@@ -82,7 +75,7 @@ func (c *Controller) handleSiteCreate(ctx *gin.Context) {
 		}
 
 		site := models.NewSite(c.Clock.Now().UTC(), appID, request.Name)
-		info, err := conn.CreateSiteIfNotExist(ctx, site)
+		info, err := conn.CreateSiteIfNotExist(r.Context(), site)
 		if err != nil {
 			return nil, err
 		}
@@ -90,7 +83,7 @@ func (c *Controller) handleSiteCreate(ctx *gin.Context) {
 		return c.makeAPISite(app, *info), nil
 	})
 
-	writeResponse(ctx, site, err)
+	writeResponse(w, site, err)
 }
 
 func (c *Controller) updateDeploymentExpiry(
@@ -193,41 +186,37 @@ func (c *Controller) siteUpdateDeploymentName(
 	return nil
 }
 
-func (c *Controller) handleSiteUpdate(ctx *gin.Context) {
-	appID := ctx.Param("app-id")
-	siteName := ctx.Param("site-name")
-
-	if !c.requireAuthn(ctx) || !c.requireAuthz(ctx, authzWriteApp(appID)) {
-		return
-	}
+func (c *Controller) handleSiteUpdate(w http.ResponseWriter, r *http.Request) {
+	appID := chi.URLParam(r, "app-id")
+	siteName := chi.URLParam(r, "site-name")
 
 	var request struct {
 		DeploymentName *string `json:"deploymentName,omitempty" binding:"omitempty"`
 	}
-	if err := checkBind(ctx, ctx.ShouldBindJSON(&request)); err != nil {
+	if !bindJSON(w, r, &request) {
 		return
 	}
 
 	now := c.Clock.Now().UTC()
 
-	site, err := tx(ctx, c.DB, func(conn db.Conn) (*apiSite, error) {
-		app, err := conn.GetApp(ctx, appID)
+	site, err := tx(r.Context(), c.DB, func(conn db.Conn) (*apiSite, error) {
+		app, err := conn.GetApp(r.Context(), appID)
 		if err != nil {
 			return nil, err
 		}
 
-		site, err := conn.GetSiteByName(ctx, appID, siteName)
+		site, err := conn.GetSiteByName(r.Context(), appID, siteName)
 		if err != nil {
 			return nil, err
 		}
 
 		if request.DeploymentName != nil {
-			if err := c.siteUpdateDeploymentName(ctx, conn, now, app.Config, site, *request.DeploymentName); err != nil {
+			if err := c.siteUpdateDeploymentName(r.Context(), conn, now, app.Config, site, *request.DeploymentName); err != nil {
 				return nil, err
 			}
 		}
 
-		info, err := conn.GetSiteInfo(ctx, appID, site.ID)
+		info, err := conn.GetSiteInfo(r.Context(), appID, site.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -235,5 +224,5 @@ func (c *Controller) handleSiteUpdate(ctx *gin.Context) {
 		return c.makeAPISite(app, *info), nil
 	})
 
-	writeResponse(ctx, site, err)
+	writeResponse(w, site, err)
 }

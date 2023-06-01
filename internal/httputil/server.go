@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/caddyserver/certmagic"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -73,6 +75,15 @@ func (s *Server) serveTLS(ctx context.Context, server *http.Server) error {
 	return nil
 }
 
+func (s *Server) buildHandler(handler http.Handler) http.Handler {
+	middlewares := chi.Chain(
+		RequestId,
+		middleware.RequestLogger(LogFormatter{Logger: s.Logger}),
+		middleware.Recoverer,
+	)
+	return middlewares.Handler(handler)
+}
+
 func (s *Server) setupTLS(ctx context.Context, httpHandler *http.Handler) (*http.Server, error) {
 	magic := &certmagic.Config{
 		Storage: s.TLS.Storage,
@@ -124,13 +135,16 @@ func (s *Server) setupTLS(ctx context.Context, httpHandler *http.Handler) (*http
 
 	server := s.makeServer(*httpHandler)
 	server.TLSConfig = tlsConf
-	*httpHandler = issuer.HTTPChallengeHandler(http.HandlerFunc(redirectToHTTPS))
+	*httpHandler = s.buildHandler(
+		issuer.HTTPChallengeHandler(http.HandlerFunc(redirectToHTTPS)),
+	)
 
 	return server, nil
 }
 
 func (s *Server) Run(ctx context.Context) error {
-	httpHandler := s.Handler
+	httpHandler := s.buildHandler(s.Handler)
+
 	var tlsServer *http.Server
 	if s.TLS != nil {
 		server, err := s.setupTLS(ctx, &httpHandler)

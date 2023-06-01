@@ -6,10 +6,41 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
+	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/models"
 )
+
+var validate *validator.Validate
+
+func init() {
+	validate = validator.New()
+	validate.SetTagName("binding")
+
+	validate.RegisterValidation("dnsLabel", func(fl validator.FieldLevel) bool {
+		value := fl.Field().String()
+		return config.ValidateDNSLabel(value)
+	})
+}
+
+const maxJSONSize = 10 * 1024 * 1024 // 10MB
+
+func bindJSON[T any](w http.ResponseWriter, r *http.Request, body *T) bool {
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxJSONSize))
+	decoder.DisallowUnknownFields()
+
+	if err := decoder.Decode(body); err != nil {
+		writeJSON(w, http.StatusBadRequest, response{Error: err})
+		return false
+	}
+
+	if err := validate.Struct(body); err != nil {
+		writeJSON(w, http.StatusBadRequest, response{Error: err})
+		return false
+	}
+	return true
+}
 
 type response struct {
 	Error  error
@@ -24,47 +55,49 @@ func (r response) MarshalJSON() ([]byte, error) {
 	}
 }
 
-func writeResponse(ctx *gin.Context, result any, err error) {
+func writeJSON(w http.ResponseWriter, statusCode int, value any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	encoder := json.NewEncoder(w)
+	if err := encoder.Encode(value); err != nil {
+		panic(err)
+	}
+}
+
+func writeResponse(w http.ResponseWriter, result any, err error) {
 	if err == nil {
-		ctx.JSON(http.StatusOK, response{Result: result})
+		writeJSON(w, http.StatusOK, response{Result: result})
 		return
 	}
 
 	switch {
 	case errors.Is(err, models.ErrAppUsedID):
-		ctx.JSON(http.StatusConflict, response{Error: err})
+		writeJSON(w, http.StatusConflict, response{Error: err})
 	case errors.Is(err, models.ErrAppNotFound):
-		ctx.JSON(http.StatusNotFound, response{Error: err})
+		writeJSON(w, http.StatusNotFound, response{Error: err})
 	case errors.Is(err, models.ErrUndefinedSite):
-		ctx.JSON(http.StatusBadRequest, response{Error: err})
+		writeJSON(w, http.StatusBadRequest, response{Error: err})
 	case errors.Is(err, models.ErrSiteNotFound):
-		ctx.JSON(http.StatusNotFound, response{Error: err})
+		writeJSON(w, http.StatusNotFound, response{Error: err})
 	case errors.Is(err, models.ErrDeploymentNotFound):
-		ctx.JSON(http.StatusNotFound, response{Error: err})
+		writeJSON(w, http.StatusNotFound, response{Error: err})
 	case errors.Is(err, models.ErrDeploymentUsedName):
-		ctx.JSON(http.StatusConflict, response{Error: err})
+		writeJSON(w, http.StatusConflict, response{Error: err})
 	case errors.Is(err, models.ErrDeploymentNotUploaded):
-		ctx.JSON(http.StatusBadRequest, response{Error: err})
+		writeJSON(w, http.StatusBadRequest, response{Error: err})
 	case errors.Is(err, models.ErrDeploymentAlreadyUploaded):
-		ctx.JSON(http.StatusBadRequest, response{Error: err})
+		writeJSON(w, http.StatusBadRequest, response{Error: err})
 	case errors.Is(err, models.ErrDeploymentExpired):
-		ctx.JSON(http.StatusBadRequest, response{Error: err})
+		writeJSON(w, http.StatusBadRequest, response{Error: err})
 	case errors.Is(err, models.ErrUserNotFound):
-		ctx.JSON(http.StatusNotFound, response{Error: err})
+		writeJSON(w, http.StatusNotFound, response{Error: err})
 	case errors.Is(err, models.ErrDeleteCurrentUser):
-		ctx.JSON(http.StatusBadRequest, response{Error: err})
+		writeJSON(w, http.StatusBadRequest, response{Error: err})
 	case errors.Is(err, models.ErrInvalidCredentials):
-		ctx.JSON(http.StatusUnauthorized, response{Error: err})
+		writeJSON(w, http.StatusUnauthorized, response{Error: err})
 	default:
-		ctx.AbortWithError(http.StatusInternalServerError, err)
+		panic(err)
 	}
-}
-
-func checkBind(ctx *gin.Context, err error) error {
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, response{Error: err})
-	}
-	return err
 }
 
 func mapModels[T, U any](models []T, mapper func(m T) U) []U {

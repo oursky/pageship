@@ -1,7 +1,8 @@
 package controller
 
 import (
-	"github.com/gin-gonic/gin"
+	"net/http"
+
 	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/models"
 )
@@ -14,13 +15,10 @@ func (c *Controller) makeAPIUser(u *models.User) *apiUser {
 	return &apiUser{User: u}
 }
 
-func (c *Controller) handleMe(ctx *gin.Context) {
-	if !c.requireAuthn(ctx) {
-		return
-	}
-
-	user, err := tx(ctx, c.DB, func(conn db.Conn) (*apiUser, error) {
-		user, err := conn.GetUser(ctx, ctx.GetString(contextUserID))
+func (c *Controller) handleMe(w http.ResponseWriter, r *http.Request) {
+	userID := authn(r).UserID
+	user, err := tx(r.Context(), c.DB, func(conn db.Conn) (*apiUser, error) {
+		user, err := conn.GetUser(r.Context(), userID)
 		if err != nil {
 			return nil, err
 		}
@@ -28,5 +26,5 @@ func (c *Controller) handleMe(ctx *gin.Context) {
 		return c.makeAPIUser(user), nil
 	})
 
-	writeResponse(ctx, user, err)
+	writeResponse(w, user, err)
 }

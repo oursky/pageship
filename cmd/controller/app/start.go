@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"github.com/gin-gonic/gin"
 	"github.com/oursky/pageship/internal/command"
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/cron"
@@ -193,7 +192,7 @@ func (s *setup) controller(domain string, conf StartControllerConfig, sitesConf 
 
 func (s *setup) cron(conf StartCronConfig) error {
 	cronr := command.CronRunner{
-		Logger: zap.L().Named("cron"),
+		Logger: logger.Named("cron"),
 		Jobs: []command.CronJob{
 			&cron.CleanupExpired{
 				Schedule:         conf.CleanupExpiredCrontab,
@@ -231,10 +230,6 @@ var startCmd = &cobra.Command{
 		if err := validate.Struct(cmdArgs); err != nil {
 			logger.Fatal("invalid config", zap.Error(err))
 			return
-		}
-
-		if !debugMode {
-			gin.SetMode(gin.ReleaseMode)
 		}
 
 		database, err := db.New(cmdArgs.DatabaseURL)
