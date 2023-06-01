@@ -22,3 +22,16 @@ jobs:
         run: curl -sfL https://goreleaser.com/static/run | bash -s -- release --snapshot --clean
         env:
           VERSION: v1.18.2
+
+      - name: Push snapshot image
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          TAG=git-$(git rev-parse --short HEAD)
+          docker login ghcr.io -u "$DOCKER_USER" -p "$GITHUB_TOKEN"
+          docker tag "ghcr.io/oursky/pageship:latest" "ghcr.io/oursky/pageship:$TAG"
+          docker tag "ghcr.io/oursky/pageship-controller:latest" "ghcr.io/oursky/pageship-controller:$TAG"
+          docker push "ghcr.io/oursky/pageship:$TAG"
+          docker push "ghcr.io/oursky/pageship-controller:$TAG"
+        env:
+          DOCKER_USER: ${{ github.repository_owner }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
