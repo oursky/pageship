@@ -123,7 +123,7 @@ func doDeploy(ctx context.Context, appID string, siteName string, deploymentName
 
 	bar := progressbar.DefaultBytes(tarSize, "uploading")
 	body := io.TeeReader(tarfile, bar)
-	deployment, err = apiClient.UploadDeploymentTarball(ctx, appID, deployment.Name, body)
+	deployment, err = apiClient.UploadDeploymentTarball(ctx, appID, deployment.Name, body, tarSize)
 	if err != nil {
 		Error("Failed to upload tarball: %s", err)
 		return

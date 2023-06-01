@@ -356,6 +356,7 @@ func (c *Client) UploadDeploymentTarball(
 	appID string,
 	deploymentName string,
 	tarball io.Reader,
+	size int64,
 ) (*models.Deployment, error) {
 	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "deployments", deploymentName, "tarball")
 	if err != nil {
@@ -369,6 +370,7 @@ func (c *Client) UploadDeploymentTarball(
 	if err := c.attachToken(req); err != nil {
 		return nil, err
 	}
+	req.ContentLength = size
 
 	resp, err := c.client.Do(req)
 	if err != nil {

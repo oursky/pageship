@@ -186,6 +186,17 @@ func (c *Controller) handleDeploymentUpload(w http.ResponseWriter, r *http.Reque
 
 	// Extract tarball to object stoarge
 
+	if r.ContentLength == -1 || r.ContentLength > c.Config.MaxDeploymentSize {
+		writeJSON(w, http.StatusBadRequest, response{
+			Error: fmt.Errorf(
+				"deployment too large: %s > %s",
+				humanize.Bytes(uint64(r.ContentLength)),
+				humanize.Bytes(uint64(c.Config.MaxDeploymentSize)),
+			),
+		})
+		return
+	}
+
 	handleFile := func(e models.FileEntry, reader io.Reader) error {
 		key := deployment.StorageKeyPrefix + e.Path
 		return c.Storage.Upload(r.Context(), key, reader)
