@@ -14,6 +14,7 @@ import (
 	"github.com/oursky/pageship/internal/deploy"
 	"github.com/oursky/pageship/internal/httputil"
 	"github.com/oursky/pageship/internal/models"
+	"go.uber.org/zap"
 )
 
 type apiDeployment struct {
@@ -150,6 +151,13 @@ func (c *Controller) handleDeploymentCreate(w http.ResponseWriter, r *http.Reque
 			return nil, err
 		}
 
+		c.Logger.Info("creating deployment",
+			zap.String("request_id", requestID(r)),
+			zap.String("user", authn(r).UserID),
+			zap.String("app", appID),
+			zap.String("deployment", deployment.ID),
+		)
+
 		return c.makeAPIDeployment(app, db.DeploymentInfo{
 			Deployment:    deployment,
 			FirstSiteName: nil,
@@ -183,6 +191,13 @@ func (c *Controller) handleDeploymentUpload(w http.ResponseWriter, r *http.Reque
 		writeResponse(w, nil, err)
 		return
 	}
+
+	c.Logger.Info("uploading deployment",
+		zap.String("request_id", requestID(r)),
+		zap.String("user", authn(r).UserID),
+		zap.String("app", appID),
+		zap.String("deployment", deployment.ID),
+	)
 
 	// Extract tarball to object stoarge
 
@@ -218,6 +233,13 @@ func (c *Controller) handleDeploymentUpload(w http.ResponseWriter, r *http.Reque
 		writeResponse(w, nil, err)
 		return
 	}
+
+	c.Logger.Info("upload deployment complete",
+		zap.String("request_id", requestID(r)),
+		zap.String("user", authn(r).UserID),
+		zap.String("app", appID),
+		zap.String("deployment", deployment.ID),
+	)
 
 	now := c.Clock.Now().UTC()
 

@@ -9,6 +9,7 @@ import (
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/models"
+	"go.uber.org/zap"
 )
 
 type apiSite struct {
@@ -79,6 +80,13 @@ func (c *Controller) handleSiteCreate(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
+
+		c.Logger.Info("creating site",
+			zap.String("request_id", requestID(r)),
+			zap.String("user", authn(r).UserID),
+			zap.String("app", appID),
+			zap.String("deployment", site.ID),
+		)
 
 		return c.makeAPISite(app, *info), nil
 	})
@@ -211,6 +219,18 @@ func (c *Controller) handleSiteUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if request.DeploymentName != nil {
+			oldDeployment := ""
+			if site.DeploymentID != nil {
+				oldDeployment = *site.DeploymentID
+			}
+			c.Logger.Info("updating deployment",
+				zap.String("request_id", requestID(r)),
+				zap.String("user", authn(r).UserID),
+				zap.String("app", appID),
+				zap.String("old_deployment", oldDeployment),
+				zap.String("new_deployment", *request.DeploymentName),
+			)
+
 			if err := c.siteUpdateDeploymentName(r.Context(), conn, now, app.Config, site, *request.DeploymentName); err != nil {
 				return nil, err
 			}

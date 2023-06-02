@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/models"
+	"go.uber.org/zap"
 )
 
 type apiApp struct {
@@ -43,6 +44,12 @@ func (c *Controller) handleAppCreate(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
+
+		c.Logger.Info("creating app",
+			zap.String("request_id", requestID(r)),
+			zap.String("user", authn(r).UserID),
+			zap.String("app", app.ID),
+		)
 
 		err = conn.AssignAppUser(r.Context(), app.ID, userID)
 		if err != nil {
@@ -120,6 +127,13 @@ func (c *Controller) handleAppUserAdd(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 
+		c.Logger.Info("adding user",
+			zap.String("request_id", requestID(r)),
+			zap.String("user", authn(r).UserID),
+			zap.String("target_user", user.ID),
+			zap.String("app", appID),
+		)
+
 		return &struct{}{}, nil
 	})
 
@@ -140,6 +154,13 @@ func (c *Controller) handleAppUserDelete(w http.ResponseWriter, r *http.Request)
 		if err != nil {
 			return nil, err
 		}
+
+		c.Logger.Info("removing user",
+			zap.String("request_id", requestID(r)),
+			zap.String("user", authn(r).UserID),
+			zap.String("target_user", userID),
+			zap.String("app", appID),
+		)
 
 		return &struct{}{}, nil
 	})

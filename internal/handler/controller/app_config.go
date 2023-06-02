@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/db"
+	"go.uber.org/zap"
 )
 
 func (c *Controller) handleAppConfigGet(w http.ResponseWriter, r *http.Request) {
@@ -42,6 +43,12 @@ func (c *Controller) handleAppConfigSet(w http.ResponseWriter, r *http.Request) 
 		if err != nil {
 			return nil, err
 		}
+
+		c.Logger.Info("updating config",
+			zap.String("request_id", requestID(r)),
+			zap.String("user", authn(r).UserID),
+			zap.String("app", id),
+		)
 
 		return app.Config, nil
 	})

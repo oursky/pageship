@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-playground/validator/v10"
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/db"
@@ -115,4 +116,8 @@ func tx[T any](ctx context.Context, d db.DB, fn func(c db.Conn) (T, error)) (T, 
 		return
 	})
 	return result, err
+}
+
+func requestID(r *http.Request) string {
+	return middleware.GetReqID(r.Context())
 }
