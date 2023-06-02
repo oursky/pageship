@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -51,6 +52,22 @@ type UserCredentialID string
 
 func UserCredentialGitHub(username string) UserCredentialID {
 	return UserCredentialID("github:" + username)
+}
+
+func (i UserCredentialID) Name() string {
+	kind, data, found := strings.Cut(string(i), ":")
+	if !found {
+		return string(i)
+	}
+
+	switch kind {
+	case "github":
+		name := data
+		return name
+
+	default:
+		return string(i)
+	}
 }
 
 type UserCredentialData struct {

@@ -23,12 +23,11 @@ func (c Conn) GetUser(ctx context.Context, id string) (*models.User, error) {
 	return &user, nil
 }
 
-func (c Conn) GetUserByCredential(ctx context.Context, id models.UserCredentialID) (*models.User, error) {
-	var user models.User
-	err := c.tx.GetContext(ctx, &user, `
-		SELECT u.id, u.created_at, u.updated_at, u.deleted_at, u.name FROM user u
-			JOIN user_credential uc ON (uc.user_id = u.id AND uc.deleted_at IS NULL)
-			WHERE uc.id = ? AND u.deleted_at IS NULL
+func (c Conn) GetCredential(ctx context.Context, id models.UserCredentialID) (*models.UserCredential, error) {
+	var cred models.UserCredential
+	err := c.tx.GetContext(ctx, &cred, `
+		SELECT uc.id, uc.created_at, uc.updated_at, uc.deleted_at, uc.user_id, uc.data FROM user_credential uc
+			WHERE uc.id = $1 AND uc.deleted_at IS NULL
 	`, id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, models.ErrUserNotFound
@@ -36,7 +35,7 @@ func (c Conn) GetUserByCredential(ctx context.Context, id models.UserCredentialI
 		return nil, err
 	}
 
-	return &user, nil
+	return &cred, nil
 }
 
 func (c Conn) CreateUserWithCredential(ctx context.Context, user *models.User, credential *models.UserCredential) error {
@@ -52,6 +51,17 @@ func (c Conn) CreateUserWithCredential(ctx context.Context, user *models.User, c
 		INSERT INTO user_credential (id, created_at, updated_at, deleted_at, user_id, data)
 			VALUES (:id, :created_at, :updated_at, :deleted_at, :user_id, :data)
 	`, credential)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c Conn) UpdateCredentialData(ctx context.Context, cred *models.UserCredential) error {
+	_, err := c.tx.ExecContext(ctx, `
+		UPDATE user_credential SET data = ?, updated_at = ? WHERE id = ?
+	`, cred.Data, cred.UpdatedAt, cred.ID)
 	if err != nil {
 		return err
 	}

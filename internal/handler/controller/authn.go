@@ -23,32 +23,52 @@ type authnInfo struct {
 	UserID string
 }
 
+func ensureUser(
+	ctx context.Context,
+	conn db.Conn,
+	now time.Time,
+	credentialID models.UserCredentialID,
+) (*models.User, *models.UserCredential, error) {
+	cred, err := conn.GetCredential(ctx, credentialID)
+	if errors.Is(err, models.ErrUserNotFound) {
+		user := models.NewUser(now, credentialID.Name())
+		cred := models.NewUserCredential(now, user.ID, credentialID, &models.UserCredentialData{})
+
+		err = conn.CreateUserWithCredential(ctx, user, cred)
+		if err != nil {
+			return nil, nil, err
+		}
+	} else if err != nil {
+		return nil, nil, err
+	}
+
+	user, err := conn.GetUser(ctx, cred.UserID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return user, cred, nil
+}
+
 func (c *Controller) generateUserToken(
 	ctx context.Context,
-	username string,
 	credentialID models.UserCredentialID,
 	data *models.UserCredentialData,
 ) (string, error) {
 	now := c.Clock.Now().UTC()
 
 	user, err := tx(ctx, c.DB, func(conn db.Conn) (*models.User, error) {
-		user, err := conn.GetUserByCredential(ctx, credentialID)
-		if errors.Is(err, models.ErrUserNotFound) {
-			user = nil
-			err = nil
-		}
+		user, cred, err := ensureUser(ctx, conn, now, credentialID)
 		if err != nil {
 			return nil, err
 		}
 
-		if user == nil {
-			user = models.NewUser(now, username)
-			cred := models.NewUserCredential(now, user.ID, credentialID, data)
+		cred.Data = data
+		cred.UpdatedAt = now
 
-			err = conn.CreateUserWithCredential(ctx, user, cred)
-			if err != nil {
-				return nil, err
-			}
+		err = conn.UpdateCredentialData(ctx, cred)
+		if err != nil {
+			return nil, err
 		}
 
 		return user, nil

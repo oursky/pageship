@@ -74,8 +74,9 @@ type DeploymentsDB interface {
 
 type UserDB interface {
 	GetUser(ctx context.Context, id string) (*models.User, error)
-	GetUserByCredential(ctx context.Context, id models.UserCredentialID) (*models.User, error)
+	GetCredential(ctx context.Context, id models.UserCredentialID) (*models.UserCredential, error)
 	CreateUserWithCredential(ctx context.Context, user *models.User, credential *models.UserCredential) error
+	UpdateCredentialData(ctx context.Context, cred *models.UserCredential) error
 	AssignAppUser(ctx context.Context, appID string, userID string) error
 	UnassignAppUser(ctx context.Context, appID string, userID string) error
 	ListAppUsers(ctx context.Context, appID string) ([]*models.User, error)
