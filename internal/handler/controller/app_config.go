@@ -12,15 +12,14 @@ import (
 func (c *Controller) handleAppConfigGet(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "app-id")
 
-	config, err := tx(r.Context(), c.DB, func(conn db.Conn) (*config.AppConfig, error) {
-		app, err := conn.GetApp(r.Context(), id)
+	respond(w, func() (any, error) {
+		app, err := c.DB.GetApp(r.Context(), id)
 		if err != nil {
 			return nil, err
 		}
+
 		return app.Config, nil
 	})
-
-	writeResponse(w, config, err)
 }
 
 func (c *Controller) handleAppConfigSet(w http.ResponseWriter, r *http.Request) {
@@ -38,8 +37,8 @@ func (c *Controller) handleAppConfigSet(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	config, err := tx(r.Context(), c.DB, func(conn db.Conn) (*config.AppConfig, error) {
-		app, err := conn.UpdateAppConfig(r.Context(), id, request.Config)
+	respond(w, withTx(r.Context(), c.DB, func(tx db.Tx) (any, error) {
+		app, err := c.DB.UpdateAppConfig(r.Context(), id, request.Config)
 		if err != nil {
 			return nil, err
 		}
@@ -51,7 +50,5 @@ func (c *Controller) handleAppConfigSet(w http.ResponseWriter, r *http.Request) 
 		)
 
 		return app.Config, nil
-	})
-
-	writeResponse(w, config, err)
+	}))
 }

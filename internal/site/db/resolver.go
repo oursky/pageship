@@ -23,11 +23,10 @@ func (r *Resolver) Kind() string { return "database" }
 
 func (r *Resolver) resolveDeployment(
 	ctx context.Context,
-	c db.Conn,
 	app *models.App,
 	siteName string,
 ) (*models.Deployment, error) {
-	deployment, err := c.GetSiteDeployment(ctx, app.ID, siteName)
+	deployment, err := r.DB.GetSiteDeployment(ctx, app.ID, siteName)
 
 	if deployment != nil {
 		// Site found, check site name
@@ -43,14 +42,14 @@ func (r *Resolver) resolveDeployment(
 			return nil, site.ErrSiteNotFound
 		}
 
-		deployment, err = c.GetDeploymentByName(ctx, app.ID, siteName)
+		deployment, err = r.DB.GetDeploymentByName(ctx, app.ID, siteName)
 		if errors.Is(err, models.ErrDeploymentNotFound) {
 			return nil, site.ErrSiteNotFound
 		} else if err != nil {
 			return nil, err
 		}
 
-		sites, cerr := c.GetDeploymentSiteNames(ctx, deployment)
+		sites, cerr := r.DB.GetDeploymentSiteNames(ctx, deployment)
 		if cerr != nil {
 			return nil, cerr
 		}
@@ -70,39 +69,31 @@ func (h *Resolver) AllowAnyDomain() bool { return false }
 func (r *Resolver) Resolve(ctx context.Context, matchedID string) (*site.Descriptor, error) {
 	appID, siteName := r.HostIDScheme.Split(matchedID)
 
-	var desc *site.Descriptor
-	err := db.WithTx(ctx, r.DB, func(c db.Conn) error {
-		app, err := c.GetApp(ctx, appID)
-		if errors.Is(err, models.ErrAppNotFound) {
-			return site.ErrSiteNotFound
-		}
+	app, err := r.DB.GetApp(ctx, appID)
+	if errors.Is(err, models.ErrAppNotFound) {
+		return nil, site.ErrSiteNotFound
+	}
 
-		if !site.CheckDefaultSite(&siteName, app.Config.DefaultSite) {
-			return site.ErrSiteNotFound
-		}
+	if !site.CheckDefaultSite(&siteName, app.Config.DefaultSite) {
+		return nil, site.ErrSiteNotFound
+	}
 
-		deployment, err := r.resolveDeployment(ctx, c, app, siteName)
-		if errors.Is(err, models.ErrDeploymentNotFound) {
-			return site.ErrSiteNotFound
-		} else if err != nil {
-			return err
-		}
-
-		if err := deployment.CheckAlive(time.Now().UTC()); err != nil {
-			return site.ErrSiteNotFound
-		}
-
-		id := strings.Join([]string{deployment.AppID, siteName, deployment.ID}, "/")
-		desc = &site.Descriptor{
-			ID:     id,
-			Config: &deployment.Metadata.Config,
-			FS:     newStorageFS(r.Storage, deployment),
-		}
-		return nil
-	})
-
-	if err != nil {
+	deployment, err := r.resolveDeployment(ctx, app, siteName)
+	if errors.Is(err, models.ErrDeploymentNotFound) {
+		return nil, site.ErrSiteNotFound
+	} else if err != nil {
 		return nil, err
+	}
+
+	if err := deployment.CheckAlive(time.Now().UTC()); err != nil {
+		return nil, site.ErrSiteNotFound
+	}
+
+	id := strings.Join([]string{deployment.AppID, siteName, deployment.ID}, "/")
+	desc := &site.Descriptor{
+		ID:     id,
+		Config: &deployment.Metadata.Config,
+		FS:     newStorageFS(r.Storage, deployment),
 	}
 
 	return desc, nil

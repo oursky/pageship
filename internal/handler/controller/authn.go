@@ -25,16 +25,16 @@ type authnInfo struct {
 
 func ensureUser(
 	ctx context.Context,
-	conn db.Conn,
+	tx db.Tx,
 	now time.Time,
 	credentialID models.UserCredentialID,
 ) (*models.User, *models.UserCredential, error) {
-	cred, err := conn.GetCredential(ctx, credentialID)
+	cred, err := tx.GetCredential(ctx, credentialID)
 	if errors.Is(err, models.ErrUserNotFound) {
 		user := models.NewUser(now, credentialID.Name())
 		cred := models.NewUserCredential(now, user.ID, credentialID, &models.UserCredentialData{})
 
-		err = conn.CreateUserWithCredential(ctx, user, cred)
+		err = tx.CreateUserWithCredential(ctx, user, cred)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -42,7 +42,7 @@ func ensureUser(
 		return nil, nil, err
 	}
 
-	user, err := conn.GetUser(ctx, cred.UserID)
+	user, err := tx.GetUser(ctx, cred.UserID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -57,8 +57,8 @@ func (c *Controller) generateUserToken(
 ) (string, error) {
 	now := c.Clock.Now().UTC()
 
-	user, err := tx(ctx, c.DB, func(conn db.Conn) (*models.User, error) {
-		user, cred, err := ensureUser(ctx, conn, now, credentialID)
+	user, err := withTx(ctx, c.DB, func(tx db.Tx) (*models.User, error) {
+		user, cred, err := ensureUser(ctx, tx, now, credentialID)
 		if err != nil {
 			return nil, err
 		}
@@ -66,13 +66,13 @@ func (c *Controller) generateUserToken(
 		cred.Data = data
 		cred.UpdatedAt = now
 
-		err = conn.UpdateCredentialData(ctx, cred)
+		err = tx.UpdateCredentialData(ctx, cred)
 		if err != nil {
 			return nil, err
 		}
 
 		return user, nil
-	})
+	})()
 	if err != nil {
 		return "", fmt.Errorf("get user: %w", err)
 	}
@@ -133,17 +133,10 @@ func (c *Controller) verifyToken(r *http.Request, token string) (*authnInfo, err
 		return nil, models.ErrInvalidCredentials
 	}
 
-	user, err := tx(r.Context(), c.DB, func(conn db.Conn) (*models.User, error) {
-		user, err := conn.GetUser(r.Context(), claims.Subject)
-		if errors.Is(err, models.ErrUserNotFound) {
-			return nil, models.ErrInvalidCredentials
-		} else if err != nil {
-			return nil, err
-		}
-
-		return user, nil
-	})
-	if err != nil {
+	user, err := c.DB.GetUser(r.Context(), claims.Subject)
+	if errors.Is(err, models.ErrUserNotFound) {
+		return nil, models.ErrInvalidCredentials
+	} else if err != nil {
 		return nil, err
 	}
 

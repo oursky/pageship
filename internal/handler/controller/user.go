@@ -3,7 +3,6 @@ package controller
 import (
 	"net/http"
 
-	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/models"
 )
 
@@ -17,14 +16,12 @@ func (c *Controller) makeAPIUser(u *models.User) *apiUser {
 
 func (c *Controller) handleMe(w http.ResponseWriter, r *http.Request) {
 	userID := authn(r).UserID
-	user, err := tx(r.Context(), c.DB, func(conn db.Conn) (*apiUser, error) {
-		user, err := conn.GetUser(r.Context(), userID)
+	respond(w, func() (any, error) {
+		user, err := c.DB.GetUser(r.Context(), userID)
 		if err != nil {
 			return nil, err
 		}
 
 		return c.makeAPIUser(user), nil
 	})
-
-	writeResponse(w, user, err)
 }

@@ -5,12 +5,13 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/models"
 )
 
-func (c Conn) CreateSiteIfNotExist(ctx context.Context, site *models.Site) (*db.SiteInfo, error) {
-	_, err := c.tx.NamedExecContext(ctx, `
+func (q query[T]) CreateSiteIfNotExist(ctx context.Context, site *models.Site) (*db.SiteInfo, error) {
+	_, err := sqlx.NamedExecContext(ctx, q.ext, `
 		INSERT INTO site (id, app_id, name, created_at, updated_at, deleted_at, deployment_id)
 			VALUES (:id, :app_id, :name, :created_at, :updated_at, :deleted_at, :deployment_id)
 			ON CONFLICT (app_id, name) WHERE deleted_at IS NULL DO NOTHING
@@ -20,7 +21,7 @@ func (c Conn) CreateSiteIfNotExist(ctx context.Context, site *models.Site) (*db.
 	}
 
 	var info db.SiteInfo
-	err = c.tx.GetContext(ctx, &info, `
+	err = sqlx.GetContext(ctx, q.ext, &info, `
 		SELECT s.id, s.app_id, s.name, s.created_at, s.updated_at, s.deleted_at, s.deployment_id, d.name AS deployment_name FROM site s
 			JOIN app a ON (a.id = s.app_id AND a.deleted_at IS NULL)
 			LEFT JOIN deployment d ON (d.id = s.deployment_id AND d.deleted_at IS NULL)
@@ -33,9 +34,9 @@ func (c Conn) CreateSiteIfNotExist(ctx context.Context, site *models.Site) (*db.
 	return &info, nil
 }
 
-func (c Conn) GetSiteByName(ctx context.Context, appID string, name string) (*models.Site, error) {
+func (q query[T]) GetSiteByName(ctx context.Context, appID string, name string) (*models.Site, error) {
 	var site models.Site
-	err := c.tx.GetContext(ctx, &site, `
+	err := sqlx.GetContext(ctx, q.ext, &site, `
 		SELECT s.id, s.app_id, s.name, s.created_at, s.updated_at, s.deleted_at FROM site s
 			JOIN app a ON (a.id = s.app_id AND a.deleted_at IS NULL)
 			WHERE s.app_id = $1 AND s.name = $2 AND s.deleted_at IS NULL
@@ -49,9 +50,9 @@ func (c Conn) GetSiteByName(ctx context.Context, appID string, name string) (*mo
 	return &site, nil
 }
 
-func (c Conn) GetSiteInfo(ctx context.Context, appID string, siteID string) (*db.SiteInfo, error) {
+func (q query[T]) GetSiteInfo(ctx context.Context, appID string, siteID string) (*db.SiteInfo, error) {
 	var info db.SiteInfo
-	err := c.tx.GetContext(ctx, &info, `
+	err := sqlx.GetContext(ctx, q.ext, &info, `
 		SELECT s.id, s.app_id, s.name, s.created_at, s.updated_at, s.deleted_at, s.deployment_id, d.name AS deployment_name FROM site s
 			JOIN app a ON (a.id = s.app_id AND a.deleted_at IS NULL)
 			LEFT JOIN deployment d ON (d.id = s.deployment_id AND d.deleted_at IS NULL)
@@ -64,9 +65,9 @@ func (c Conn) GetSiteInfo(ctx context.Context, appID string, siteID string) (*db
 	return &info, nil
 }
 
-func (c Conn) ListSitesInfo(ctx context.Context, appID string) ([]db.SiteInfo, error) {
+func (q query[T]) ListSitesInfo(ctx context.Context, appID string) ([]db.SiteInfo, error) {
 	var info []db.SiteInfo
-	err := c.tx.SelectContext(ctx, &info, `
+	err := sqlx.SelectContext(ctx, q.ext, &info, `
 		SELECT s.id, s.app_id, s.name, s.created_at, s.updated_at, s.deleted_at, s.deployment_id, s.deployment_id, d.name AS deployment_name FROM site s
 			JOIN app a ON (a.id = s.app_id AND a.deleted_at IS NULL)
 			LEFT JOIN deployment d ON (d.id = s.deployment_id AND d.deleted_at IS NULL)
@@ -80,8 +81,8 @@ func (c Conn) ListSitesInfo(ctx context.Context, appID string) ([]db.SiteInfo, e
 	return info, nil
 }
 
-func (c Conn) AssignDeploymentSite(ctx context.Context, deployment *models.Deployment, siteID string) error {
-	_, err := c.tx.ExecContext(ctx, `
+func (q query[T]) AssignDeploymentSite(ctx context.Context, deployment *models.Deployment, siteID string) error {
+	_, err := q.ext.ExecContext(ctx, `
 		UPDATE site SET deployment_id = $1 WHERE id = $2
 	`, deployment.ID, siteID)
 	if err != nil {
@@ -91,8 +92,8 @@ func (c Conn) AssignDeploymentSite(ctx context.Context, deployment *models.Deplo
 	return nil
 }
 
-func (c Conn) UnassignDeploymentSite(ctx context.Context, deployment *models.Deployment, siteID string) error {
-	_, err := c.tx.ExecContext(ctx, `
+func (q query[T]) UnassignDeploymentSite(ctx context.Context, deployment *models.Deployment, siteID string) error {
+	_, err := q.ext.ExecContext(ctx, `
 		UPDATE site SET deployment_id = NULL WHERE id = $1 AND deployment_id = $2
 	`, siteID, deployment.ID)
 	if err != nil {

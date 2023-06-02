@@ -109,13 +109,20 @@ func mapModels[T, U any](models []T, mapper func(m T) U) []U {
 	return result
 }
 
-func tx[T any](ctx context.Context, d db.DB, fn func(c db.Conn) (T, error)) (T, error) {
-	var result T
-	err := db.WithTx(ctx, d, func(c db.Conn) (err error) {
-		result, err = fn(c)
-		return
-	})
-	return result, err
+func respond(w http.ResponseWriter, fn func() (any, error)) {
+	result, err := fn()
+	writeResponse(w, result, err)
+}
+
+func withTx[T any](ctx context.Context, d db.DB, fn func(tx db.Tx) (T, error)) func() (T, error) {
+	return func() (T, error) {
+		var result T
+		err := db.WithTx(ctx, d, func(tx db.Tx) (err error) {
+			result, err = fn(tx)
+			return
+		})
+		return result, err
+	}
 }
 
 func requestID(r *http.Request) string {

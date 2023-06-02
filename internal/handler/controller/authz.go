@@ -15,6 +15,21 @@ const (
 	authzWriteApp authzAction = "write-app"
 )
 
+func checkAuthz(r *http.Request, q db.DBQuery, actions []authzAction, authn *authnInfo) error {
+	for _, a := range actions {
+		switch a {
+		case authzReadApp, authzWriteApp:
+			appID := chi.URLParam(r, "app-id")
+			if err := q.IsAppAccessible(r.Context(), appID, authn.UserID); err != nil {
+				return err
+			}
+		default:
+			panic("unknown authz action: " + a)
+		}
+	}
+	return nil
+}
+
 func (c *Controller) requireAuth(
 	actions ...authzAction,
 ) func(next http.Handler) http.Handler {
@@ -26,20 +41,7 @@ func (c *Controller) requireAuth(
 				return
 			}
 
-			err := db.WithTx(r.Context(), c.DB, func(c db.Conn) error {
-				for _, a := range actions {
-					switch a {
-					case authzReadApp, authzWriteApp:
-						appID := chi.URLParam(r, "app-id")
-						if err := c.IsAppAccessible(r.Context(), appID, info.UserID); err != nil {
-							return err
-						}
-					default:
-						panic("unknown authz action: " + a)
-					}
-				}
-				return nil
-			})
+			err := checkAuthz(r, c.DB, actions, info)
 			if err != nil {
 				writeResponse(w, nil, err)
 				return

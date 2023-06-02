@@ -36,13 +36,13 @@ func (c *Controller) makeAPISite(app *models.App, site db.SiteInfo) *apiSite {
 func (c *Controller) handleSiteList(w http.ResponseWriter, r *http.Request) {
 	appID := chi.URLParam(r, "app-id")
 
-	sites, err := tx(r.Context(), c.DB, func(conn db.Conn) ([]*apiSite, error) {
-		app, err := conn.GetApp(r.Context(), appID)
+	respond(w, func() (any, error) {
+		app, err := c.DB.GetApp(r.Context(), appID)
 		if err != nil {
 			return nil, err
 		}
 
-		sites, err := conn.ListSitesInfo(r.Context(), appID)
+		sites, err := c.DB.ListSitesInfo(r.Context(), appID)
 		if err != nil {
 			return nil, err
 		}
@@ -51,8 +51,6 @@ func (c *Controller) handleSiteList(w http.ResponseWriter, r *http.Request) {
 			return c.makeAPISite(app, site)
 		}), nil
 	})
-
-	writeResponse(w, sites, err)
 }
 
 func (c *Controller) handleSiteCreate(w http.ResponseWriter, r *http.Request) {
@@ -65,8 +63,8 @@ func (c *Controller) handleSiteCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	site, err := tx(r.Context(), c.DB, func(conn db.Conn) (*apiSite, error) {
-		app, err := conn.GetApp(r.Context(), appID)
+	respond(w, withTx(r.Context(), c.DB, func(tx db.Tx) (any, error) {
+		app, err := tx.GetApp(r.Context(), appID)
 		if err != nil {
 			return nil, err
 		}
@@ -76,7 +74,7 @@ func (c *Controller) handleSiteCreate(w http.ResponseWriter, r *http.Request) {
 		}
 
 		site := models.NewSite(c.Clock.Now().UTC(), appID, request.Name)
-		info, err := conn.CreateSiteIfNotExist(r.Context(), site)
+		info, err := tx.CreateSiteIfNotExist(r.Context(), site)
 		if err != nil {
 			return nil, err
 		}
@@ -89,19 +87,17 @@ func (c *Controller) handleSiteCreate(w http.ResponseWriter, r *http.Request) {
 		)
 
 		return c.makeAPISite(app, *info), nil
-	})
-
-	writeResponse(w, site, err)
+	}))
 }
 
 func (c *Controller) updateDeploymentExpiry(
 	ctx context.Context,
-	conn db.Conn,
+	tx db.Tx,
 	now time.Time,
 	conf *config.AppConfig,
 	deployment *models.Deployment,
 ) error {
-	sites, err := conn.GetDeploymentSiteNames(ctx, deployment)
+	sites, err := tx.GetDeploymentSiteNames(ctx, deployment)
 	if err != nil {
 		return err
 	}
@@ -114,13 +110,13 @@ func (c *Controller) updateDeploymentExpiry(
 
 		expireAt := now.Add(deploymentTTL)
 		deployment.ExpireAt = &expireAt
-		err = conn.SetDeploymentExpiry(ctx, deployment)
+		err = tx.SetDeploymentExpiry(ctx, deployment)
 		if err != nil {
 			return err
 		}
 	} else if len(sites) > 0 && deployment.ExpireAt != nil {
 		deployment.ExpireAt = nil
-		err = conn.SetDeploymentExpiry(ctx, deployment)
+		err = tx.SetDeploymentExpiry(ctx, deployment)
 		if err != nil {
 			return err
 		}
@@ -131,7 +127,7 @@ func (c *Controller) updateDeploymentExpiry(
 
 func (c *Controller) siteUpdateDeploymentName(
 	ctx context.Context,
-	conn db.Conn,
+	tx db.Tx,
 	now time.Time,
 	conf *config.AppConfig,
 	site *models.Site,
@@ -139,7 +135,7 @@ func (c *Controller) siteUpdateDeploymentName(
 ) error {
 	var currentDeployment *models.Deployment
 	if site.DeploymentID != nil {
-		d, err := conn.GetDeployment(ctx, site.AppID, *site.DeploymentID)
+		d, err := tx.GetDeployment(ctx, site.AppID, *site.DeploymentID)
 		if err != nil {
 			return err
 		}
@@ -156,7 +152,7 @@ func (c *Controller) siteUpdateDeploymentName(
 
 	var newDeployment *models.Deployment
 	if deploymentName != "" {
-		d, err := conn.GetDeploymentByName(ctx, site.AppID, deploymentName)
+		d, err := tx.GetDeploymentByName(ctx, site.AppID, deploymentName)
 		if err != nil {
 			return err
 		}
@@ -165,14 +161,14 @@ func (c *Controller) siteUpdateDeploymentName(
 			return err
 		}
 
-		err = conn.AssignDeploymentSite(ctx, d, site.ID)
+		err = tx.AssignDeploymentSite(ctx, d, site.ID)
 		if err != nil {
 			return err
 		}
 		site.DeploymentID = &d.ID
 		newDeployment = d
 	} else {
-		err := conn.UnassignDeploymentSite(ctx, currentDeployment, site.ID)
+		err := tx.UnassignDeploymentSite(ctx, currentDeployment, site.ID)
 		if err != nil {
 			return err
 		}
@@ -181,12 +177,12 @@ func (c *Controller) siteUpdateDeploymentName(
 	}
 
 	if currentDeployment != nil {
-		if err := c.updateDeploymentExpiry(ctx, conn, now, conf, currentDeployment); err != nil {
+		if err := c.updateDeploymentExpiry(ctx, tx, now, conf, currentDeployment); err != nil {
 			return err
 		}
 	}
 	if newDeployment != nil {
-		if err := c.updateDeploymentExpiry(ctx, conn, now, conf, newDeployment); err != nil {
+		if err := c.updateDeploymentExpiry(ctx, tx, now, conf, newDeployment); err != nil {
 			return err
 		}
 	}
@@ -207,13 +203,13 @@ func (c *Controller) handleSiteUpdate(w http.ResponseWriter, r *http.Request) {
 
 	now := c.Clock.Now().UTC()
 
-	site, err := tx(r.Context(), c.DB, func(conn db.Conn) (*apiSite, error) {
-		app, err := conn.GetApp(r.Context(), appID)
+	respond(w, withTx(r.Context(), c.DB, func(tx db.Tx) (any, error) {
+		app, err := tx.GetApp(r.Context(), appID)
 		if err != nil {
 			return nil, err
 		}
 
-		site, err := conn.GetSiteByName(r.Context(), appID, siteName)
+		site, err := tx.GetSiteByName(r.Context(), appID, siteName)
 		if err != nil {
 			return nil, err
 		}
@@ -231,18 +227,16 @@ func (c *Controller) handleSiteUpdate(w http.ResponseWriter, r *http.Request) {
 				zap.String("new_deployment", *request.DeploymentName),
 			)
 
-			if err := c.siteUpdateDeploymentName(r.Context(), conn, now, app.Config, site, *request.DeploymentName); err != nil {
+			if err := c.siteUpdateDeploymentName(r.Context(), tx, now, app.Config, site, *request.DeploymentName); err != nil {
 				return nil, err
 			}
 		}
 
-		info, err := conn.GetSiteInfo(r.Context(), appID, site.ID)
+		info, err := tx.GetSiteInfo(r.Context(), appID, site.ID)
 		if err != nil {
 			return nil, err
 		}
 
 		return c.makeAPISite(app, *info), nil
-	})
-
-	writeResponse(w, site, err)
+	}))
 }

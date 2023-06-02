@@ -27,7 +27,7 @@ func (c *CleanupExpired) Run(ctx context.Context, logger *zap.Logger) error {
 	now := clock.Now().UTC()
 	expireBefore := now.Add(-c.KeepAfterExpired)
 
-	return db.WithTx(ctx, c.DB, func(c db.Conn) error {
+	return db.WithTx(ctx, c.DB, func(c db.Tx) error {
 		n, err := c.DeleteExpiredDeployments(ctx, now, expireBefore)
 		if err != nil {
 			return err

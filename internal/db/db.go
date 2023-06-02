@@ -29,19 +29,23 @@ func New(url string) (DB, error) {
 }
 
 type DB interface {
-	BeginTx(ctx context.Context) (Conn, error)
-
-	CertificateDB
+	BeginTx(ctx context.Context) (Tx, error)
+	Locker(ctx context.Context) (LockerDB, error)
+	DBQuery
 }
 
-type Conn interface {
+type Tx interface {
 	Rollback() error
 	Commit() error
+	DBQuery
+}
 
+type DBQuery interface {
 	AppsDB
 	SitesDB
 	DeploymentsDB
 	UserDB
+	CertificateDB
 }
 
 type AppsDB interface {
@@ -88,10 +92,9 @@ type CertificateDB interface {
 	SetCertDataEntry(ctx context.Context, entry *models.CertDataEntry) error
 	DeleteCertificateData(ctx context.Context, key string) error
 	ListCertificateData(ctx context.Context, prefix string) ([]string, error)
-	Locker(ctx context.Context) (CertificateDBLocker, error)
 }
 
-type CertificateDBLocker interface {
+type LockerDB interface {
 	Close() error
 	Lock(ctx context.Context, name string) error
 	Unlock(ctx context.Context, name string) error

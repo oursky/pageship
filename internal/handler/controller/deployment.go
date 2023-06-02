@@ -56,18 +56,18 @@ func (c *Controller) handleDeploymentGet(w http.ResponseWriter, r *http.Request)
 	appID := chi.URLParam(r, "app-id")
 	deploymentName := chi.URLParam(r, "deployment-name")
 
-	deployment, err := tx(r.Context(), c.DB, func(conn db.Conn) (*apiDeployment, error) {
-		app, err := conn.GetApp(r.Context(), appID)
+	respond(w, func() (any, error) {
+		app, err := c.DB.GetApp(r.Context(), appID)
 		if err != nil {
 			return nil, err
 		}
 
-		deployment, err := conn.GetDeploymentByName(r.Context(), appID, deploymentName)
+		deployment, err := c.DB.GetDeploymentByName(r.Context(), appID, deploymentName)
 		if err != nil {
 			return nil, err
 		}
 
-		sites, err := conn.GetDeploymentSiteNames(r.Context(), deployment)
+		sites, err := c.DB.GetDeploymentSiteNames(r.Context(), deployment)
 		if err != nil {
 			return nil, err
 		}
@@ -81,8 +81,6 @@ func (c *Controller) handleDeploymentGet(w http.ResponseWriter, r *http.Request)
 			FirstSiteName: siteName,
 		}), nil
 	})
-
-	writeResponse(w, deployment, err)
 }
 
 func (c *Controller) handleDeploymentCreate(w http.ResponseWriter, r *http.Request) {
@@ -125,8 +123,8 @@ func (c *Controller) handleDeploymentCreate(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	deployment, err := tx(r.Context(), c.DB, func(conn db.Conn) (*apiDeployment, error) {
-		app, err := conn.GetApp(r.Context(), appID)
+	deployment, err := withTx(r.Context(), c.DB, func(tx db.Tx) (*apiDeployment, error) {
+		app, err := tx.GetApp(r.Context(), appID)
 		if err != nil {
 			return nil, err
 		}
@@ -146,7 +144,7 @@ func (c *Controller) handleDeploymentCreate(w http.ResponseWriter, r *http.Reque
 		expireAt := now.Add(deploymentTTL)
 		deployment.ExpireAt = &expireAt
 
-		err = conn.CreateDeployment(r.Context(), deployment)
+		err = tx.CreateDeployment(r.Context(), deployment)
 		if err != nil {
 			return nil, err
 		}
@@ -162,7 +160,7 @@ func (c *Controller) handleDeploymentCreate(w http.ResponseWriter, r *http.Reque
 			Deployment:    deployment,
 			FirstSiteName: nil,
 		}), nil
-	})
+	})()
 
 	writeResponse(w, deployment, err)
 }
@@ -171,24 +169,17 @@ func (c *Controller) handleDeploymentUpload(w http.ResponseWriter, r *http.Reque
 	appID := chi.URLParam(r, "app-id")
 	deploymentName := chi.URLParam(r, "deployment-name")
 
-	deployment, err := tx(r.Context(), c.DB, func(conn db.Conn) (*models.Deployment, error) {
-		deployment, err := conn.GetDeploymentByName(r.Context(), appID, deploymentName)
-		if err != nil {
-			return nil, err
-		}
-
-		if deployment.IsExpired(c.Clock.Now().UTC()) {
-			return nil, models.ErrDeploymentExpired
-		}
-		if deployment.UploadedAt != nil {
-			return nil, models.ErrDeploymentAlreadyUploaded
-		}
-
-		return deployment, nil
-	})
-
+	deployment, err := c.DB.GetDeploymentByName(r.Context(), appID, deploymentName)
 	if err != nil {
 		writeResponse(w, nil, err)
+		return
+	}
+
+	if deployment.IsExpired(c.Clock.Now().UTC()) {
+		writeResponse(w, nil, models.ErrDeploymentExpired)
+		return
+	} else if deployment.UploadedAt != nil {
+		writeResponse(w, nil, models.ErrDeploymentAlreadyUploaded)
 		return
 	}
 
@@ -244,22 +235,24 @@ func (c *Controller) handleDeploymentUpload(w http.ResponseWriter, r *http.Reque
 	now := c.Clock.Now().UTC()
 
 	// Mark deployment as completed, but inactive
-	result, err := tx(r.Context(), c.DB, func(conn db.Conn) (*apiDeployment, error) {
-		app, err := conn.GetApp(r.Context(), appID)
+	respond(w, withTx(r.Context(), c.DB, func(tx db.Tx) (any, error) {
+		app, err := tx.GetApp(r.Context(), appID)
 		if err != nil {
 			return nil, err
 		}
 
-		deployment, err = conn.GetDeployment(r.Context(), appID, deployment.ID)
+		deployment, err = tx.GetDeployment(r.Context(), appID, deployment.ID)
 		if err != nil {
 			return nil, err
 		}
 
-		if deployment.UploadedAt != nil {
+		if deployment.IsExpired(c.Clock.Now().UTC()) {
+			return nil, models.ErrDeploymentExpired
+		} else if deployment.UploadedAt != nil {
 			return nil, models.ErrDeploymentAlreadyUploaded
 		}
 
-		err = conn.MarkDeploymentUploaded(r.Context(), now, deployment)
+		err = tx.MarkDeploymentUploaded(r.Context(), now, deployment)
 		if err != nil {
 			return nil, err
 		}
@@ -268,21 +261,19 @@ func (c *Controller) handleDeploymentUpload(w http.ResponseWriter, r *http.Reque
 			Deployment:    deployment,
 			FirstSiteName: nil,
 		}), nil
-	})
-
-	writeResponse(w, result, err)
+	}))
 }
 
 func (c *Controller) handleDeploymentList(w http.ResponseWriter, r *http.Request) {
 	appID := chi.URLParam(r, "app-id")
 
-	deployments, err := tx(r.Context(), c.DB, func(conn db.Conn) ([]*apiDeployment, error) {
-		app, err := conn.GetApp(r.Context(), appID)
+	respond(w, func() (any, error) {
+		app, err := c.DB.GetApp(r.Context(), appID)
 		if err != nil {
 			return nil, err
 		}
 
-		deployments, err := conn.ListDeployments(r.Context(), appID)
+		deployments, err := c.DB.ListDeployments(r.Context(), appID)
 		if err != nil {
 			return nil, err
 		}
@@ -291,6 +282,4 @@ func (c *Controller) handleDeploymentList(w http.ResponseWriter, r *http.Request
 			return c.makeAPIDeployment(app, d)
 		}), nil
 	})
-
-	writeResponse(w, deployments, err)
 }

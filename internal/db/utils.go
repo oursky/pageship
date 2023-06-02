@@ -8,23 +8,23 @@ import (
 
 var ErrRollback = errors.New("rollback tx")
 
-func WithTx(ctx context.Context, db DB, fn func(Conn) error) error {
-	conn, err := db.BeginTx(ctx)
+func WithTx(ctx context.Context, db DB, fn func(Tx) error) error {
+	tx, err := db.BeginTx(ctx)
 	if err != nil {
 		return err
 	}
 
-	defer conn.Rollback()
+	defer tx.Rollback()
 
-	err = fn(conn)
+	err = fn(tx)
 	if errors.Is(err, ErrRollback) {
-		err = conn.Rollback()
+		err = tx.Rollback()
 	}
 	if err != nil {
 		return err
 	}
 
-	if err := conn.Commit(); err != nil && !errors.Is(err, sql.ErrTxDone) {
+	if err := tx.Commit(); err != nil && !errors.Is(err, sql.ErrTxDone) {
 		return err
 	}
 	return nil

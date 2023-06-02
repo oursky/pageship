@@ -28,12 +28,12 @@ type CertStorage struct {
 	clock  time.Clock
 	mu     sync.Mutex
 	locks  map[string]struct{}
-	DB     CertificateDB
+	DB     DB
 	key    *[32]byte
-	locker CertificateDBLocker
+	locker LockerDB
 }
 
-func NewCertStorage(db CertificateDB, pass string) *CertStorage {
+func NewCertStorage(db DB, pass string) *CertStorage {
 	var key *[32]byte
 	if pass != "" {
 		h := sha3.New256()

@@ -16,9 +16,9 @@ var patternReplacer = strings.NewReplacer("_", "\\_", "%", "\\%")
 
 const lockTimeout time.Duration = 10 * time.Minute
 
-func (c DB) GetCertDataEntry(ctx context.Context, key string) (*models.CertDataEntry, error) {
+func (q query[T]) GetCertDataEntry(ctx context.Context, key string) (*models.CertDataEntry, error) {
 	var entry models.CertDataEntry
-	err := c.db.GetContext(ctx, &entry, `
+	err := sqlx.GetContext(ctx, q.ext, &entry, `
 		SELECT key, updated_at, value FROM cert_data WHERE key = ?
 	`, key)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -30,8 +30,8 @@ func (c DB) GetCertDataEntry(ctx context.Context, key string) (*models.CertDataE
 	return &entry, nil
 }
 
-func (c DB) SetCertDataEntry(ctx context.Context, entry *models.CertDataEntry) error {
-	_, err := c.db.NamedExecContext(ctx, `
+func (q query[T]) SetCertDataEntry(ctx context.Context, entry *models.CertDataEntry) error {
+	_, err := sqlx.NamedExecContext(ctx, q.ext, `
 		INSERT INTO cert_data (key, updated_at, value)
 			VALUES (:key, :updated_at, :value)
 			ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
@@ -43,8 +43,8 @@ func (c DB) SetCertDataEntry(ctx context.Context, entry *models.CertDataEntry) e
 	return nil
 }
 
-func (c DB) DeleteCertificateData(ctx context.Context, key string) error {
-	result, err := c.db.ExecContext(ctx, `
+func (q query[T]) DeleteCertificateData(ctx context.Context, key string) error {
+	result, err := q.ext.ExecContext(ctx, `
 		DELETE FROM cert_data WHERE key = ?
 	`, key)
 	if err != nil {
@@ -62,10 +62,10 @@ func (c DB) DeleteCertificateData(ctx context.Context, key string) error {
 	return nil
 }
 
-func (c DB) ListCertificateData(ctx context.Context, prefix string) ([]string, error) {
+func (q query[T]) ListCertificateData(ctx context.Context, prefix string) ([]string, error) {
 	pattern := patternReplacer.Replace(prefix) + "%"
 	var keys []string
-	err := c.db.SelectContext(ctx, &keys, `
+	err := sqlx.SelectContext(ctx, q.ext, &keys, `
 		SELECT key FROM cert_data WHERE key LIKE ? ESCAPE '\'
 	`, pattern)
 	if err != nil {
@@ -84,9 +84,9 @@ func (c DB) ListCertificateData(ctx context.Context, prefix string) ([]string, e
 
 	return keys, nil
 }
-func (c DB) Locker(ctx context.Context) (db.CertificateDBLocker, error) {
+func (d DB) Locker(ctx context.Context) (db.LockerDB, error) {
 	id := models.RandomID(8)
-	return &locker{id: id, db: c.db}, nil
+	return &locker{id: id, db: d.ext}, nil
 }
 
 type locker struct {

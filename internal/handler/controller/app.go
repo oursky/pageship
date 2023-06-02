@@ -37,10 +37,10 @@ func (c *Controller) handleAppCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := authn(r).UserID
-	app, err := tx(r.Context(), c.DB, func(conn db.Conn) (*apiApp, error) {
+	respond(w, withTx(r.Context(), c.DB, func(tx db.Tx) (any, error) {
 		app := models.NewApp(c.Clock.Now().UTC(), request.ID)
 
-		err := conn.CreateApp(r.Context(), app)
+		err := tx.CreateApp(r.Context(), app)
 		if err != nil {
 			return nil, err
 		}
@@ -51,59 +51,51 @@ func (c *Controller) handleAppCreate(w http.ResponseWriter, r *http.Request) {
 			zap.String("app", app.ID),
 		)
 
-		err = conn.AssignAppUser(r.Context(), app.ID, userID)
+		err = tx.AssignAppUser(r.Context(), app.ID, userID)
 		if err != nil {
 			return nil, err
 		}
 
 		return c.makeAPIApp(app), nil
-	})
-
-	writeResponse(w, app, err)
+	}))
 }
 
 func (c *Controller) handleAppGet(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "app-id")
 
-	app, err := tx(r.Context(), c.DB, func(conn db.Conn) (*apiApp, error) {
-		app, err := conn.GetApp(r.Context(), id)
+	respond(w, func() (any, error) {
+		app, err := c.DB.GetApp(r.Context(), id)
 		if err != nil {
 			return nil, err
 		}
 
 		return c.makeAPIApp(app), nil
 	})
-
-	writeResponse(w, app, err)
 }
 
 func (c *Controller) handleAppList(w http.ResponseWriter, r *http.Request) {
 	userID := authn(r).UserID
-	apps, err := tx(r.Context(), c.DB, func(conn db.Conn) ([]*apiApp, error) {
-		apps, err := conn.ListApps(r.Context(), userID)
+	respond(w, func() (any, error) {
+		apps, err := c.DB.ListApps(r.Context(), userID)
 		if err != nil {
 			return nil, err
 		}
 
 		return mapModels(apps, c.makeAPIApp), nil
 	})
-
-	writeResponse(w, apps, err)
 }
 
 func (c *Controller) handleAppUserList(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "app-id")
 
-	users, err := tx(r.Context(), c.DB, func(conn db.Conn) ([]*apiUser, error) {
-		users, err := conn.ListAppUsers(r.Context(), id)
+	respond(w, func() (any, error) {
+		users, err := c.DB.ListAppUsers(r.Context(), id)
 		if err != nil {
 			return nil, err
 		}
 
 		return mapModels(users, c.makeAPIUser), nil
 	})
-
-	writeResponse(w, users, err)
 }
 
 func (c *Controller) handleAppUserAdd(w http.ResponseWriter, r *http.Request) {
@@ -116,13 +108,13 @@ func (c *Controller) handleAppUserAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := tx(r.Context(), c.DB, func(conn db.Conn) (*struct{}, error) {
-		user, err := conn.GetUser(r.Context(), request.UserID)
+	respond(w, withTx(r.Context(), c.DB, func(tx db.Tx) (any, error) {
+		user, err := tx.GetUser(r.Context(), request.UserID)
 		if err != nil {
 			return nil, err
 		}
 
-		err = conn.AssignAppUser(r.Context(), appID, user.ID)
+		err = tx.AssignAppUser(r.Context(), appID, user.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -135,9 +127,7 @@ func (c *Controller) handleAppUserAdd(w http.ResponseWriter, r *http.Request) {
 		)
 
 		return &struct{}{}, nil
-	})
-
-	writeResponse(w, result, err)
+	}))
 }
 
 func (c *Controller) handleAppUserDelete(w http.ResponseWriter, r *http.Request) {
@@ -149,8 +139,8 @@ func (c *Controller) handleAppUserDelete(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	result, err := tx(r.Context(), c.DB, func(conn db.Conn) (*struct{}, error) {
-		err := conn.UnassignAppUser(r.Context(), appID, userID)
+	respond(w, withTx(r.Context(), c.DB, func(tx db.Tx) (any, error) {
+		err := tx.UnassignAppUser(r.Context(), appID, userID)
 		if err != nil {
 			return nil, err
 		}
@@ -163,7 +153,5 @@ func (c *Controller) handleAppUserDelete(w http.ResponseWriter, r *http.Request)
 		)
 
 		return &struct{}{}, nil
-	})
-
-	writeResponse(w, result, err)
+	}))
 }

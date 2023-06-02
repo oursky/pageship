@@ -5,12 +5,13 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/models"
 )
 
-func (c Conn) CreateApp(ctx context.Context, app *models.App) error {
-	result, err := c.tx.NamedExecContext(ctx, `
+func (q query[T]) CreateApp(ctx context.Context, app *models.App) error {
+	result, err := sqlx.NamedExecContext(ctx, q.ext, `
 		INSERT INTO app (id, created_at, updated_at, deleted_at, config)
 			VALUES (:id, :created_at, :updated_at, :deleted_at, :config)
 			ON CONFLICT (id) DO NOTHING
@@ -30,9 +31,9 @@ func (c Conn) CreateApp(ctx context.Context, app *models.App) error {
 	return nil
 }
 
-func (c Conn) ListApps(ctx context.Context, userID string) ([]*models.App, error) {
+func (q query[T]) ListApps(ctx context.Context, userID string) ([]*models.App, error) {
 	apps := []*models.App{}
-	err := c.tx.SelectContext(ctx, &apps, `
+	err := sqlx.SelectContext(ctx, q.ext, &apps, `
 		SELECT a.id, a.created_at, a.updated_at, a.deleted_at, a.config FROM app a
 			JOIN user_app ua ON (ua.app_id = a.id)
 			WHERE a.deleted_at IS NULL AND ua.user_id = $1
@@ -45,9 +46,9 @@ func (c Conn) ListApps(ctx context.Context, userID string) ([]*models.App, error
 	return apps, nil
 }
 
-func (c Conn) GetApp(ctx context.Context, id string) (*models.App, error) {
+func (q query[T]) GetApp(ctx context.Context, id string) (*models.App, error) {
 	var app models.App
-	err := c.tx.GetContext(ctx, &app, `
+	err := sqlx.GetContext(ctx, q.ext, &app, `
 		SELECT id, created_at, updated_at, deleted_at, config FROM app
 			WHERE id = $1 AND deleted_at IS NULL
 	`, id)
@@ -60,9 +61,9 @@ func (c Conn) GetApp(ctx context.Context, id string) (*models.App, error) {
 	return &app, nil
 }
 
-func (c Conn) UpdateAppConfig(ctx context.Context, id string, config *config.AppConfig) (*models.App, error) {
+func (q query[T]) UpdateAppConfig(ctx context.Context, id string, config *config.AppConfig) (*models.App, error) {
 	var app models.App
-	err := c.tx.GetContext(ctx, &app, `
+	err := sqlx.GetContext(ctx, q.ext, &app, `
 		UPDATE app SET config = $1 WHERE id = $2 AND deleted_at IS NULL
 			RETURNING id, created_at, updated_at, deleted_at, config
 	`, config, id)

@@ -15,9 +15,18 @@ func init() {
 	db.FactoryMap["sqlite"] = NewSqlite
 }
 
+type query[T sqlx.ExtContext] struct{ ext T }
+
 type DB struct {
-	db *sqlx.DB
+	query[*sqlx.DB]
 }
+
+type Tx struct {
+	query[*sqlx.Tx]
+}
+
+func (t Tx) Rollback() error { return t.ext.Rollback() }
+func (t Tx) Commit() error   { return t.ext.Commit() }
 
 func NewSqlite(url url.URL) (db.DB, error) {
 	q := url.Query()
@@ -33,14 +42,14 @@ func NewSqlite(url url.URL) (db.DB, error) {
 		return nil, fmt.Errorf("open sqlite DB: %w", err)
 	}
 
-	return DB{db: db}, nil
+	return DB{query: query[*sqlx.DB]{ext: db}}, nil
 }
 
-func (db DB) BeginTx(ctx context.Context) (db.Conn, error) {
-	tx, err := db.db.BeginTxx(ctx, nil)
+func (db DB) BeginTx(ctx context.Context) (db.Tx, error) {
+	tx, err := db.ext.BeginTxx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	return newConn(tx), nil
+	return Tx{query: query[*sqlx.Tx]{ext: tx}}, nil
 }
