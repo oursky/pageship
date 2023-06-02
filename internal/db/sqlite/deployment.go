@@ -83,14 +83,10 @@ func (q query[T]) ListDeployments(ctx context.Context, appID string) ([]db.Deplo
 }
 
 func (q query[T]) MarkDeploymentUploaded(ctx context.Context, now time.Time, deployment *models.Deployment) error {
-	err := sqlx.GetContext(ctx, q.ext, deployment, `
-		UPDATE deployment SET uploaded_at = ?
-			WHERE id = ? AND deleted_at IS NULL AND uploaded_at IS NULL
-			RETURNING id, created_at, updated_at, deleted_at, name, app_id, storage_key_prefix, metadata, uploaded_at
-	`, now, deployment.ID)
-	if errors.Is(err, sql.ErrNoRows) {
-		return models.ErrDeploymentNotFound
-	} else if err != nil {
+	_, err := q.ext.ExecContext(ctx, `
+		UPDATE deployment SET uploaded_at = ?, updated_at = ? WHERE id = ?
+	`, now, now, deployment.ID)
+	if err != nil {
 		return err
 	}
 
@@ -133,8 +129,8 @@ func (q query[T]) GetDeploymentSiteNames(ctx context.Context, deployment *models
 
 func (q query[T]) SetDeploymentExpiry(ctx context.Context, deployment *models.Deployment) error {
 	_, err := q.ext.ExecContext(ctx, `
-		UPDATE deployment SET expire_at = ? WHERE id = ?
-	`, deployment.ExpireAt, deployment.ID)
+		UPDATE deployment SET expire_at = ?, updated_at = ? WHERE id = ?
+	`, deployment.ExpireAt, deployment.UpdatedAt, deployment.ID)
 	if err != nil {
 		return err
 	}

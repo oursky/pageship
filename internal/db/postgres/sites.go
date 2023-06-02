@@ -81,21 +81,10 @@ func (q query[T]) ListSitesInfo(ctx context.Context, appID string) ([]db.SiteInf
 	return info, nil
 }
 
-func (q query[T]) AssignDeploymentSite(ctx context.Context, deployment *models.Deployment, siteID string) error {
+func (q query[T]) SetSiteDeployment(ctx context.Context, site *models.Site) error {
 	_, err := q.ext.ExecContext(ctx, `
-		UPDATE site SET deployment_id = $1 WHERE id = $2
-	`, deployment.ID, siteID)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (q query[T]) UnassignDeploymentSite(ctx context.Context, deployment *models.Deployment, siteID string) error {
-	_, err := q.ext.ExecContext(ctx, `
-		UPDATE site SET deployment_id = NULL WHERE id = $1 AND deployment_id = $2
-	`, siteID, deployment.ID)
+		UPDATE site SET deployment_id = $1 updated_at = $2 WHERE id = $3
+	`, site.DeploymentID, site.UpdatedAt, site.ID)
 	if err != nil {
 		return err
 	}

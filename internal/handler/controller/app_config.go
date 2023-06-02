@@ -29,7 +29,10 @@ func (c *Controller) handleAppConfigSet(w http.ResponseWriter, r *http.Request) 
 	}
 
 	respond(w, withTx(r.Context(), c.DB, func(tx db.Tx) (any, error) {
-		app, err := c.DB.UpdateAppConfig(r.Context(), app.ID, request.Config)
+		app.Config = request.Config
+		app.UpdatedAt = c.Clock.Now().UTC()
+
+		err := c.DB.UpdateAppConfig(r.Context(), app)
 		if err != nil {
 			return nil, err
 		}

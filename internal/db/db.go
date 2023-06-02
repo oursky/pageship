@@ -6,7 +6,6 @@ import (
 	neturl "net/url"
 	"time"
 
-	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/models"
 )
 
@@ -52,7 +51,7 @@ type AppsDB interface {
 	CreateApp(ctx context.Context, app *models.App) error
 	GetApp(ctx context.Context, id string) (*models.App, error)
 	ListApps(ctx context.Context, userID string) ([]*models.App, error)
-	UpdateAppConfig(ctx context.Context, id string, config *config.AppConfig) (*models.App, error)
+	UpdateAppConfig(ctx context.Context, app *models.App) error
 }
 
 type SitesDB interface {
@@ -60,6 +59,7 @@ type SitesDB interface {
 	GetSiteByName(ctx context.Context, appID string, siteName string) (*models.Site, error)
 	GetSiteInfo(ctx context.Context, appID string, id string) (*SiteInfo, error)
 	ListSitesInfo(ctx context.Context, appID string) ([]SiteInfo, error)
+	SetSiteDeployment(ctx context.Context, site *models.Site) error
 }
 
 type DeploymentsDB interface {
@@ -68,8 +68,6 @@ type DeploymentsDB interface {
 	GetDeploymentByName(ctx context.Context, appID string, name string) (*models.Deployment, error)
 	ListDeployments(ctx context.Context, appID string) ([]DeploymentInfo, error)
 	MarkDeploymentUploaded(ctx context.Context, now time.Time, deployment *models.Deployment) error
-	AssignDeploymentSite(ctx context.Context, deployment *models.Deployment, siteID string) error
-	UnassignDeploymentSite(ctx context.Context, deployment *models.Deployment, siteID string) error
 	GetSiteDeployment(ctx context.Context, appID string, siteName string) (*models.Deployment, error)
 	GetDeploymentSiteNames(ctx context.Context, deployment *models.Deployment) ([]string, error)
 	SetDeploymentExpiry(ctx context.Context, deployment *models.Deployment) error

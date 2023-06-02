@@ -6,7 +6,6 @@ import (
 	"errors"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/models"
 )
 
@@ -61,17 +60,13 @@ func (q query[T]) GetApp(ctx context.Context, id string) (*models.App, error) {
 	return &app, nil
 }
 
-func (q query[T]) UpdateAppConfig(ctx context.Context, id string, config *config.AppConfig) (*models.App, error) {
-	var app models.App
-	err := sqlx.GetContext(ctx, q.ext, &app, `
-		UPDATE app SET config = $1 WHERE id = $2 AND deleted_at IS NULL
-			RETURNING id, created_at, updated_at, deleted_at, config
-	`, config, id)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, models.ErrAppNotFound
-	} else if err != nil {
-		return nil, err
+func (q query[T]) UpdateAppConfig(ctx context.Context, app *models.App) error {
+	_, err := q.ext.ExecContext(ctx, `
+		UPDATE app SET config = $1, updated_at = $2 WHERE id = $3
+	`, app.Config, app.UpdatedAt, app.ID)
+	if err != nil {
+		return err
 	}
 
-	return &app, nil
+	return nil
 }

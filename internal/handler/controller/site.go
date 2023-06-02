@@ -109,12 +109,14 @@ func (c *Controller) updateDeploymentExpiry(
 
 		expireAt := now.Add(deploymentTTL)
 		deployment.ExpireAt = &expireAt
+		deployment.UpdatedAt = now
 		err = tx.SetDeploymentExpiry(ctx, deployment)
 		if err != nil {
 			return err
 		}
 	} else if len(sites) > 0 && deployment.ExpireAt != nil {
 		deployment.ExpireAt = nil
+		deployment.UpdatedAt = now
 		err = tx.SetDeploymentExpiry(ctx, deployment)
 		if err != nil {
 			return err
@@ -160,18 +162,18 @@ func (c *Controller) siteUpdateDeploymentName(
 			return err
 		}
 
-		err = tx.AssignDeploymentSite(ctx, d, site.ID)
+		site.DeploymentID = &d.ID
+		err = tx.SetSiteDeployment(ctx, site)
 		if err != nil {
 			return err
 		}
-		site.DeploymentID = &d.ID
 		newDeployment = d
 	} else {
-		err := tx.UnassignDeploymentSite(ctx, currentDeployment, site.ID)
+		site.DeploymentID = nil
+		err := tx.SetSiteDeployment(ctx, site)
 		if err != nil {
 			return err
 		}
-		site.DeploymentID = nil
 		newDeployment = nil
 	}
 
