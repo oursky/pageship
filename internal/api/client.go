@@ -92,6 +92,29 @@ func (c *Client) ListApps(ctx context.Context) ([]APIApp, error) {
 	return decodeJSONResponse[[]APIApp](resp)
 }
 
+func (c *Client) GetApp(ctx context.Context, id string) (*APIApp, error) {
+	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", id)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.attachToken(req); err != nil {
+		return nil, err
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return decodeJSONResponse[*APIApp](resp)
+}
+
 func (c *Client) ListUsers(ctx context.Context, appID string) ([]APIUser, error) {
 	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "users")
 	if err != nil {

@@ -75,31 +75,6 @@ var initCmd = &cobra.Command{
 			appID = result
 		}
 
-		doRegister := viper.GetBool("register")
-		if !viper.IsSet("register") {
-			prompt := promptui.Prompt{
-				Label:     "Register this app with server",
-				IsConfirm: true,
-			}
-			_, err := prompt.Run()
-			if errors.Is(err, promptui.ErrAbort) {
-				doRegister = false
-			} else if err != nil {
-				Info("Cancelled.")
-				return
-			} else {
-				doRegister = true
-			}
-		}
-
-		if doRegister {
-			_, err := apiClient.CreateApp(cmd.Context(), appID)
-			if err != nil {
-				Error("Failed to register app: %s", err)
-				return
-			}
-		}
-
 		public := viper.GetString("public")
 		if !fs.ValidPath(public) {
 			prompt := promptui.Prompt{
@@ -130,8 +105,6 @@ var initCmd = &cobra.Command{
 			if err != nil {
 				Info("Cancelled.")
 				return
-			} else {
-				doRegister = true
 			}
 		}
 
