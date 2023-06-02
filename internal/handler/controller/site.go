@@ -33,16 +33,20 @@ func (c *Controller) makeAPISite(app *models.App, site db.SiteInfo) *apiSite {
 	}
 }
 
+func (c *Controller) middlewareLoadSite() func(http.Handler) http.Handler {
+	return middlwareLoadValue(func(r *http.Request) (*models.Site, error) {
+		app := get[*models.App](r)
+		name := chi.URLParam(r, "site-name")
+
+		return c.DB.GetSiteByName(r.Context(), app.ID, name)
+	})
+}
+
 func (c *Controller) handleSiteList(w http.ResponseWriter, r *http.Request) {
-	appID := chi.URLParam(r, "app-id")
+	app := get[*models.App](r)
 
 	respond(w, func() (any, error) {
-		app, err := c.DB.GetApp(r.Context(), appID)
-		if err != nil {
-			return nil, err
-		}
-
-		sites, err := c.DB.ListSitesInfo(r.Context(), appID)
+		sites, err := c.DB.ListSitesInfo(r.Context(), app.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -54,7 +58,7 @@ func (c *Controller) handleSiteList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controller) handleSiteCreate(w http.ResponseWriter, r *http.Request) {
-	appID := chi.URLParam(r, "app-id")
+	app := get[*models.App](r)
 
 	var request struct {
 		Name string `json:"name" binding:"required,dnsLabel"`
@@ -64,16 +68,11 @@ func (c *Controller) handleSiteCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respond(w, withTx(r.Context(), c.DB, func(tx db.Tx) (any, error) {
-		app, err := tx.GetApp(r.Context(), appID)
-		if err != nil {
-			return nil, err
-		}
-
 		if _, ok := app.Config.ResolveSite(request.Name); !ok {
 			return nil, models.ErrUndefinedSite
 		}
 
-		site := models.NewSite(c.Clock.Now().UTC(), appID, request.Name)
+		site := models.NewSite(c.Clock.Now().UTC(), app.ID, request.Name)
 		info, err := tx.CreateSiteIfNotExist(r.Context(), site)
 		if err != nil {
 			return nil, err
@@ -81,8 +80,8 @@ func (c *Controller) handleSiteCreate(w http.ResponseWriter, r *http.Request) {
 
 		c.Logger.Info("creating site",
 			zap.String("request_id", requestID(r)),
-			zap.String("user", authn(r).UserID),
-			zap.String("app", appID),
+			zap.String("user", getUserID(r)),
+			zap.String("app", app.ID),
 			zap.String("deployment", site.ID),
 		)
 
@@ -191,8 +190,8 @@ func (c *Controller) siteUpdateDeploymentName(
 }
 
 func (c *Controller) handleSiteUpdate(w http.ResponseWriter, r *http.Request) {
-	appID := chi.URLParam(r, "app-id")
-	siteName := chi.URLParam(r, "site-name")
+	app := get[*models.App](r)
+	site := get[*models.Site](r)
 
 	var request struct {
 		DeploymentName *string `json:"deploymentName,omitempty" binding:"omitempty"`
@@ -204,25 +203,15 @@ func (c *Controller) handleSiteUpdate(w http.ResponseWriter, r *http.Request) {
 	now := c.Clock.Now().UTC()
 
 	respond(w, withTx(r.Context(), c.DB, func(tx db.Tx) (any, error) {
-		app, err := tx.GetApp(r.Context(), appID)
-		if err != nil {
-			return nil, err
-		}
-
-		site, err := tx.GetSiteByName(r.Context(), appID, siteName)
-		if err != nil {
-			return nil, err
-		}
-
 		if request.DeploymentName != nil {
 			oldDeployment := ""
 			if site.DeploymentID != nil {
 				oldDeployment = *site.DeploymentID
 			}
-			c.Logger.Info("updating deployment",
+			c.Logger.Info("updating site deployment",
 				zap.String("request_id", requestID(r)),
-				zap.String("user", authn(r).UserID),
-				zap.String("app", appID),
+				zap.String("user", getUserID(r)),
+				zap.String("app", app.ID),
 				zap.String("old_deployment", oldDeployment),
 				zap.String("new_deployment", *request.DeploymentName),
 			)
@@ -232,7 +221,7 @@ func (c *Controller) handleSiteUpdate(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		info, err := tx.GetSiteInfo(r.Context(), appID, site.ID)
+		info, err := tx.GetSiteInfo(r.Context(), app.ID, site.ID)
 		if err != nil {
 			return nil, err
 		}

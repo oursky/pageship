@@ -3,27 +3,18 @@ package controller
 import (
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/db"
+	"github.com/oursky/pageship/internal/models"
 	"go.uber.org/zap"
 )
 
 func (c *Controller) handleAppConfigGet(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "app-id")
-
-	respond(w, func() (any, error) {
-		app, err := c.DB.GetApp(r.Context(), id)
-		if err != nil {
-			return nil, err
-		}
-
-		return app.Config, nil
-	})
+	writeResponse(w, get[*models.App](r).Config, nil)
 }
 
 func (c *Controller) handleAppConfigSet(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "app-id")
+	app := get[*models.App](r)
 
 	var request struct {
 		Config *config.AppConfig `json:"config" binding:"required"`
@@ -38,15 +29,15 @@ func (c *Controller) handleAppConfigSet(w http.ResponseWriter, r *http.Request) 
 	}
 
 	respond(w, withTx(r.Context(), c.DB, func(tx db.Tx) (any, error) {
-		app, err := c.DB.UpdateAppConfig(r.Context(), id, request.Config)
+		app, err := c.DB.UpdateAppConfig(r.Context(), app.ID, request.Config)
 		if err != nil {
 			return nil, err
 		}
 
 		c.Logger.Info("updating config",
 			zap.String("request_id", requestID(r)),
-			zap.String("user", authn(r).UserID),
-			zap.String("app", id),
+			zap.String("user", getUserID(r)),
+			zap.String("app", app.ID),
 		)
 
 		return app.Config, nil

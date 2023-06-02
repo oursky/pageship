@@ -23,6 +23,24 @@ func (c *Controller) makeAPIApp(app *models.App) *apiApp {
 	}
 }
 
+func (c *Controller) middlewareLoadApp() func(http.Handler) http.Handler {
+	return middlwareLoadValue(func(r *http.Request) (*models.App, error) {
+		id := chi.URLParam(r, "app-id")
+
+		app, err := c.DB.GetApp(r.Context(), id)
+		if err != nil {
+			return nil, err
+		}
+
+		err = c.DB.IsAppAccessible(r.Context(), app.ID, get[*authnInfo](r).UserID)
+		if err != nil {
+			return nil, err
+		}
+
+		return app, nil
+	})
+}
+
 func (c *Controller) handleAppCreate(w http.ResponseWriter, r *http.Request) {
 	var request struct {
 		ID string `json:"id" binding:"required,dnsLabel"`
@@ -36,7 +54,7 @@ func (c *Controller) handleAppCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := authn(r).UserID
+	userID := getUserID(r)
 	respond(w, withTx(r.Context(), c.DB, func(tx db.Tx) (any, error) {
 		app := models.NewApp(c.Clock.Now().UTC(), request.ID)
 
@@ -47,7 +65,7 @@ func (c *Controller) handleAppCreate(w http.ResponseWriter, r *http.Request) {
 
 		c.Logger.Info("creating app",
 			zap.String("request_id", requestID(r)),
-			zap.String("user", authn(r).UserID),
+			zap.String("user", userID),
 			zap.String("app", app.ID),
 		)
 
@@ -61,20 +79,11 @@ func (c *Controller) handleAppCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controller) handleAppGet(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "app-id")
-
-	respond(w, func() (any, error) {
-		app, err := c.DB.GetApp(r.Context(), id)
-		if err != nil {
-			return nil, err
-		}
-
-		return c.makeAPIApp(app), nil
-	})
+	writeResponse(w, c.makeAPIApp(get[*models.App](r)), nil)
 }
 
 func (c *Controller) handleAppList(w http.ResponseWriter, r *http.Request) {
-	userID := authn(r).UserID
+	userID := getUserID(r)
 	respond(w, func() (any, error) {
 		apps, err := c.DB.ListApps(r.Context(), userID)
 		if err != nil {
@@ -86,10 +95,10 @@ func (c *Controller) handleAppList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controller) handleAppUserList(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "app-id")
+	app := get[*models.App](r)
 
 	respond(w, func() (any, error) {
-		users, err := c.DB.ListAppUsers(r.Context(), id)
+		users, err := c.DB.ListAppUsers(r.Context(), app.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -99,7 +108,7 @@ func (c *Controller) handleAppUserList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controller) handleAppUserAdd(w http.ResponseWriter, r *http.Request) {
-	appID := chi.URLParam(r, "app-id")
+	app := get[*models.App](r)
 
 	var request struct {
 		UserID string `json:"userID" binding:"required"`
@@ -114,16 +123,16 @@ func (c *Controller) handleAppUserAdd(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 
-		err = tx.AssignAppUser(r.Context(), appID, user.ID)
+		err = tx.AssignAppUser(r.Context(), app.ID, user.ID)
 		if err != nil {
 			return nil, err
 		}
 
 		c.Logger.Info("adding user",
 			zap.String("request_id", requestID(r)),
-			zap.String("user", authn(r).UserID),
+			zap.String("user", getUserID(r)),
 			zap.String("target_user", user.ID),
-			zap.String("app", appID),
+			zap.String("app", app.ID),
 		)
 
 		return &struct{}{}, nil
@@ -131,25 +140,25 @@ func (c *Controller) handleAppUserAdd(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controller) handleAppUserDelete(w http.ResponseWriter, r *http.Request) {
-	appID := chi.URLParam(r, "app-id")
+	app := get[*models.App](r)
 	userID := chi.URLParam(r, "user-id")
 
-	if userID == authn(r).UserID {
+	if userID == getUserID(r) {
 		writeResponse(w, nil, models.ErrDeleteCurrentUser)
 		return
 	}
 
 	respond(w, withTx(r.Context(), c.DB, func(tx db.Tx) (any, error) {
-		err := tx.UnassignAppUser(r.Context(), appID, userID)
+		err := tx.UnassignAppUser(r.Context(), app.ID, userID)
 		if err != nil {
 			return nil, err
 		}
 
 		c.Logger.Info("removing user",
 			zap.String("request_id", requestID(r)),
-			zap.String("user", authn(r).UserID),
+			zap.String("user", getUserID(r)),
 			zap.String("target_user", userID),
-			zap.String("app", appID),
+			zap.String("app", app.ID),
 		)
 
 		return &struct{}{}, nil

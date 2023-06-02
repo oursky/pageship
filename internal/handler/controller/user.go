@@ -15,7 +15,7 @@ func (c *Controller) makeAPIUser(u *models.User) *apiUser {
 }
 
 func (c *Controller) handleMe(w http.ResponseWriter, r *http.Request) {
-	userID := authn(r).UserID
+	userID := getUserID(r)
 	respond(w, func() (any, error) {
 		user, err := c.DB.GetUser(r.Context(), userID)
 		if err != nil {

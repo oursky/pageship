@@ -52,21 +52,20 @@ func (c *Controller) makeAPIDeployment(app *models.App, d db.DeploymentInfo) *ap
 	}
 }
 
+func (c *Controller) middlewareLoadDeployment() func(http.Handler) http.Handler {
+	return middlwareLoadValue(func(r *http.Request) (*models.Deployment, error) {
+		app := get[*models.App](r)
+		name := chi.URLParam(r, "deployment-name")
+
+		return c.DB.GetDeploymentByName(r.Context(), app.ID, name)
+	})
+}
+
 func (c *Controller) handleDeploymentGet(w http.ResponseWriter, r *http.Request) {
-	appID := chi.URLParam(r, "app-id")
-	deploymentName := chi.URLParam(r, "deployment-name")
+	app := get[*models.App](r)
+	deployment := get[*models.Deployment](r)
 
 	respond(w, func() (any, error) {
-		app, err := c.DB.GetApp(r.Context(), appID)
-		if err != nil {
-			return nil, err
-		}
-
-		deployment, err := c.DB.GetDeploymentByName(r.Context(), appID, deploymentName)
-		if err != nil {
-			return nil, err
-		}
-
 		sites, err := c.DB.GetDeploymentSiteNames(r.Context(), deployment)
 		if err != nil {
 			return nil, err
@@ -84,7 +83,7 @@ func (c *Controller) handleDeploymentGet(w http.ResponseWriter, r *http.Request)
 }
 
 func (c *Controller) handleDeploymentCreate(w http.ResponseWriter, r *http.Request) {
-	appID := chi.URLParam(r, "app-id")
+	app := get[*models.App](r)
 
 	var request struct {
 		Name       string             `json:"name" binding:"required,dnsLabel"`
@@ -124,7 +123,7 @@ func (c *Controller) handleDeploymentCreate(w http.ResponseWriter, r *http.Reque
 	}
 
 	deployment, err := withTx(r.Context(), c.DB, func(tx db.Tx) (*apiDeployment, error) {
-		app, err := tx.GetApp(r.Context(), appID)
+		app, err := tx.GetApp(r.Context(), app.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -135,7 +134,7 @@ func (c *Controller) handleDeploymentCreate(w http.ResponseWriter, r *http.Reque
 			Files:  files,
 			Config: *siteConfig,
 		}
-		deployment := models.NewDeployment(now, name, appID, c.Config.StorageKeyPrefix, metadata)
+		deployment := models.NewDeployment(now, name, app.ID, c.Config.StorageKeyPrefix, metadata)
 
 		deploymentTTL, err := time.ParseDuration(app.Config.Deployments.TTL)
 		if err != nil {
@@ -151,8 +150,8 @@ func (c *Controller) handleDeploymentCreate(w http.ResponseWriter, r *http.Reque
 
 		c.Logger.Info("creating deployment",
 			zap.String("request_id", requestID(r)),
-			zap.String("user", authn(r).UserID),
-			zap.String("app", appID),
+			zap.String("user", getUserID(r)),
+			zap.String("app", app.ID),
 			zap.String("deployment", deployment.ID),
 		)
 
@@ -166,14 +165,8 @@ func (c *Controller) handleDeploymentCreate(w http.ResponseWriter, r *http.Reque
 }
 
 func (c *Controller) handleDeploymentUpload(w http.ResponseWriter, r *http.Request) {
-	appID := chi.URLParam(r, "app-id")
-	deploymentName := chi.URLParam(r, "deployment-name")
-
-	deployment, err := c.DB.GetDeploymentByName(r.Context(), appID, deploymentName)
-	if err != nil {
-		writeResponse(w, nil, err)
-		return
-	}
+	app := get[*models.App](r)
+	deployment := get[*models.Deployment](r)
 
 	if deployment.IsExpired(c.Clock.Now().UTC()) {
 		writeResponse(w, nil, models.ErrDeploymentExpired)
@@ -185,8 +178,8 @@ func (c *Controller) handleDeploymentUpload(w http.ResponseWriter, r *http.Reque
 
 	c.Logger.Info("uploading deployment",
 		zap.String("request_id", requestID(r)),
-		zap.String("user", authn(r).UserID),
-		zap.String("app", appID),
+		zap.String("user", getUserID(r)),
+		zap.String("app", app.ID),
 		zap.String("deployment", deployment.ID),
 	)
 
@@ -216,7 +209,7 @@ func (c *Controller) handleDeploymentUpload(w http.ResponseWriter, r *http.Reque
 		),
 		c.Config.MaxDeploymentSize,
 	)
-	err = deploy.ExtractFiles(reader, deployment.Metadata.Files, handleFile)
+	err := deploy.ExtractFiles(reader, deployment.Metadata.Files, handleFile)
 	if errors.As(err, new(deploy.Error)) {
 		writeJSON(w, http.StatusBadRequest, response{Error: err})
 		return
@@ -227,8 +220,8 @@ func (c *Controller) handleDeploymentUpload(w http.ResponseWriter, r *http.Reque
 
 	c.Logger.Info("upload deployment complete",
 		zap.String("request_id", requestID(r)),
-		zap.String("user", authn(r).UserID),
-		zap.String("app", appID),
+		zap.String("user", getUserID(r)),
+		zap.String("app", app.ID),
 		zap.String("deployment", deployment.ID),
 	)
 
@@ -236,12 +229,12 @@ func (c *Controller) handleDeploymentUpload(w http.ResponseWriter, r *http.Reque
 
 	// Mark deployment as completed, but inactive
 	respond(w, withTx(r.Context(), c.DB, func(tx db.Tx) (any, error) {
-		app, err := tx.GetApp(r.Context(), appID)
+		app, err := tx.GetApp(r.Context(), app.ID)
 		if err != nil {
 			return nil, err
 		}
 
-		deployment, err = tx.GetDeployment(r.Context(), appID, deployment.ID)
+		deployment, err = tx.GetDeployment(r.Context(), app.ID, deployment.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -265,15 +258,15 @@ func (c *Controller) handleDeploymentUpload(w http.ResponseWriter, r *http.Reque
 }
 
 func (c *Controller) handleDeploymentList(w http.ResponseWriter, r *http.Request) {
-	appID := chi.URLParam(r, "app-id")
+	app := get[*models.App](r)
 
 	respond(w, func() (any, error) {
-		app, err := c.DB.GetApp(r.Context(), appID)
+		app, err := c.DB.GetApp(r.Context(), app.ID)
 		if err != nil {
 			return nil, err
 		}
 
-		deployments, err := c.DB.ListDeployments(r.Context(), appID)
+		deployments, err := c.DB.ListDeployments(r.Context(), app.ID)
 		if err != nil {
 			return nil, err
 		}

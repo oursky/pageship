@@ -128,3 +128,28 @@ func withTx[T any](ctx context.Context, d db.DB, fn func(tx db.Tx) (T, error)) f
 func requestID(r *http.Request) string {
 	return middleware.GetReqID(r.Context())
 }
+
+type valueContextKey[T any] struct{}
+
+func get[T any](r *http.Request) T {
+	return r.Context().Value(valueContextKey[T]{}).(T)
+}
+
+func set[T any](r *http.Request, value T) *http.Request {
+	return r.WithContext(context.WithValue(r.Context(), valueContextKey[T]{}, value))
+}
+
+func middlwareLoadValue[T any](load func(r *http.Request) (T, error)) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			v, err := load(r)
+			if err != nil {
+				writeResponse(w, nil, err)
+				return
+			}
+
+			r = set(r, v)
+			next.ServeHTTP(w, r)
+		})
+	}
+}

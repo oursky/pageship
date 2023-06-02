@@ -17,8 +17,6 @@ import (
 
 const tokenValidDuration time.Duration = 30 * time.Minute
 
-type authnContextKey struct{}
-
 type authnInfo struct {
 	UserID string
 }
@@ -114,7 +112,7 @@ func (c *Controller) middlewareAuthn(next http.Handler) http.Handler {
 			middleware.GetLogEntry(r).(*httputil.LogEntry).User = authn.UserID
 		}
 
-		r = r.WithContext(context.WithValue(r.Context(), authnContextKey{}, authn))
+		r = set(r, authn)
 		next.ServeHTTP(w, r)
 	})
 }
@@ -143,10 +141,6 @@ func (c *Controller) verifyToken(r *http.Request, token string) (*authnInfo, err
 	return &authnInfo{UserID: user.ID}, nil
 }
 
-func authn(r *http.Request) *authnInfo {
-	return r.Context().Value(authnContextKey{}).(*authnInfo)
-}
-
 func parseAuthorizationHeader(r *http.Request) (string, bool) {
 	auth := r.Header.Get("Authorization")
 	if auth == "" {
@@ -159,4 +153,8 @@ func parseAuthorizationHeader(r *http.Request) (string, bool) {
 	}
 
 	return token, true
+}
+
+func getUserID(r *http.Request) string {
+	return get[*authnInfo](r).UserID
 }

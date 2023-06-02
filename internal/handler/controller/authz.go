@@ -3,45 +3,29 @@ package controller
 import (
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/models"
 )
 
-type authzAction string
-
-const (
-	authzReadApp  authzAction = "read-app"
-	authzWriteApp authzAction = "write-app"
-)
-
-func checkAuthz(r *http.Request, q db.DBQuery, actions []authzAction, authn *authnInfo) error {
-	for _, a := range actions {
-		switch a {
-		case authzReadApp, authzWriteApp:
-			appID := chi.URLParam(r, "app-id")
-			if err := q.IsAppAccessible(r.Context(), appID, authn.UserID); err != nil {
-				return err
-			}
-		default:
-			panic("unknown authz action: " + a)
-		}
+func checkAuthz(r *http.Request, q db.DBQuery, level config.AccessLevel, authn *authnInfo) error {
+	app := get[*models.App](r)
+	if err := q.IsAppAccessible(r.Context(), app.ID, authn.UserID); err != nil {
+		return err
 	}
 	return nil
 }
 
-func (c *Controller) requireAuth(
-	actions ...authzAction,
-) func(next http.Handler) http.Handler {
+func (c *Controller) requireAccess(level config.AccessLevel) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			info := authn(r)
+			info := get[*authnInfo](r)
 			if info == nil {
 				writeResponse(w, nil, models.ErrInvalidCredentials)
 				return
 			}
 
-			err := checkAuthz(r, c.DB, actions, info)
+			err := checkAuthz(r, c.DB, level, info)
 			if err != nil {
 				writeResponse(w, nil, err)
 				return
@@ -50,4 +34,27 @@ func (c *Controller) requireAuth(
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func (c *Controller) requireAccessAdmin() func(next http.Handler) http.Handler {
+	return c.requireAccess(config.AccessLevelAdmin)
+}
+
+func (c *Controller) requireAccessDeployer() func(next http.Handler) http.Handler {
+	return c.requireAccess(config.AccessLevelDeployer)
+}
+
+func (c *Controller) requireAccessReader() func(next http.Handler) http.Handler {
+	return c.requireAccess(config.AccessLevelReader)
+}
+
+func requireAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		info := get[*authnInfo](r)
+		if info == nil {
+			writeResponse(w, nil, models.ErrInvalidCredentials)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
