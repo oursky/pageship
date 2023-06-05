@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/oursky/pageship/internal/config"
 )
 
@@ -30,7 +29,7 @@ func NewUser(now time.Time, name string) *User {
 }
 
 type UserCredential struct {
-	ID        UserCredentialID    `json:"id" db:"id"`
+	ID        CredentialID        `json:"id" db:"id"`
 	CreatedAt time.Time           `json:"createdAt" db:"created_at"`
 	UpdatedAt time.Time           `json:"updatedAt" db:"updated_at"`
 	DeletedAt *time.Time          `json:"deletedAt" db:"deleted_at"`
@@ -38,7 +37,7 @@ type UserCredential struct {
 	Data      *UserCredentialData `json:"data" db:"data"`
 }
 
-func NewUserCredential(now time.Time, userID string, id UserCredentialID, data *UserCredentialData) *UserCredential {
+func NewUserCredential(now time.Time, userID string, id CredentialID, data *UserCredentialData) *UserCredential {
 	return &UserCredential{
 		ID:        id,
 		CreatedAt: now,
@@ -49,30 +48,36 @@ func NewUserCredential(now time.Time, userID string, id UserCredentialID, data *
 	}
 }
 
-type UserCredentialID string
+type CredentialID string
 
-func UserCredentialIDFromSubject(s *config.AccessSubject) *UserCredentialID {
-	var id UserCredentialID
+func CredentialIDFromSubject(s *config.AccessSubject) *CredentialID {
+	var id CredentialID
 	switch {
 	case s.PageshipUser != "":
-		id = UserCredentialUserID(s.PageshipUser)
+		id = CredentialUserID(s.PageshipUser)
 	case s.GitHubUser != "":
-		id = UserCredentialGitHubUser(s.GitHubUser)
+		id = CredentialGitHubUser(s.GitHubUser)
+	case s.GitHubRepositoryActions != "":
+		id = CredentialGitHubRepositoryActions(s.GitHubRepositoryActions)
 	default:
 		return nil
 	}
 	return &id
 }
 
-func UserCredentialUserID(id string) UserCredentialID {
-	return UserCredentialID(id)
+func CredentialUserID(id string) CredentialID {
+	return CredentialID(id)
 }
 
-func UserCredentialGitHubUser(username string) UserCredentialID {
-	return UserCredentialID("github:" + username)
+func CredentialGitHubUser(username string) CredentialID {
+	return CredentialID("github:" + username)
 }
 
-func (i UserCredentialID) Name() string {
+func CredentialGitHubRepositoryActions(repo string) CredentialID {
+	return CredentialID("github-repo-actions:" + repo)
+}
+
+func (i CredentialID) Name() string {
 	kind, data, found := strings.Cut(string(i), ":")
 	if !found {
 		return string(i)
@@ -102,11 +107,7 @@ func (d *UserCredentialData) Scan(val any) error {
 		return fmt.Errorf("unsupported type: %T", v)
 	}
 }
+
 func (d *UserCredentialData) Value() (driver.Value, error) {
 	return json.Marshal(d)
-}
-
-type TokenClaims struct {
-	Username string `json:"username,omitempty"`
-	jwt.RegisteredClaims
 }

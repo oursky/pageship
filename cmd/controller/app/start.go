@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"time"
@@ -103,6 +104,7 @@ type StartCronConfig struct {
 }
 
 type setup struct {
+	ctx              context.Context
 	database         db.DB
 	storage          *storage.Storage
 	server           *httputil.Server
@@ -128,6 +130,7 @@ func (s *setup) sites(conf StartSitesConfig) error {
 		Storage:      s.storage,
 	}
 	handler, err := site.NewHandler(
+		s.ctx,
 		logger.Named("site"),
 		resolver,
 		site.HandlerConfig{
@@ -168,6 +171,7 @@ func (s *setup) controller(domain string, conf StartControllerConfig, sitesConf 
 	}
 
 	ctrl := &controller.Controller{
+		Context: s.ctx,
 		Logger:  logger.Named("controller"),
 		Config:  controllerConf,
 		Storage: s.storage,
@@ -244,7 +248,11 @@ var startCmd = &cobra.Command{
 			return
 		}
 
+		ctx, cancel := context.WithCancel(cmd.Context())
+		defer cancel()
+
 		setup := &setup{
+			ctx:      ctx,
 			database: database,
 			storage:  storage,
 			mux:      new(http.ServeMux),

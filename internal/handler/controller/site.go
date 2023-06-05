@@ -80,7 +80,7 @@ func (c *Controller) handleSiteCreate(w http.ResponseWriter, r *http.Request) {
 
 		c.Logger.Info("creating site",
 			zap.String("request_id", requestID(r)),
-			zap.String("user", getUserID(r)),
+			zap.String("subject", getSubject(r)),
 			zap.String("app", app.ID),
 			zap.String("deployment", site.ID),
 		)
@@ -212,7 +212,7 @@ func (c *Controller) handleSiteUpdate(w http.ResponseWriter, r *http.Request) {
 			}
 			c.Logger.Info("updating site deployment",
 				zap.String("request_id", requestID(r)),
-				zap.String("user", getUserID(r)),
+				zap.String("subject", getSubject(r)),
 				zap.String("app", app.ID),
 				zap.String("old_deployment", oldDeployment),
 				zap.String("new_deployment", *request.DeploymentName),

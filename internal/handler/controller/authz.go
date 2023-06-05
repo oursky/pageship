@@ -11,11 +11,11 @@ import (
 func checkAuthz(r *http.Request, q db.DBQuery, level config.AccessLevel, authn *authnInfo) error {
 	app := get[*models.App](r)
 
-	if app.OwnerUserID == authn.UserID {
+	if app.OwnerUserID == authn.Subject {
 		return nil
 	}
 	for _, r := range app.Config.Team {
-		credID := models.UserCredentialIDFromSubject(&r.AccessSubject)
+		credID := models.CredentialIDFromSubject(&r.AccessSubject)
 		if credID != nil && authn.checkCredentialID(*credID) && r.AccessLevel.CanAccess(level) {
 			return nil
 		}
@@ -54,6 +54,17 @@ func (c *Controller) requireAccessDeployer() func(next http.Handler) http.Handle
 
 func (c *Controller) requireAccessReader() func(next http.Handler) http.Handler {
 	return c.requireAccess(config.AccessLevelReader)
+}
+
+func denyBot(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		info := get[*authnInfo](r)
+		if info.IsBot {
+			writeResponse(w, nil, models.ErrAccessDenied)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func requireAuth(next http.Handler) http.Handler {

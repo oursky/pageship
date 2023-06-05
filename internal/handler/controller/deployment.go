@@ -150,7 +150,7 @@ func (c *Controller) handleDeploymentCreate(w http.ResponseWriter, r *http.Reque
 
 		c.Logger.Info("creating deployment",
 			zap.String("request_id", requestID(r)),
-			zap.String("user", getUserID(r)),
+			zap.String("subject", getSubject(r)),
 			zap.String("app", app.ID),
 			zap.String("deployment", deployment.ID),
 		)
@@ -178,7 +178,7 @@ func (c *Controller) handleDeploymentUpload(w http.ResponseWriter, r *http.Reque
 
 	c.Logger.Info("uploading deployment",
 		zap.String("request_id", requestID(r)),
-		zap.String("user", getUserID(r)),
+		zap.String("subject", getSubject(r)),
 		zap.String("app", app.ID),
 		zap.String("deployment", deployment.ID),
 	)
@@ -220,7 +220,7 @@ func (c *Controller) handleDeploymentUpload(w http.ResponseWriter, r *http.Reque
 
 	c.Logger.Info("upload deployment complete",
 		zap.String("request_id", requestID(r)),
-		zap.String("user", getUserID(r)),
+		zap.String("subject", getSubject(r)),
 		zap.String("app", app.ID),
 		zap.String("deployment", deployment.ID),
 	)

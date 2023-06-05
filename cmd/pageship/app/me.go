@@ -31,5 +31,9 @@ var meCmd = &cobra.Command{
 		}
 
 		Info("Logged in as %q. (id: %q)", me.Name, me.ID)
+		Info("Credentials:")
+		for _, id := range me.Credentials {
+			Info(" - %q", id)
+		}
 	},
 }

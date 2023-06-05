@@ -9,21 +9,20 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/httputil"
 	"github.com/oursky/pageship/internal/models"
 )
 
-const tokenValidDuration time.Duration = 30 * time.Minute
-
 type authnInfo struct {
-	UserID          string
-	CredentialIDs   []models.UserCredentialID
-	CredentialIDMap map[models.UserCredentialID]struct{}
+	Subject         string
+	Name            string
+	IsBot           bool
+	CredentialIDs   []models.CredentialID
+	CredentialIDMap map[models.CredentialID]struct{}
 }
 
-func (i *authnInfo) checkCredentialID(id models.UserCredentialID) bool {
+func (i *authnInfo) checkCredentialID(id models.CredentialID) bool {
 	if id == "" {
 		return false
 	}
@@ -38,7 +37,7 @@ func createUser(
 	name string,
 ) (*models.User, error) {
 	user := models.NewUser(now, name)
-	cred := models.NewUserCredential(now, user.ID, models.UserCredentialUserID(user.ID), &models.UserCredentialData{})
+	cred := models.NewUserCredential(now, user.ID, models.CredentialUserID(user.ID), &models.UserCredentialData{})
 
 	err := tx.CreateUser(ctx, user)
 	if err != nil {
@@ -57,7 +56,7 @@ func ensureUser(
 	ctx context.Context,
 	tx db.Tx,
 	now time.Time,
-	credentialID models.UserCredentialID,
+	credentialID models.CredentialID,
 ) (*models.User, *models.UserCredential, error) {
 	cred, err := tx.GetCredential(ctx, credentialID)
 	if errors.Is(err, models.ErrUserNotFound) {
@@ -85,7 +84,7 @@ func ensureUser(
 
 func (c *Controller) generateUserToken(
 	ctx context.Context,
-	credentialID models.UserCredentialID,
+	credentialID models.CredentialID,
 	data *models.UserCredentialData,
 ) (string, error) {
 	now := c.Clock.Now().UTC()
@@ -110,21 +109,8 @@ func (c *Controller) generateUserToken(
 		return "", fmt.Errorf("get user: %w", err)
 	}
 
-	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, &models.TokenClaims{
-		Username: user.Name,
-		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:    c.Config.TokenAuthority,
-			Audience:  jwt.ClaimStrings{c.Config.TokenAuthority},
-			Subject:   user.ID,
-			IssuedAt:  jwt.NewNumericDate(now),
-			ExpiresAt: jwt.NewNumericDate(now.Add(tokenValidDuration)),
-		},
-	}).SignedString(c.Config.TokenSigningKey)
-	if err != nil {
-		return "", fmt.Errorf("sign token: %w", err)
-	}
-
-	return token, nil
+	claims := models.NewTokenClaims(models.TokenSubjectUser(user.ID), user.Name)
+	return c.issueToken(claims)
 }
 
 func (c *Controller) middlewareAuthn(next http.Handler) http.Handler {
@@ -137,57 +123,19 @@ func (c *Controller) middlewareAuthn(next http.Handler) http.Handler {
 
 		var authn *authnInfo
 		if token != "" {
-			info, err := c.verifyToken(r, token)
+			info, err := c.verifyToken(r.Context(), token)
 			if err != nil {
 				writeResponse(w, nil, err)
 				return
 			}
 			authn = info
 
-			middleware.GetLogEntry(r).(*httputil.LogEntry).User = authn.UserID
+			middleware.GetLogEntry(r).(*httputil.LogEntry).User = authn.Subject
 		}
 
 		r = set(r, authn)
 		next.ServeHTTP(w, r)
 	})
-}
-
-func (c *Controller) verifyToken(r *http.Request, token string) (*authnInfo, error) {
-	claims := &models.TokenClaims{}
-	_, err := jwt.ParseWithClaims(
-		token,
-		claims,
-		func(t *jwt.Token) (any, error) { return c.Config.TokenSigningKey, nil },
-		jwt.WithValidMethods([]string{"HS256"}),
-		jwt.WithAudience(c.Config.TokenAuthority),
-		jwt.WithTimeFunc(c.Clock.Now),
-	)
-	if err != nil {
-		return nil, models.ErrInvalidCredentials
-	}
-
-	user, err := c.DB.GetUser(r.Context(), claims.Subject)
-	if errors.Is(err, models.ErrUserNotFound) {
-		return nil, models.ErrInvalidCredentials
-	} else if err != nil {
-		return nil, err
-	}
-
-	credIDs, err := c.DB.ListCredentialIDs(r.Context(), user.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	idMap := make(map[models.UserCredentialID]struct{}, len(credIDs))
-	for _, id := range credIDs {
-		idMap[id] = struct{}{}
-	}
-
-	return &authnInfo{
-		UserID:          user.ID,
-		CredentialIDs:   credIDs,
-		CredentialIDMap: idMap,
-	}, nil
 }
 
 func parseAuthorizationHeader(r *http.Request) (string, bool) {
@@ -204,6 +152,6 @@ func parseAuthorizationHeader(r *http.Request) (string, bool) {
 	return token, true
 }
 
-func getUserID(r *http.Request) string {
-	return get[*authnInfo](r).UserID
+func getSubject(r *http.Request) string {
+	return get[*authnInfo](r).Subject
 }

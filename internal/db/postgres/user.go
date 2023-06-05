@@ -24,7 +24,7 @@ func (q query[T]) GetUser(ctx context.Context, id string) (*models.User, error) 
 	return &user, nil
 }
 
-func (q query[T]) GetCredential(ctx context.Context, id models.UserCredentialID) (*models.UserCredential, error) {
+func (q query[T]) GetCredential(ctx context.Context, id models.CredentialID) (*models.UserCredential, error) {
 	var cred models.UserCredential
 	err := sqlx.GetContext(ctx, q.ext, &cred, `
 		SELECT uc.id, uc.created_at, uc.updated_at, uc.deleted_at, uc.user_id, uc.data FROM user_credential uc
@@ -74,8 +74,8 @@ func (q query[T]) UpdateCredentialData(ctx context.Context, cred *models.UserCre
 	return nil
 }
 
-func (q query[T]) ListCredentialIDs(ctx context.Context, userID string) ([]models.UserCredentialID, error) {
-	var ids []models.UserCredentialID
+func (q query[T]) ListCredentialIDs(ctx context.Context, userID string) ([]models.CredentialID, error) {
+	var ids []models.CredentialID
 	err := sqlx.SelectContext(ctx, q.ext, &ids, `
 		SELECT id FROM user_credential WHERE user_id = $1 AND deleted_at IS NULL
 	`, userID)

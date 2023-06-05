@@ -30,6 +30,8 @@ func NewClient(endpoint string) *Client {
 	return NewClientWithTransport(endpoint, http.DefaultTransport)
 }
 
+func (c *Client) Endpoint() string { return c.endpoint }
+
 func (c *Client) attachToken(r *http.Request) error {
 	if c.TokenFunc == nil {
 		return nil
@@ -419,6 +421,30 @@ func (c *Client) OpenAuthGitHubSSH(ctx context.Context) (*websocket.Conn, error)
 
 	ws, err := websocket.DialConfig(config)
 	return ws, err
+}
+
+func (c *Client) AuthGitHubOIDC(ctx context.Context, oidcToken string) (string, error) {
+	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "auth", "github-oidc")
+	if err != nil {
+		return "", err
+	}
+
+	var body struct {
+		Token string `json:"token"`
+	}
+	body.Token = oidcToken
+	req, err := newJSONRequest(ctx, "POST", endpoint, body)
+	if err != nil {
+		return "", err
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	return decodeJSONResponse[string](resp)
 }
 
 func (c *Client) GetMe(ctx context.Context) (*APIUser, error) {

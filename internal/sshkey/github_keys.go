@@ -14,26 +14,30 @@ import (
 )
 
 type GitHubKeys struct {
+	ctx    context.Context
 	l      *rate.Limiter
 	client *http.Client
 	cache  *cache.Cache[map[string]struct{}]
 }
 
-func NewGitHubKeys() (*GitHubKeys, error) {
-	cache, err := cache.NewCache[map[string]struct{}](100, time.Minute)
+func NewGitHubKeys(ctx context.Context) (*GitHubKeys, error) {
+	keys := &GitHubKeys{
+		ctx:    ctx,
+		l:      rate.NewLimiter(rate.Every(time.Minute), 10),
+		client: &http.Client{},
+	}
+
+	cache, err := cache.NewCache(100, time.Minute, keys.doLoad)
 	if err != nil {
 		return nil, err
 	}
+	keys.cache = cache
 
-	return &GitHubKeys{
-		l:      rate.NewLimiter(rate.Every(time.Minute), 10),
-		client: &http.Client{Timeout: time.Second * 10},
-		cache:  cache,
-	}, nil
+	return keys, nil
 }
 
 func (g *GitHubKeys) PublicKey(username string) (map[string]struct{}, error) {
-	pkeys, err := g.cache.Load(username, g.doLoad)
+	pkeys, err := g.cache.Load(username)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +45,10 @@ func (g *GitHubKeys) PublicKey(username string) (map[string]struct{}, error) {
 }
 
 func (g *GitHubKeys) doLoad(username string) (map[string]struct{}, error) {
-	g.l.Wait(context.Background())
+	ctx, cancel := context.WithTimeout(g.ctx, time.Second*10)
+	defer cancel()
+
+	g.l.Wait(ctx)
 
 	u := url.URL{
 		Scheme: "https",
@@ -49,7 +56,7 @@ func (g *GitHubKeys) doLoad(username string) (map[string]struct{}, error) {
 		Path:   "/" + url.PathEscape(username) + ".keys",
 	}
 
-	req, err := http.NewRequest("GET", u.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
 	if err != nil {
 		return nil, err
 	}

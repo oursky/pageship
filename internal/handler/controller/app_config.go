@@ -39,7 +39,7 @@ func (c *Controller) handleAppConfigSet(w http.ResponseWriter, r *http.Request) 
 
 		c.Logger.Info("updating config",
 			zap.String("request_id", requestID(r)),
-			zap.String("user", getUserID(r)),
+			zap.String("subject", getSubject(r)),
 			zap.String("app", app.ID),
 		)
 

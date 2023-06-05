@@ -49,7 +49,7 @@ func (c *Controller) handleAppCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := getUserID(r)
+	userID := getSubject(r)
 	respond(w, withTx(r.Context(), c.DB, func(tx db.Tx) (any, error) {
 		app := models.NewApp(c.Clock.Now().UTC(), request.ID, userID)
 
@@ -60,7 +60,7 @@ func (c *Controller) handleAppCreate(w http.ResponseWriter, r *http.Request) {
 
 		c.Logger.Info("creating app",
 			zap.String("request_id", requestID(r)),
-			zap.String("user", userID),
+			zap.String("subject", userID),
 			zap.String("app", app.ID),
 		)
 

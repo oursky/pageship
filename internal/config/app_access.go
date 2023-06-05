@@ -44,6 +44,7 @@ func (r *AccessRule) SetDefaults() {
 }
 
 type AccessSubject struct {
-	PageshipUser string `json:"pageshipUser,omitempty" pageship:"max=100"`
-	GitHubUser   string `json:"githubUser,omitempty" pageship:"max=100"`
+	PageshipUser            string `json:"pageshipUser,omitempty" pageship:"max=100"`
+	GitHubUser              string `json:"githubUser,omitempty" pageship:"max=100"`
+	GitHubRepositoryActions string `json:"gitHubRepositoryActions,omitempty" pageship:"max=100"`
 }

@@ -22,7 +22,9 @@ type APIDeployment struct {
 }
 
 type APIUser struct {
-	*models.User
+	ID          string                `json:"id"`
+	Name        string                `json:"name"`
+	Credentials []models.CredentialID `json:"credentials"`
 }
 
 type SitePatchRequest struct {

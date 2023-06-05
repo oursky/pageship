@@ -78,7 +78,7 @@ func makeHandler(prefix string, defaultSite string, hostPattern string) (*handle
 
 	Info("site resolution mode: %s", resolver.Kind())
 
-	handler, err := handler.NewHandler(zapLogger, resolver, handler.HandlerConfig{
+	handler, err := handler.NewHandler(context.Background(), zapLogger, resolver, handler.HandlerConfig{
 		HostPattern: hostPattern,
 		Middlewares: middleware.Default,
 	})

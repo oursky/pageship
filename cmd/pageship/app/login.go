@@ -26,7 +26,7 @@ var loginCmd = &cobra.Command{
 			Error("Server returned malformed token: %s", err)
 			return
 		}
-		userName := claims.Username
+		name := claims.Name
 
 		err = saveToken(token)
 		if err != nil {
@@ -34,6 +34,6 @@ var loginCmd = &cobra.Command{
 			return
 		}
 
-		Info("Logged in as %q. (id: %q)", userName, claims.Subject)
+		Info("Logged in as %q. (id: %q)", name, claims.Subject)
 	},
 }

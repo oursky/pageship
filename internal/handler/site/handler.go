@@ -26,6 +26,7 @@ type HandlerConfig struct {
 }
 
 type Handler struct {
+	ctx         context.Context
 	logger      *zap.Logger
 	resolver    site.Resolver
 	hostPattern *config.HostPattern
@@ -33,19 +34,22 @@ type Handler struct {
 	middlewares []Middleware
 }
 
-func NewHandler(logger *zap.Logger, resolver site.Resolver, conf HandlerConfig) (*Handler, error) {
-	cache, err := cache.NewCache[*SiteHandler](cacheSize, cacheTTL)
-	if err != nil {
-		return nil, fmt.Errorf("setup cache: %w", err)
-	}
-
-	return &Handler{
+func NewHandler(ctx context.Context, logger *zap.Logger, resolver site.Resolver, conf HandlerConfig) (*Handler, error) {
+	h := &Handler{
+		ctx:         ctx,
 		logger:      logger,
 		resolver:    resolver,
 		hostPattern: config.NewHostPattern(conf.HostPattern),
-		cache:       cache,
 		middlewares: conf.Middlewares,
-	}, nil
+	}
+
+	cache, err := cache.NewCache(cacheSize, cacheTTL, h.doResolve)
+	if err != nil {
+		return nil, fmt.Errorf("setup cache: %w", err)
+	}
+	h.cache = cache
+
+	return h, nil
 }
 
 func (h *Handler) resolveSite(host string) (*SiteHandler, error) {
@@ -54,15 +58,16 @@ func (h *Handler) resolveSite(host string) (*SiteHandler, error) {
 		return nil, site.ErrSiteNotFound
 	}
 
-	resolve := func(matchedID string) (*SiteHandler, error) {
-		desc, err := h.resolver.Resolve(context.Background(), matchedID)
-		if err != nil {
-			return nil, err
-		}
+	return h.cache.Load(matchedID)
+}
 
-		return NewSiteHandler(desc, h.middlewares), nil
+func (h *Handler) doResolve(matchedID string) (*SiteHandler, error) {
+	desc, err := h.resolver.Resolve(h.ctx, matchedID)
+	if err != nil {
+		return nil, err
 	}
-	return h.cache.Load(matchedID, resolve)
+
+	return NewSiteHandler(desc, h.middlewares), nil
 }
 
 func (h *Handler) AllowAnyDomain() bool {

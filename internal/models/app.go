@@ -29,10 +29,10 @@ func NewApp(now time.Time, id string, ownerUserID string) *App {
 	}
 }
 
-func (a *App) CredentialIDs() []UserCredentialID {
-	credIDs := []UserCredentialID{UserCredentialUserID(a.OwnerUserID)}
+func (a *App) CredentialIDs() []CredentialID {
+	credIDs := []CredentialID{CredentialUserID(a.OwnerUserID)}
 	for _, r := range a.Config.Team {
-		if id := UserCredentialIDFromSubject(&r.AccessSubject); id != nil {
+		if id := CredentialIDFromSubject(&r.AccessSubject); id != nil {
 			credIDs = append(credIDs, *id)
 		}
 	}

@@ -8,14 +8,12 @@ import (
 	"time"
 
 	"github.com/oursky/pageship/internal/models"
-	"github.com/oursky/pageship/internal/sshkey"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/net/websocket"
 )
 
 var sshHostKey ssh.Signer
-var githubKeys *sshkey.GitHubKeys
 
 func init() {
 	_, key, err := ed25519.GenerateKey(rand.Reader)
@@ -24,11 +22,6 @@ func init() {
 	}
 
 	sshHostKey, err = ssh.NewSignerFromSigner(key)
-	if err != nil {
-		panic(err)
-	}
-
-	githubKeys, err = sshkey.NewGitHubKeys()
 	if err != nil {
 		panic(err)
 	}
@@ -43,7 +36,7 @@ func (c *Controller) handleAuthGithubSSHConn(conn *websocket.Conn) {
 	config := &ssh.ServerConfig{
 		PublicKeyCallback: func(meta ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
 			fingerprint := ssh.FingerprintSHA256(pubKey)
-			pubKeys, err := githubKeys.PublicKey(meta.User())
+			pubKeys, err := c.githubKeys.PublicKey(meta.User())
 			if err != nil {
 				c.Logger.Warn("cannot get GitHub public key",
 					zap.String("user", meta.User()),
@@ -64,6 +57,7 @@ func (c *Controller) handleAuthGithubSSHConn(conn *websocket.Conn) {
 
 			c.Logger.Info(
 				"user authenticated",
+				zap.String("request_id", requestID(conn.Request())),
 				zap.String("user", meta.User()),
 				zap.String("fingerprint", fingerprint),
 			)
@@ -91,7 +85,7 @@ func (c *Controller) handleAuthGithubSSHConn(conn *websocket.Conn) {
 
 		token, err := c.generateUserToken(
 			conn.Request().Context(),
-			models.UserCredentialGitHubUser(sshConn.User()),
+			models.CredentialGitHubUser(sshConn.User()),
 			&models.UserCredentialData{
 				KeyFingerprint: sshConn.Permissions.Extensions["pubkey-fp"],
 			})

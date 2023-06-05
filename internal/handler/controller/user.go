@@ -7,21 +7,16 @@ import (
 )
 
 type apiUser struct {
-	*models.User
-}
-
-func (c *Controller) makeAPIUser(u *models.User) *apiUser {
-	return &apiUser{User: u}
+	ID          string                `json:"id"`
+	Name        string                `json:"name"`
+	Credentials []models.CredentialID `json:"credentials"`
 }
 
 func (c *Controller) handleMe(w http.ResponseWriter, r *http.Request) {
-	userID := getUserID(r)
-	respond(w, func() (any, error) {
-		user, err := c.DB.GetUser(r.Context(), userID)
-		if err != nil {
-			return nil, err
-		}
-
-		return c.makeAPIUser(user), nil
-	})
+	authn := get[*authnInfo](r)
+	writeResponse(w, &apiUser{
+		ID:          authn.Subject,
+		Name:        authn.Name,
+		Credentials: authn.CredentialIDs,
+	}, nil)
 }
