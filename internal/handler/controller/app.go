@@ -32,11 +32,6 @@ func (c *Controller) middlewareLoadApp() func(http.Handler) http.Handler {
 			return nil, err
 		}
 
-		err = c.DB.IsAppAccessible(r.Context(), app.ID, get[*authnInfo](r).UserID)
-		if err != nil {
-			return nil, err
-		}
-
 		return app, nil
 	})
 }
@@ -56,7 +51,7 @@ func (c *Controller) handleAppCreate(w http.ResponseWriter, r *http.Request) {
 
 	userID := getUserID(r)
 	respond(w, withTx(r.Context(), c.DB, func(tx db.Tx) (any, error) {
-		app := models.NewApp(c.Clock.Now().UTC(), request.ID)
+		app := models.NewApp(c.Clock.Now().UTC(), request.ID, userID)
 
 		err := tx.CreateApp(r.Context(), app)
 		if err != nil {
@@ -69,11 +64,6 @@ func (c *Controller) handleAppCreate(w http.ResponseWriter, r *http.Request) {
 			zap.String("app", app.ID),
 		)
 
-		err = tx.AssignAppUser(r.Context(), app.ID, userID)
-		if err != nil {
-			return nil, err
-		}
-
 		return c.makeAPIApp(app), nil
 	}))
 }
@@ -85,82 +75,16 @@ func (c *Controller) handleAppGet(w http.ResponseWriter, r *http.Request) {
 func (c *Controller) handleAppList(w http.ResponseWriter, r *http.Request) {
 	userID := getUserID(r)
 	respond(w, func() (any, error) {
-		apps, err := c.DB.ListApps(r.Context(), userID)
+		creds, err := c.DB.ListCredentialIDs(r.Context(), userID)
+		if err != nil {
+			return nil, err
+		}
+
+		apps, err := c.DB.ListApps(r.Context(), creds)
 		if err != nil {
 			return nil, err
 		}
 
 		return mapModels(apps, c.makeAPIApp), nil
 	})
-}
-
-func (c *Controller) handleAppUserList(w http.ResponseWriter, r *http.Request) {
-	app := get[*models.App](r)
-
-	respond(w, func() (any, error) {
-		users, err := c.DB.ListAppUsers(r.Context(), app.ID)
-		if err != nil {
-			return nil, err
-		}
-
-		return mapModels(users, c.makeAPIUser), nil
-	})
-}
-
-func (c *Controller) handleAppUserAdd(w http.ResponseWriter, r *http.Request) {
-	app := get[*models.App](r)
-
-	var request struct {
-		UserID string `json:"userID" binding:"required"`
-	}
-	if !bindJSON(w, r, &request) {
-		return
-	}
-
-	respond(w, withTx(r.Context(), c.DB, func(tx db.Tx) (any, error) {
-		user, err := tx.GetUser(r.Context(), request.UserID)
-		if err != nil {
-			return nil, err
-		}
-
-		err = tx.AssignAppUser(r.Context(), app.ID, user.ID)
-		if err != nil {
-			return nil, err
-		}
-
-		c.Logger.Info("adding user",
-			zap.String("request_id", requestID(r)),
-			zap.String("user", getUserID(r)),
-			zap.String("target_user", user.ID),
-			zap.String("app", app.ID),
-		)
-
-		return &struct{}{}, nil
-	}))
-}
-
-func (c *Controller) handleAppUserDelete(w http.ResponseWriter, r *http.Request) {
-	app := get[*models.App](r)
-	userID := chi.URLParam(r, "user-id")
-
-	if userID == getUserID(r) {
-		writeResponse(w, nil, models.ErrDeleteCurrentUser)
-		return
-	}
-
-	respond(w, withTx(r.Context(), c.DB, func(tx db.Tx) (any, error) {
-		err := tx.UnassignAppUser(r.Context(), app.ID, userID)
-		if err != nil {
-			return nil, err
-		}
-
-		c.Logger.Info("removing user",
-			zap.String("request_id", requestID(r)),
-			zap.String("user", getUserID(r)),
-			zap.String("target_user", userID),
-			zap.String("app", app.ID),
-		)
-
-		return &struct{}{}, nil
-	}))
 }

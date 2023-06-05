@@ -39,7 +39,7 @@ func (q query[T]) GetCredential(ctx context.Context, id models.UserCredentialID)
 	return &cred, nil
 }
 
-func (q query[T]) CreateUserWithCredential(ctx context.Context, user *models.User, credential *models.UserCredential) error {
+func (q query[T]) CreateUser(ctx context.Context, user *models.User) error {
 	_, err := sqlx.NamedExecContext(ctx, q.ext, `
 		INSERT INTO user (id, created_at, updated_at, deleted_at, name)
 			VALUES (:id, :created_at, :updated_at, :deleted_at, :name)
@@ -48,7 +48,11 @@ func (q query[T]) CreateUserWithCredential(ctx context.Context, user *models.Use
 		return err
 	}
 
-	_, err = sqlx.NamedExecContext(ctx, q.ext, `
+	return nil
+}
+
+func (q query[T]) AddCredential(ctx context.Context, credential *models.UserCredential) error {
+	_, err := sqlx.NamedExecContext(ctx, q.ext, `
 		INSERT INTO user_credential (id, created_at, updated_at, deleted_at, user_id, data)
 			VALUES (:id, :created_at, :updated_at, :deleted_at, :user_id, :data)
 	`, credential)
@@ -69,63 +73,14 @@ func (q query[T]) UpdateCredentialData(ctx context.Context, cred *models.UserCre
 
 	return nil
 }
-
-func (q query[T]) AssignAppUser(ctx context.Context, appID string, userID string) error {
-	_, err := q.ext.ExecContext(ctx, `
-		INSERT INTO user_app (user_id, app_id)
-			VALUES (?, ?)
-			ON CONFLICT (user_id, app_id) DO NOTHING
-	`, userID, appID)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (q query[T]) UnassignAppUser(ctx context.Context, appID string, userID string) error {
-	result, err := q.ext.ExecContext(ctx, `
-		DELETE FROM user_app WHERE user_id = ? AND app_id = ?
-	`, userID, appID)
-	if err != nil {
-		return err
-	}
-
-	n, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if n == 0 {
-		return models.ErrUserNotFound
-	}
-
-	return nil
-}
-
-func (q query[T]) ListAppUsers(ctx context.Context, appID string) ([]*models.User, error) {
-	var users []*models.User
-	err := sqlx.SelectContext(ctx, q.ext, &users, `
-		SELECT u.id, u.created_at, u.updated_at, u.deleted_at, u.name FROM user u
-			JOIN user_app ua ON (ua.user_id = u.id)
-			WHERE ua.app_id = ? AND u.deleted_at IS NULL
-			ORDER BY u.name
-	`, appID)
+func (q query[T]) ListCredentialIDs(ctx context.Context, userID string) ([]string, error) {
+	var ids []string
+	err := sqlx.SelectContext(ctx, q.ext, &ids, `
+		SELECT id FROM user_credential WHERE user_id = ? AND deleted_at IS NULL
+	`, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	return users, nil
-}
-
-func (q query[T]) IsAppAccessible(ctx context.Context, appID string, userID string) error {
-	err := sqlx.GetContext(ctx, q.ext, new(string), `
-		SELECT app_id FROM user_app WHERE user_id = ? AND app_id = ?
-	`, userID, appID)
-	if errors.Is(err, sql.ErrNoRows) {
-		return models.ErrAppNotFound
-	} else if err != nil {
-		return err
-	}
-
-	return nil
+	return ids, nil
 }

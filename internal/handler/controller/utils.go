@@ -92,8 +92,8 @@ func writeResponse(w http.ResponseWriter, result any, err error) {
 		writeJSON(w, http.StatusBadRequest, response{Error: err})
 	case errors.Is(err, models.ErrUserNotFound):
 		writeJSON(w, http.StatusNotFound, response{Error: err})
-	case errors.Is(err, models.ErrDeleteCurrentUser):
-		writeJSON(w, http.StatusBadRequest, response{Error: err})
+	case errors.Is(err, models.ErrAccessDenied):
+		writeJSON(w, http.StatusForbidden, response{Error: err})
 	case errors.Is(err, models.ErrInvalidCredentials):
 		writeJSON(w, http.StatusUnauthorized, response{Error: err})
 	default:

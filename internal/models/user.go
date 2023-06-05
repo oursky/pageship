@@ -50,7 +50,11 @@ func NewUserCredential(now time.Time, userID string, id UserCredentialID, data *
 
 type UserCredentialID string
 
-func UserCredentialGitHub(username string) UserCredentialID {
+func UserCredentialUserID(id string) UserCredentialID {
+	return UserCredentialID(id)
+}
+
+func UserCredentialGitHubUser(username string) UserCredentialID {
 	return UserCredentialID("github:" + username)
 }
 

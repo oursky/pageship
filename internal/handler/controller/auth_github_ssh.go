@@ -91,7 +91,7 @@ func (c *Controller) handleAuthGithubSSHConn(conn *websocket.Conn) {
 
 		token, err := c.generateUserToken(
 			conn.Request().Context(),
-			models.UserCredentialGitHub(sshConn.User()),
+			models.UserCredentialGitHubUser(sshConn.User()),
 			&models.UserCredentialData{
 				KeyFingerprint: sshConn.Permissions.Extensions["pubkey-fp"],
 			})

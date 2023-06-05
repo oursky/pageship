@@ -21,6 +21,28 @@ type authnInfo struct {
 	UserID string
 }
 
+func createUser(
+	ctx context.Context,
+	tx db.Tx,
+	now time.Time,
+	name string,
+) (*models.User, error) {
+	user := models.NewUser(now, name)
+	cred := models.NewUserCredential(now, user.ID, models.UserCredentialUserID(user.ID), &models.UserCredentialData{})
+
+	err := tx.CreateUser(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+
+	err = tx.AddCredential(ctx, cred)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
 func ensureUser(
 	ctx context.Context,
 	tx db.Tx,
@@ -29,10 +51,13 @@ func ensureUser(
 ) (*models.User, *models.UserCredential, error) {
 	cred, err := tx.GetCredential(ctx, credentialID)
 	if errors.Is(err, models.ErrUserNotFound) {
-		user := models.NewUser(now, credentialID.Name())
-		cred := models.NewUserCredential(now, user.ID, credentialID, &models.UserCredentialData{})
+		user, err := createUser(ctx, tx, now, credentialID.Name())
+		if err != nil {
+			return nil, nil, err
+		}
 
-		err = tx.CreateUserWithCredential(ctx, user, cred)
+		cred = models.NewUserCredential(now, user.ID, credentialID, &models.UserCredentialData{})
+		err = tx.AddCredential(ctx, cred)
 		if err != nil {
 			return nil, nil, err
 		}

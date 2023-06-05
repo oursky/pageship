@@ -40,9 +40,6 @@ func (c *Controller) Handler() http.Handler {
 				r.Get("/", c.handleAppGet)
 				r.Get("/config", c.handleAppConfigGet)
 				r.With(c.requireAccessAdmin()).Put("/config", c.handleAppConfigSet)
-				r.With(c.requireAccessAdmin()).Get("/users", c.handleAppUserList)
-				r.With(c.requireAccessAdmin()).Post("/users", c.handleAppUserAdd)
-				r.With(c.requireAccessAdmin()).Delete("/users/{user-id}", c.handleAppUserDelete)
 
 				r.Route("/sites", func(r chi.Router) {
 					r.Get("/", c.handleSiteList)

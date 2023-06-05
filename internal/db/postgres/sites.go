@@ -83,7 +83,7 @@ func (q query[T]) ListSitesInfo(ctx context.Context, appID string) ([]db.SiteInf
 
 func (q query[T]) SetSiteDeployment(ctx context.Context, site *models.Site) error {
 	_, err := q.ext.ExecContext(ctx, `
-		UPDATE site SET deployment_id = $1 updated_at = $2 WHERE id = $3
+		UPDATE site SET deployment_id = $1, updated_at = $2 WHERE id = $3
 	`, site.DeploymentID, site.UpdatedAt, site.ID)
 	if err != nil {
 		return err

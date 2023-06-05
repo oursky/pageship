@@ -10,8 +10,8 @@ import (
 
 func checkAuthz(r *http.Request, q db.DBQuery, level config.AccessLevel, authn *authnInfo) error {
 	app := get[*models.App](r)
-	if err := q.IsAppAccessible(r.Context(), app.ID, authn.UserID); err != nil {
-		return err
+	if app.OwnerUserID != authn.UserID {
+		return models.ErrAccessDenied
 	}
 	return nil
 }
