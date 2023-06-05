@@ -11,15 +11,15 @@ import (
 	"github.com/oursky/pageship/internal/site"
 )
 
-func NewMultiSiteResolver(fs fs.FS, conf *config.SitesConfig) site.Resolver {
-	if len(conf.Sites) == 0 {
-		return &resolverAdhoc{fs: fs, defaultSite: conf.DefaultSite}
+func NewMultiSiteResolver(fs fs.FS, defaultSite string, sites map[string]config.SitesConfigEntry) site.Resolver {
+	if len(sites) == 0 {
+		return &resolverAdhoc{fs: fs, defaultSite: defaultSite}
 	}
 
 	return &resolverStatic{
 		fs:          fs,
-		defaultSite: conf.DefaultSite,
-		sites:       conf.Sites,
+		defaultSite: defaultSite,
+		sites:       sites,
 	}
 }
 

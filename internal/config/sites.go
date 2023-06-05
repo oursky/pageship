@@ -3,9 +3,7 @@ package config
 const SitesConfigName = "sites"
 
 type SitesConfig struct {
-	HostPattern string                      `json:"hostPattern"`
-	DefaultSite string                      `json:"defaultSite"`
-	Sites       map[string]SitesConfigEntry `json:"sites,omitempty"`
+	Sites map[string]SitesConfigEntry `json:"sites,omitempty"`
 }
 
 type SitesConfigEntry struct {
@@ -14,8 +12,6 @@ type SitesConfigEntry struct {
 
 func DefaultSitesConfig() *SitesConfig {
 	return &SitesConfig{
-		HostPattern: DefaultHostPattern,
-		DefaultSite: DefaultSite,
-		Sites:       make(map[string]SitesConfigEntry),
+		Sites: make(map[string]SitesConfigEntry),
 	}
 }

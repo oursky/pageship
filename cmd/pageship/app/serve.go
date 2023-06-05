@@ -28,6 +28,9 @@ func init() {
 	serveCmd.PersistentFlags().String("tls-addr", ":443", "TLS listen address")
 	serveCmd.PersistentFlags().String("tls-acme-endpoint", "", "TLS ACME directory endpoint")
 	serveCmd.PersistentFlags().String("tls-acme-email", "", "TLS ACME directory account email")
+
+	serveCmd.PersistentFlags().String("default-site", config.DefaultSite, "default site")
+	serveCmd.PersistentFlags().String("host-pattern", config.DefaultHostPattern, "host match pattern")
 }
 
 func loadSitesConfig(fsys fs.FS) (*config.SitesConfig, error) {
@@ -41,42 +44,42 @@ func loadSitesConfig(fsys fs.FS) (*config.SitesConfig, error) {
 	return conf, nil
 }
 
-func makeHandler(prefix string) (*handler.Handler, error) {
+func makeHandler(prefix string, defaultSite string, hostPattern string) (*handler.Handler, error) {
 	dir, err := filepath.Abs(prefix)
 	if err != nil {
 		return nil, err
 	}
 
 	fsys := os.DirFS(dir)
-	sitesConf, err := loadSitesConfig(fsys)
+
+	var resolver site.Resolver
+	resolver = local.NewSingleSiteResolver(fsys)
+
+	// Check site on startup.
+	_, err = resolver.Resolve(context.Background(), defaultSite)
 	if errors.Is(err, config.ErrConfigNotFound) {
-		// If multi-site config not found: continue in single-site mode.
-		err = nil
-	}
-	if err != nil {
+		// continue in multi-site mode
+
+		sitesConf, err := loadSitesConfig(fsys)
+		if errors.Is(err, config.ErrConfigNotFound) {
+			// Treat as no sites
+		} else if err != nil {
+			return nil, err
+		}
+
+		var sites map[string]config.SitesConfigEntry
+		if sitesConf != nil {
+			sites = sitesConf.Sites
+		}
+		resolver = local.NewMultiSiteResolver(fsys, defaultSite, sites)
+	} else if err != nil {
 		return nil, err
 	}
 
-	var resolver site.Resolver
-	if sitesConf != nil {
-		resolver = local.NewMultiSiteResolver(fsys, sitesConf)
-	} else {
-		resolver = local.NewSingleSiteResolver(fsys)
-		sitesConf = &config.SitesConfig{
-			DefaultSite: config.DefaultSite,
-			HostPattern: "",
-		}
-
-		// Check site on startup.
-		_, err = resolver.Resolve(context.Background(), sitesConf.DefaultSite)
-		if err != nil {
-			return nil, err
-		}
-	}
 	Info("site resolution mode: %s", resolver.Kind())
 
 	handler, err := handler.NewHandler(zapLogger, resolver, handler.HandlerConfig{
-		HostPattern: sitesConf.HostPattern,
+		HostPattern: hostPattern,
 		Middlewares: middleware.Default,
 	})
 	if err != nil {
@@ -98,12 +101,15 @@ var serveCmd = &cobra.Command{
 		tlsAcmeEndpoint := viper.GetString("tls-acme-endpoint")
 		tlsAcmeEmail := viper.GetString("tls-acme-email")
 
+		defaultSite := viper.GetString("default-site")
+		hostPattern := viper.GetString("host-pattern")
+
 		dir := "."
 		if len(args) > 0 {
 			dir = args[0]
 		}
 
-		handler, err := makeHandler(dir)
+		handler, err := makeHandler(dir, defaultSite, hostPattern)
 		if err != nil {
 			Error("Failed to setup server: %s", err)
 			return
