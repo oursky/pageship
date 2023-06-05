@@ -10,10 +10,18 @@ import (
 
 func checkAuthz(r *http.Request, q db.DBQuery, level config.AccessLevel, authn *authnInfo) error {
 	app := get[*models.App](r)
-	if app.OwnerUserID != authn.UserID {
-		return models.ErrAccessDenied
+
+	if app.OwnerUserID == authn.UserID {
+		return nil
 	}
-	return nil
+	for _, r := range app.Config.Team {
+		credID := models.UserCredentialIDFromSubject(&r.AccessSubject)
+		if credID != nil && authn.checkCredentialID(*credID) && r.AccessLevel.CanAccess(level) {
+			return nil
+		}
+	}
+
+	return models.ErrAccessDenied
 }
 
 func (c *Controller) requireAccess(level config.AccessLevel) func(next http.Handler) http.Handler {

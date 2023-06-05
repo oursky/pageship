@@ -42,7 +42,7 @@ func (q query[T]) CreateApp(ctx context.Context, app *models.App) error {
 	return nil
 }
 
-func (q query[T]) ListApps(ctx context.Context, credentialIDs []string) ([]*models.App, error) {
+func (q query[T]) ListApps(ctx context.Context, credentialIDs []models.UserCredentialID) ([]*models.App, error) {
 	if len(credentialIDs) == 0 {
 		return nil, nil
 	}

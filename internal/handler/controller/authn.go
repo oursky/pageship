@@ -18,7 +18,17 @@ import (
 const tokenValidDuration time.Duration = 30 * time.Minute
 
 type authnInfo struct {
-	UserID string
+	UserID          string
+	CredentialIDs   []models.UserCredentialID
+	CredentialIDMap map[models.UserCredentialID]struct{}
+}
+
+func (i *authnInfo) checkCredentialID(id models.UserCredentialID) bool {
+	if id == "" {
+		return false
+	}
+	_, ok := i.CredentialIDMap[id]
+	return ok
 }
 
 func createUser(
@@ -163,7 +173,21 @@ func (c *Controller) verifyToken(r *http.Request, token string) (*authnInfo, err
 		return nil, err
 	}
 
-	return &authnInfo{UserID: user.ID}, nil
+	credIDs, err := c.DB.ListCredentialIDs(r.Context(), user.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	idMap := make(map[models.UserCredentialID]struct{}, len(credIDs))
+	for _, id := range credIDs {
+		idMap[id] = struct{}{}
+	}
+
+	return &authnInfo{
+		UserID:          user.ID,
+		CredentialIDs:   credIDs,
+		CredentialIDMap: idMap,
+	}, nil
 }
 
 func parseAuthorizationHeader(r *http.Request) (string, bool) {

@@ -73,14 +73,9 @@ func (c *Controller) handleAppGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controller) handleAppList(w http.ResponseWriter, r *http.Request) {
-	userID := getUserID(r)
+	credIDs := get[*authnInfo](r).CredentialIDs
 	respond(w, func() (any, error) {
-		creds, err := c.DB.ListCredentialIDs(r.Context(), userID)
-		if err != nil {
-			return nil, err
-		}
-
-		apps, err := c.DB.ListApps(r.Context(), creds)
+		apps, err := c.DB.ListApps(r.Context(), credIDs)
 		if err != nil {
 			return nil, err
 		}

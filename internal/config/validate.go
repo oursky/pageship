@@ -27,6 +27,11 @@ func init() {
 		value := fl.Field().String()
 		return ValidateDuration(value)
 	})
+
+	validate.RegisterValidation("accessLevel", func(fl validator.FieldLevel) bool {
+		value := fl.Field().String()
+		return AccessLevel(value).IsValid()
+	})
 }
 
 // ref: RFC1123

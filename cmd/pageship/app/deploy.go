@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 
@@ -88,13 +89,6 @@ func doDeploy(ctx context.Context, appID string, siteName string, deploymentName
 
 	Info("%d files found. Tarball size: %s", len(files), humanize.Bytes(uint64(tarSize)))
 
-	Debug("Configuring app...")
-	_, err = apiClient.ConfigureApp(ctx, appID, &conf.App)
-	if err != nil {
-		Error("Failed to configure app: %s", err)
-		return
-	}
-
 	Info("Setting up deployment '%s'...", deploymentName)
 
 	if siteName != "" {
@@ -126,6 +120,15 @@ func doDeploy(ctx context.Context, appID string, siteName string, deploymentName
 	deployment, err = apiClient.UploadDeploymentTarball(ctx, appID, deployment.Name, body, tarSize)
 	if err != nil {
 		Error("Failed to upload tarball: %s", err)
+		return
+	}
+
+	Debug("Configuring app...")
+	_, err = apiClient.ConfigureApp(ctx, appID, &conf.App)
+	if code, ok := api.ErrorStatusCode(err); ok && code == http.StatusForbidden {
+		Warn("Insufficient permission; skip configuring app.")
+	} else if err != nil {
+		Error("Failed to configure app: %s", err)
 		return
 	}
 
@@ -180,14 +183,11 @@ var deployCmd = &cobra.Command{
 			return
 		}
 
-		loader := config.NewLoader(config.SiteConfigName)
-
-		conf := config.DefaultConfig()
-		if err := loader.Load(os.DirFS(dir), &conf); err != nil {
+		conf, err := loadConfig(dir)
+		if err != nil {
 			Error("Failed to load config: %s", err)
 			return
 		}
-		conf.SetDefaults()
 
 		appID := conf.App.ID
 		if site != "" {
@@ -214,6 +214,6 @@ var deployCmd = &cobra.Command{
 			}
 		}
 
-		doDeploy(cmd.Context(), appID, site, name, &conf, dir)
+		doDeploy(cmd.Context(), appID, site, name, conf, dir)
 	},
 }

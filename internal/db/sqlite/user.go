@@ -73,8 +73,8 @@ func (q query[T]) UpdateCredentialData(ctx context.Context, cred *models.UserCre
 
 	return nil
 }
-func (q query[T]) ListCredentialIDs(ctx context.Context, userID string) ([]string, error) {
-	var ids []string
+func (q query[T]) ListCredentialIDs(ctx context.Context, userID string) ([]models.UserCredentialID, error) {
+	var ids []models.UserCredentialID
 	err := sqlx.SelectContext(ctx, q.ext, &ids, `
 		SELECT id FROM user_credential WHERE user_id = ? AND deleted_at IS NULL
 	`, userID)

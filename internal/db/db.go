@@ -50,7 +50,7 @@ type DBQuery interface {
 type AppsDB interface {
 	CreateApp(ctx context.Context, app *models.App) error
 	GetApp(ctx context.Context, id string) (*models.App, error)
-	ListApps(ctx context.Context, credentialIDs []string) ([]*models.App, error)
+	ListApps(ctx context.Context, credentialIDs []models.UserCredentialID) ([]*models.App, error)
 	UpdateAppConfig(ctx context.Context, app *models.App) error
 }
 
@@ -80,7 +80,7 @@ type UserDB interface {
 	CreateUser(ctx context.Context, user *models.User) error
 	AddCredential(ctx context.Context, credential *models.UserCredential) error
 	UpdateCredentialData(ctx context.Context, cred *models.UserCredential) error
-	ListCredentialIDs(ctx context.Context, userID string) ([]string, error)
+	ListCredentialIDs(ctx context.Context, userID string) ([]models.UserCredentialID, error)
 }
 
 type CertificateDB interface {

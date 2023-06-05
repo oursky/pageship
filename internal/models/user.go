@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/oursky/pageship/internal/config"
 )
 
 type User struct {
@@ -49,6 +50,19 @@ func NewUserCredential(now time.Time, userID string, id UserCredentialID, data *
 }
 
 type UserCredentialID string
+
+func UserCredentialIDFromSubject(s *config.AccessSubject) *UserCredentialID {
+	var id UserCredentialID
+	switch {
+	case s.PageshipUser != "":
+		id = UserCredentialUserID(s.PageshipUser)
+	case s.GitHubUser != "":
+		id = UserCredentialGitHubUser(s.GitHubUser)
+	default:
+		return nil
+	}
+	return &id
+}
 
 func UserCredentialUserID(id string) UserCredentialID {
 	return UserCredentialID(id)
