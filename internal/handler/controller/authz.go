@@ -16,7 +16,7 @@ func checkAuthz(r *http.Request, q db.DBQuery, level config.AccessLevel, authn *
 	}
 	for _, r := range app.Config.Team {
 		credID := models.CredentialIDFromSubject(&r.AccessSubject)
-		if credID != nil && authn.checkCredentialID(*credID) && r.AccessLevel.CanAccess(level) {
+		if credID != nil && authn.checkCredentialID(*credID) && r.Access.CanAccess(level) {
 			return nil
 		}
 	}

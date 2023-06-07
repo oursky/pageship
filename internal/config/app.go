@@ -9,9 +9,9 @@ import (
 type AppConfig struct {
 	ID          string               `json:"id" pageship:"required,dnsLabel"`
 	DefaultSite string               `json:"defaultSite" pageship:"required,dnsLabel"`
-	Sites       []AppSiteConfig      `json:"sites" pageship:"max=10"`
+	Sites       []AppSiteConfig      `json:"sites" pageship:"max=10,dive,required"`
 	Deployments AppDeploymentsConfig `json:"deployments"`
-	Team        []*AccessRule        `json:"team" pageship:"max=100"`
+	Team        []*AccessRule        `json:"team" pageship:"max=100,dive,required"`
 }
 
 func DefaultAppConfig() AppConfig {

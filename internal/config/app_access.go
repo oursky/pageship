@@ -34,12 +34,12 @@ func (l AccessLevel) CanAccess(a AccessLevel) bool {
 
 type AccessRule struct {
 	AccessSubject `mapstructure:",squash"`
-	AccessLevel   AccessLevel `json:"access" pageship:"accessLevel"`
+	Access        AccessLevel `json:"access" pageship:"omitempty,accessLevel"`
 }
 
 func (r *AccessRule) SetDefaults() {
-	if r.AccessLevel == "" {
-		r.AccessLevel = AccessLevelDefault
+	if r.Access == "" {
+		r.Access = AccessLevelDefault
 	}
 }
 
