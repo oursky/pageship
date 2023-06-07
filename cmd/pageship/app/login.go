@@ -14,7 +14,7 @@ var loginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "Login user",
 	Run: func(cmd *cobra.Command, args []string) {
-		token, err := authGitHubSSH(cmd.Context())
+		token, err := ensureAuth(cmd.Context())
 		if err != nil {
 			Error("Failed to login via SSH: %s", err)
 			return
