@@ -75,7 +75,7 @@ func authGitHubSSH(ctx context.Context) (string, error) {
 		result, err := prompt.Run()
 		if err != nil {
 			Info("Cancelled.")
-			return "", nil
+			return "", err
 		}
 
 		userName = result
