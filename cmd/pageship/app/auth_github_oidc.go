@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 )
 
 func canAuthGitHubOIDC() bool {
@@ -29,11 +28,10 @@ func authGitHubOIDC(ctx context.Context) (string, error) {
 	q.Set("audience", apiClient.Endpoint())
 	u.RawQuery = q.Encode()
 
-	req, err := http.NewRequestWithContext(ctx, "POST", u.String(), strings.NewReader("{}"))
+	req, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json; api-version=2.0")
 	req.Header.Set("Authorization", "Bearer "+runtimeToken)
 
