@@ -71,11 +71,10 @@ func packTar(dir string, tarfile *os.File, conf *config.Config) ([]models.FileEn
 	return collector.Files(), fi.Size(), nil
 }
 
-func doDeploy(ctx context.Context, appID string, siteName string, deploymentName string, conf *config.Config, dir string) {
+func doDeploy(ctx context.Context, appID string, siteName string, deploymentName string, conf *config.Config, dir string) error {
 	tarfile, err := os.CreateTemp("", fmt.Sprintf("pageship-%s-%s-*.tar.zst", appID, deploymentName))
 	if err != nil {
-		Error("Failed to create temp file: %s", err)
-		return
+		return fmt.Errorf("failed to create temp file: %w", err)
 	}
 	defer os.Remove(tarfile.Name())
 
@@ -83,8 +82,7 @@ func doDeploy(ctx context.Context, appID string, siteName string, deploymentName
 	Debug("Tarball: %s", tarfile.Name())
 	files, tarSize, err := packTar(dir, tarfile, conf)
 	if err != nil {
-		Error("Failed to collect files: %s", err)
-		return
+		return fmt.Errorf("failed to collect files: %w", err)
 	}
 
 	Info("%d files found. Tarball size: %s", len(files), humanize.Bytes(uint64(tarSize)))
@@ -94,8 +92,7 @@ func doDeploy(ctx context.Context, appID string, siteName string, deploymentName
 	if siteName != "" {
 		site, err := apiClient.CreateSite(ctx, appID, siteName)
 		if err != nil {
-			Error("Failed to setup site: %s", err)
-			return
+			return fmt.Errorf("failed to setup site: %w", err)
 		}
 		Debug("Site ID: %s", site.ID)
 		lastDeploymentName := "-"
@@ -109,8 +106,7 @@ func doDeploy(ctx context.Context, appID string, siteName string, deploymentName
 
 	deployment, err := apiClient.SetupDeployment(ctx, appID, deploymentName, files, &conf.Site)
 	if err != nil {
-		Error("Failed to setup deployment: %s", err)
-		return
+		return fmt.Errorf("failed to setup deployment: %w", err)
 	}
 
 	Debug("Deployment ID: %s", deployment.ID)
@@ -119,8 +115,7 @@ func doDeploy(ctx context.Context, appID string, siteName string, deploymentName
 	body := io.TeeReader(tarfile, bar)
 	deployment, err = apiClient.UploadDeploymentTarball(ctx, appID, deployment.Name, body, tarSize)
 	if err != nil {
-		Error("Failed to upload tarball: %s", err)
-		return
+		return fmt.Errorf("failed to upload tarball: %w", err)
 	}
 
 	Debug("Configuring app...")
@@ -128,8 +123,7 @@ func doDeploy(ctx context.Context, appID string, siteName string, deploymentName
 	if code, ok := api.ErrorStatusCode(err); ok && code == http.StatusForbidden {
 		Warn("Insufficient permission; skip configuring app.")
 	} else if err != nil {
-		Error("Failed to configure app: %s", err)
-		return
+		return fmt.Errorf("failed to configure app: %w", err)
 	}
 
 	if siteName != "" {
@@ -138,15 +132,13 @@ func doDeploy(ctx context.Context, appID string, siteName string, deploymentName
 			DeploymentName: &deployment.Name,
 		})
 		if err != nil {
-			Error("Failed to activate deployment: %s", err)
-			return
+			return fmt.Errorf("failed to activate deployment: %w", err)
 		}
 	}
 
 	d, err := apiClient.GetDeployment(ctx, appID, deploymentName)
 	if err != nil {
-		Error("Failed to get deployment: %s", err)
-		return
+		return fmt.Errorf("failed to get deployment: %w", err)
 	}
 
 	if d.URL != nil {
@@ -154,12 +146,13 @@ func doDeploy(ctx context.Context, appID string, siteName string, deploymentName
 	}
 
 	Info("Done!")
+	return nil
 }
 
 var deployCmd = &cobra.Command{
 	Use:   "deploy [deploy directory] [--site site to deploy] [--name deployment name] [--yes]",
 	Short: "Deploy site",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		site := viper.GetString("site")
 		name := viper.GetString("name")
 		yes := viper.GetBool("yes")
@@ -171,30 +164,26 @@ var deployCmd = &cobra.Command{
 
 		dir, err := filepath.Abs(dir)
 		if err != nil {
-			Error("Invalid deploy directory: %s", err)
-			return
+			return fmt.Errorf("invalid deploy directory: %w", err)
 		}
 
 		if name == "" {
 			name = models.RandomID(4)
 		}
 		if !config.ValidateDNSLabel(name) {
-			Error("Invalid deployment name: must be a valid DNS label")
-			return
+			return fmt.Errorf("invalid deployment name: must be a valid DNS label")
 		}
 
 		conf, err := loadConfig(dir)
 		if err != nil {
-			Error("Failed to load config: %s", err)
-			return
+			return fmt.Errorf("failed to load config: %w", err)
 		}
 
 		appID := conf.App.ID
 		if site != "" {
 			_, ok := conf.App.ResolveSite(site)
 			if !ok {
-				Error("Site is not defined: %s", site)
-				return
+				return fmt.Errorf("site is not defined: %s", site)
 			}
 		}
 
@@ -210,10 +199,10 @@ var deployCmd = &cobra.Command{
 			_, err := prompt.Run()
 			if err != nil {
 				Info("Cancelled.")
-				return
+				return ErrCancelled
 			}
 		}
 
-		doDeploy(cmd.Context(), appID, site, name, conf, dir)
+		return doDeploy(cmd.Context(), appID, site, name, conf, dir)
 	},
 }

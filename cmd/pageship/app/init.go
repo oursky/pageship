@@ -3,6 +3,7 @@ package app
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -48,12 +49,11 @@ func init() {
 var initCmd = &cobra.Command{
 	Use:   "init [--dir target directory] [--app app ID] [--public static files directory] [--register]",
 	Short: "Initialize new app",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		dir := viper.GetString("dir")
 		dir, err := filepath.Abs(dir)
 		if err != nil {
-			Error("Invalid target directory: %s", err)
-			return
+			return fmt.Errorf("invalid target directory: %w", err)
 		}
 
 		appID := viper.GetString("app")
@@ -70,7 +70,7 @@ var initCmd = &cobra.Command{
 			result, err := prompt.Run()
 			if err != nil {
 				Info("Cancelled.")
-				return
+				return ErrCancelled
 			}
 			appID = result
 		}
@@ -90,7 +90,7 @@ var initCmd = &cobra.Command{
 			result, err := prompt.Run()
 			if err != nil {
 				Info("Cancelled.")
-				return
+				return ErrCancelled
 			}
 			public = result
 		}
@@ -104,7 +104,7 @@ var initCmd = &cobra.Command{
 			_, err := prompt.Run()
 			if err != nil {
 				Info("Cancelled.")
-				return
+				return ErrCancelled
 			}
 		}
 
@@ -117,11 +117,11 @@ var initCmd = &cobra.Command{
 
 		err = os.WriteFile(filepath.Join(dir, config.SiteConfigName+".toml"), []byte(conf), 0644)
 		if err != nil {
-			Error("Failed to write config file: %s", err)
-			return
+			return fmt.Errorf("failed to write config file: %w", err)
 		}
 
 		Info("Done!")
 		Info("Run `pageship deploy` to deploy your app now!")
+		return nil
 	},
 }

@@ -43,6 +43,10 @@ func authGitHubOIDC(ctx context.Context) (string, error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return "", err
+	}
+
 	var respBody struct {
 		Value string `json:"value"`
 	}

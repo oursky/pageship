@@ -18,20 +18,18 @@ func init() {
 var deploymentsCmd = &cobra.Command{
 	Use:   "deployments",
 	Short: "Manage deployments",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		appID := viper.GetString("app")
 		if appID == "" {
 			appID = tryLoadAppID()
 		}
 		if appID == "" {
-			Error("App ID is not set")
-			return
+			return fmt.Errorf("app ID is not set")
 		}
 
 		deployments, err := apiClient.ListDeployments(cmd.Context(), appID)
 		if err != nil {
-			Error("Failed to list deployments: %s", err)
-			return
+			return fmt.Errorf("failed to list deployments: %w", err)
 		}
 
 		now := time.Now()
@@ -60,5 +58,6 @@ var deploymentsCmd = &cobra.Command{
 			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", deployment.Name, createdAt, status, url)
 		}
 		w.Flush()
+		return nil
 	},
 }

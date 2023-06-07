@@ -22,11 +22,10 @@ func init() {
 var appsCmd = &cobra.Command{
 	Use:   "apps",
 	Short: "Manage apps",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		apps, err := apiClient.ListApps(cmd.Context())
 		if err != nil {
-			Error("Failed to list apps: %s", err)
-			return
+			return fmt.Errorf("failed to list apps: %w", err)
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 1, 4, 4, ' ', 0)
@@ -35,6 +34,7 @@ var appsCmd = &cobra.Command{
 			fmt.Fprintf(w, "%s\t%s\n", app.ID, app.URL)
 		}
 		w.Flush()
+		return nil
 	},
 }
 
@@ -42,7 +42,7 @@ var appsCreateCmd = &cobra.Command{
 	Use:   "create [app-id]",
 	Short: "Create app",
 	Args:  cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		appID := ""
 		if len(args) > 0 {
 			appID = args[0]
@@ -51,31 +51,29 @@ var appsCreateCmd = &cobra.Command{
 			appID = tryLoadAppID()
 		}
 		if appID == "" {
-			Error("App ID is not set")
-			return
+			return fmt.Errorf("app ID is not set")
 		}
 
 		app, err := apiClient.GetApp(cmd.Context(), appID)
 		if code, ok := api.ErrorStatusCode(err); ok && code == http.StatusNotFound {
 			app = nil
 		} else if err != nil {
-			Error("Failed to get app: %s", err)
-			return
+			return fmt.Errorf("fFailed to get app: %w", err)
 		}
 
 		if app != nil {
 			Info("App %q is already created.", appID)
-			return
+			return nil
 		}
 
 		app, err = apiClient.CreateApp(cmd.Context(), appID)
 		if err != nil {
-			Error("Failed to create app: %s", err)
-			return
+			return fmt.Errorf("failed to create app: %w", err)
 		}
 
 		Debug("App: %+v", app)
 		Info("App %q is created.", appID)
+		return nil
 	},
 }
 
@@ -83,7 +81,7 @@ var appsShowCmd = &cobra.Command{
 	Use:   "show [app-id]",
 	Short: "Show app config",
 	Args:  cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		appID := ""
 		if len(args) > 0 {
 			appID = args[0]
@@ -92,35 +90,31 @@ var appsShowCmd = &cobra.Command{
 			appID = tryLoadAppID()
 		}
 		if appID == "" {
-			Error("App ID is not set")
-			return
+			return fmt.Errorf("app ID is not set")
 		}
 
 		app, err := apiClient.GetApp(cmd.Context(), appID)
 		if err != nil {
-			Error("Failed to get app: %s", err)
-			return
+			return fmt.Errorf("failed to get app: %w", err)
 		}
 
 		jsonConf, err := json.Marshal(app.Config)
 		if err != nil {
-			Error("Failed to serialize config: %s", err)
-			return
+			return fmt.Errorf("failed to serialize config: %w", err)
 		}
 
 		var rawConf map[string]any
 		if err := json.Unmarshal(jsonConf, &rawConf); err != nil {
-			Error("Failed to serialize config: %s", err)
-			return
+			return fmt.Errorf("failed to serialize config: %w", err)
 		}
 
 		conf, err := toml.Marshal(map[string]any{"app": rawConf})
 		if err != nil {
-			Error("Failed to serialize config: %s", err)
-			return
+			return fmt.Errorf("failed to serialize config: %w", err)
 		}
 
 		fmt.Println(string(conf))
+		return nil
 	},
 }
 
@@ -128,7 +122,7 @@ var appsConfigureCmd = &cobra.Command{
 	Use:   "configure [deploy directory]",
 	Short: "Configure app",
 	Args:  cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		dir := "."
 		if len(args) > 0 {
 			dir = args[0]
@@ -136,24 +130,22 @@ var appsConfigureCmd = &cobra.Command{
 
 		conf, err := loadConfig(dir)
 		if err != nil {
-			Error("Failed to load config: %s", err)
-			return
+			return fmt.Errorf("failed to load config: %w", err)
 		}
 
 		Info("Configuring app %q...", conf.App.ID)
 
 		app, err := apiClient.GetApp(cmd.Context(), conf.App.ID)
 		if err != nil {
-			Error("Failed to get app: %s", err)
-			return
+			return fmt.Errorf("failed to get app: %w", err)
 		}
 
 		app, err = apiClient.ConfigureApp(cmd.Context(), app.ID, &conf.App)
 		if err != nil {
-			Error("Failed to configure app: %s", err)
-			return
+			return fmt.Errorf("failed to configure app: %w", err)
 		}
 
 		Info("Configured app %q.", app.ID)
+		return nil
 	},
 }

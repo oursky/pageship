@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -93,7 +94,7 @@ var serveCmd = &cobra.Command{
 	Use:   "serve [site directory]",
 	Short: "Start local server",
 	Args:  cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		addr := viper.GetString("addr")
 		useTLS := viper.GetBool("tls")
 		tlsDomain := viper.GetString("tls-domain")
@@ -111,8 +112,7 @@ var serveCmd = &cobra.Command{
 
 		handler, err := makeHandler(dir, defaultSite, hostPattern)
 		if err != nil {
-			Error("Failed to setup server: %s", err)
-			return
+			return fmt.Errorf("failed to setup server: %w", err)
 		}
 
 		var tls *httputil.ServerTLSConfig
@@ -128,8 +128,7 @@ var serveCmd = &cobra.Command{
 			if len(tlsDomain) > 0 {
 				tls.DomainNames = []string{tlsDomain}
 			} else if handler.AllowAnyDomain() {
-				Error("Must provide domain name via --tls-domain to enable TLS")
-				return
+				return fmt.Errorf("must provide domain name via --tls-domain to enable TLS")
 			}
 		}
 
@@ -140,5 +139,6 @@ var serveCmd = &cobra.Command{
 			TLS:     tls,
 		}
 		command.Run([]command.WorkFunc{server.Run})
+		return nil
 	},
 }

@@ -1,6 +1,8 @@
 package app
 
 import (
+	"fmt"
+
 	"github.com/oursky/pageship/internal/config"
 	"github.com/spf13/cobra"
 )
@@ -12,22 +14,20 @@ func init() {
 var meCmd = &cobra.Command{
 	Use:   "me",
 	Short: "Get user info",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		conf, err := config.LoadClientConfig()
 		if err != nil {
-			Error("Failed to load config: %s", err)
-			return
+			return fmt.Errorf("failed to load config: %w", err)
 		}
 
 		if conf.AuthToken == "" {
 			Info("Logged out.")
-			return
+			return nil
 		}
 
 		me, err := apiClient.GetMe(cmd.Context())
 		if err != nil {
-			Error("Failed to login via SSH: %s", err)
-			return
+			return fmt.Errorf("failed to get user info: %w", err)
 		}
 
 		Info("Logged in as %q. (id: %q)", me.Name, me.ID)
@@ -35,5 +35,6 @@ var meCmd = &cobra.Command{
 		for _, id := range me.Credentials {
 			Info(" - %q", id)
 		}
+		return nil
 	},
 }

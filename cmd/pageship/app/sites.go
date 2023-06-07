@@ -17,20 +17,18 @@ func init() {
 var sitesCmd = &cobra.Command{
 	Use:   "sites",
 	Short: "Manage sites",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		appID := viper.GetString("app")
 		if appID == "" {
 			appID = tryLoadAppID()
 		}
 		if appID == "" {
-			Error("App ID is not set")
-			return
+			return fmt.Errorf("app ID is not set")
 		}
 
 		sites, err := apiClient.ListSites(cmd.Context(), appID)
 		if err != nil {
-			Error("Failed to list sites: %s", err)
-			return
+			return fmt.Errorf("failed to list sites: %w", err)
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 1, 4, 4, ' ', 0)
@@ -43,5 +41,6 @@ var sitesCmd = &cobra.Command{
 			fmt.Fprintf(w, "%s\t%s\t%s\n", site.Name, site.URL, deployment)
 		}
 		w.Flush()
+		return nil
 	},
 }

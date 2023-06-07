@@ -6,9 +6,11 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:     "pageship",
-	Short:   "Pageship",
-	Version: versioninfo.Short(),
+	Use:           "pageship",
+	Short:         "Pageship",
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	Version:       versioninfo.Short(),
 }
 
 func Execute() error {

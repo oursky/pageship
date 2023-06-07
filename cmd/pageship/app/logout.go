@@ -1,6 +1,8 @@
 package app
 
 import (
+	"fmt"
+
 	"github.com/oursky/pageship/internal/config"
 	"github.com/spf13/cobra"
 )
@@ -12,19 +14,18 @@ func init() {
 var logoutCmd = &cobra.Command{
 	Use:   "logout",
 	Short: "Logout user",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		conf, err := config.LoadClientConfig()
 		if err != nil {
-			Error("Failed to load config: %s", err)
-			return
+			return fmt.Errorf("failed to load config: %w", err)
 		}
 		conf.AuthToken = ""
 		err = conf.Save()
 		if err != nil {
-			Error("Failed to save config")
-			return
+			return fmt.Errorf("failed to save config: %w", err)
 		}
 
 		Info("Logged out.")
+		return nil
 	},
 }
