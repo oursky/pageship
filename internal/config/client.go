@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 )
 
-func clientConfigPath() (string, error) {
+func ClientConfigPath() (string, error) {
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		return "", err
@@ -26,7 +26,7 @@ type ClientConfig struct {
 }
 
 func LoadClientConfig() (*ClientConfig, error) {
-	path, err := clientConfigPath()
+	path, err := ClientConfigPath()
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +49,7 @@ func LoadClientConfig() (*ClientConfig, error) {
 }
 
 func (c *ClientConfig) Save() error {
-	path, err := clientConfigPath()
+	path, err := ClientConfigPath()
 	if err != nil {
 		return err
 	}

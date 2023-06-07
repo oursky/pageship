@@ -190,9 +190,9 @@ var deployCmd = &cobra.Command{
 		if !yes {
 			var label string
 			if site == "" {
-				label = fmt.Sprintf("Deploy to app %q?", appID)
+				label = fmt.Sprintf("Deploy to app %q", appID)
 			} else {
-				label = fmt.Sprintf("Deploy to site %q of app %q?", site, appID)
+				label = fmt.Sprintf("Deploy to site %q of app %q", site, appID)
 			}
 
 			prompt := promptui.Prompt{Label: label, IsConfirm: true}

@@ -28,3 +28,16 @@ func Prompt(label string, validate func(value string) error) (string, error) {
 	}
 	return result, nil
 }
+
+func Confirm(label string) error {
+	prompt := promptui.Prompt{
+		Label:     label,
+		IsConfirm: true,
+	}
+	_, err := prompt.Run()
+	if err != nil {
+		Info("Cancelled.")
+		return ErrCancelled
+	}
+	return nil
+}
