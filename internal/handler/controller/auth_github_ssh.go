@@ -55,6 +55,23 @@ func (c *Controller) handleAuthGithubSSHConn(conn *websocket.Conn) {
 				return nil, fmt.Errorf("unknown public key for %q", meta.User())
 			}
 
+			cred := models.CredentialGitHubUser(meta.User())
+			list, err := c.Config.UserCredentialsAllowlist.Get(conn.Request().Context())
+			if err != nil {
+				return nil, fmt.Errorf("access denied")
+			}
+
+			if !list.IsAllowed(cred) {
+				c.Logger.Info(
+					"user rejected",
+					zap.String("request_id", requestID(conn.Request())),
+					zap.String("user", meta.User()),
+					zap.String("fingerprint", fingerprint),
+				)
+
+				return nil, fmt.Errorf("access denied")
+			}
+
 			c.Logger.Info(
 				"user authenticated",
 				zap.String("request_id", requestID(conn.Request())),
@@ -91,6 +108,7 @@ func (c *Controller) handleAuthGithubSSHConn(conn *websocket.Conn) {
 			})
 		if err != nil {
 			c.Logger.Warn("failed to generate token", zap.Error(err))
+			req.Reply(false, []byte("internal server error"))
 			sshConn.Close()
 			return
 		}
