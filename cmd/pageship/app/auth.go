@@ -70,7 +70,7 @@ func isTokenValid(token string) error {
 	}
 
 	if !initialCheck.Swap(true) {
-		_, err = apiClient.GetMe(context.Background())
+		_, err = API().GetMe(context.Background())
 		if code, ok := api.ErrorStatusCode(err); ok && (code == http.StatusUnauthorized || code == http.StatusForbidden) {
 			err = models.ErrInvalidCredentials
 		} else {

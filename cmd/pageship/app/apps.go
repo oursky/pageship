@@ -23,7 +23,7 @@ var appsCmd = &cobra.Command{
 	Use:   "apps",
 	Short: "Manage apps",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		apps, err := apiClient.ListApps(cmd.Context())
+		apps, err := API().ListApps(cmd.Context())
 		if err != nil {
 			return fmt.Errorf("failed to list apps: %w", err)
 		}
@@ -54,7 +54,7 @@ var appsCreateCmd = &cobra.Command{
 			return fmt.Errorf("app ID is not set")
 		}
 
-		app, err := apiClient.GetApp(cmd.Context(), appID)
+		app, err := API().GetApp(cmd.Context(), appID)
 		if code, ok := api.ErrorStatusCode(err); ok && code == http.StatusNotFound {
 			app = nil
 		} else if err != nil {
@@ -66,7 +66,7 @@ var appsCreateCmd = &cobra.Command{
 			return nil
 		}
 
-		app, err = apiClient.CreateApp(cmd.Context(), appID)
+		app, err = API().CreateApp(cmd.Context(), appID)
 		if err != nil {
 			return fmt.Errorf("failed to create app: %w", err)
 		}
@@ -93,7 +93,7 @@ var appsShowCmd = &cobra.Command{
 			return fmt.Errorf("app ID is not set")
 		}
 
-		app, err := apiClient.GetApp(cmd.Context(), appID)
+		app, err := API().GetApp(cmd.Context(), appID)
 		if err != nil {
 			return fmt.Errorf("failed to get app: %w", err)
 		}
@@ -135,12 +135,12 @@ var appsConfigureCmd = &cobra.Command{
 
 		Info("Configuring app %q...", conf.App.ID)
 
-		app, err := apiClient.GetApp(cmd.Context(), conf.App.ID)
+		app, err := API().GetApp(cmd.Context(), conf.App.ID)
 		if err != nil {
 			return fmt.Errorf("failed to get app: %w", err)
 		}
 
-		app, err = apiClient.ConfigureApp(cmd.Context(), app.ID, &conf.App)
+		app, err = API().ConfigureApp(cmd.Context(), app.ID, &conf.App)
 		if err != nil {
 			return fmt.Errorf("failed to configure app: %w", err)
 		}

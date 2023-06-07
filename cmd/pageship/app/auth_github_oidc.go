@@ -25,7 +25,7 @@ func authGitHubOIDC(ctx context.Context) (string, error) {
 	}
 
 	q := u.Query()
-	q.Set("audience", apiClient.Endpoint())
+	q.Set("audience", API().Endpoint())
 	u.RawQuery = q.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
@@ -55,5 +55,5 @@ func authGitHubOIDC(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("GitHub returned no token")
 	}
 
-	return apiClient.AuthGitHubOIDC(ctx, respBody.Value)
+	return API().AuthGitHubOIDC(ctx, respBody.Value)
 }

@@ -19,6 +19,7 @@ func clientConfigPath() (string, error) {
 }
 
 type ClientConfig struct {
+	APIServer      string `json:"apiServer,omitempty"`
 	GitHubUsername string `json:"githubUsername,omitempty"`
 	SSHKeyFile     string `json:"sshKeyFile,omitempty"`
 	AuthToken      string `json:"authToken,omitempty"`

@@ -26,7 +26,7 @@ var sitesCmd = &cobra.Command{
 			return fmt.Errorf("app ID is not set")
 		}
 
-		sites, err := apiClient.ListSites(cmd.Context(), appID)
+		sites, err := API().ListSites(cmd.Context(), appID)
 		if err != nil {
 			return fmt.Errorf("failed to list sites: %w", err)
 		}

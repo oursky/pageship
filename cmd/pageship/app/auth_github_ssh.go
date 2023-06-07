@@ -94,7 +94,7 @@ func authGitHubSSH(ctx context.Context) (string, error) {
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 
-	ws, err := apiClient.OpenAuthGitHubSSH(ctx)
+	ws, err := API().OpenAuthGitHubSSH(ctx)
 	if err != nil {
 		return "", fmt.Errorf("connect to server: %w", err)
 	}

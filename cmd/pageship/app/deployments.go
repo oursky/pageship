@@ -27,7 +27,7 @@ var deploymentsCmd = &cobra.Command{
 			return fmt.Errorf("app ID is not set")
 		}
 
-		deployments, err := apiClient.ListDeployments(cmd.Context(), appID)
+		deployments, err := API().ListDeployments(cmd.Context(), appID)
 		if err != nil {
 			return fmt.Errorf("failed to list deployments: %w", err)
 		}

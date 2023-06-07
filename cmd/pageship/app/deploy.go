@@ -90,7 +90,7 @@ func doDeploy(ctx context.Context, appID string, siteName string, deploymentName
 	Info("Setting up deployment '%s'...", deploymentName)
 
 	if siteName != "" {
-		site, err := apiClient.CreateSite(ctx, appID, siteName)
+		site, err := API().CreateSite(ctx, appID, siteName)
 		if err != nil {
 			return fmt.Errorf("failed to setup site: %w", err)
 		}
@@ -104,7 +104,7 @@ func doDeploy(ctx context.Context, appID string, siteName string, deploymentName
 		Info("Site not specified; deployment would not be assigned to site")
 	}
 
-	deployment, err := apiClient.SetupDeployment(ctx, appID, deploymentName, files, &conf.Site)
+	deployment, err := API().SetupDeployment(ctx, appID, deploymentName, files, &conf.Site)
 	if err != nil {
 		return fmt.Errorf("failed to setup deployment: %w", err)
 	}
@@ -113,13 +113,13 @@ func doDeploy(ctx context.Context, appID string, siteName string, deploymentName
 
 	bar := progressbar.DefaultBytes(tarSize, "uploading")
 	body := io.TeeReader(tarfile, bar)
-	deployment, err = apiClient.UploadDeploymentTarball(ctx, appID, deployment.Name, body, tarSize)
+	deployment, err = API().UploadDeploymentTarball(ctx, appID, deployment.Name, body, tarSize)
 	if err != nil {
 		return fmt.Errorf("failed to upload tarball: %w", err)
 	}
 
 	Debug("Configuring app...")
-	_, err = apiClient.ConfigureApp(ctx, appID, &conf.App)
+	_, err = API().ConfigureApp(ctx, appID, &conf.App)
 	if code, ok := api.ErrorStatusCode(err); ok && code == http.StatusForbidden {
 		Warn("Insufficient permission; skip configuring app.")
 	} else if err != nil {
@@ -128,7 +128,7 @@ func doDeploy(ctx context.Context, appID string, siteName string, deploymentName
 
 	if siteName != "" {
 		Info("Activating deployment...")
-		_, err = apiClient.UpdateSite(ctx, appID, siteName, &api.SitePatchRequest{
+		_, err = API().UpdateSite(ctx, appID, siteName, &api.SitePatchRequest{
 			DeploymentName: &deployment.Name,
 		})
 		if err != nil {
@@ -136,7 +136,7 @@ func doDeploy(ctx context.Context, appID string, siteName string, deploymentName
 		}
 	}
 
-	d, err := apiClient.GetDeployment(ctx, appID, deploymentName)
+	d, err := API().GetDeployment(ctx, appID, deploymentName)
 	if err != nil {
 		return fmt.Errorf("failed to get deployment: %w", err)
 	}

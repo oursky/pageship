@@ -25,7 +25,7 @@ var meCmd = &cobra.Command{
 			return nil
 		}
 
-		me, err := apiClient.GetMe(cmd.Context())
+		me, err := API().GetMe(cmd.Context())
 		if err != nil {
 			return fmt.Errorf("failed to get user info: %w", err)
 		}
