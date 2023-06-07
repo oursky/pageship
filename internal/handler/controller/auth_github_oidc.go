@@ -37,12 +37,16 @@ func (c *Controller) handleAuthGithubOIDC(w http.ResponseWriter, r *http.Request
 		jwt.WithTimeFunc(c.Clock.Now),
 	)
 	if err != nil {
+		c.Logger.Debug("invalid OIDC token",
+			zap.Error(err),
+			zap.String("request_id", requestID(r)),
+			zap.Any("claims", oidcClaims))
 		writeResponse(w, nil, models.ErrInvalidCredentials)
 		return
 	}
 
 	if oidcClaims.ID == "" {
-		c.Logger.Warn("missing token ID",
+		c.Logger.Warn("missing OIDC token ID",
 			zap.String("request_id", requestID(r)),
 			zap.String("subject", oidcClaims.Subject),
 		)
