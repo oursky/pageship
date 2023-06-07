@@ -10,7 +10,7 @@ import (
 	"github.com/oursky/pageship/internal/models"
 )
 
-const tokenValidDuration time.Duration = 30 * time.Minute
+const tokenValidDuration time.Duration = 5 * time.Minute
 
 func (c *Controller) issueToken(claims *models.TokenClaims) (string, error) {
 	now := c.Clock.Now()
