@@ -12,13 +12,13 @@ import (
 
 func canAuthGitHubOIDC() bool {
 	_, ok1 := os.LookupEnv("ACTIONS_ID_TOKEN_REQUEST_URL")
-	_, ok2 := os.LookupEnv("ACTIONS_RUNTIME_TOKEN")
+	_, ok2 := os.LookupEnv("ACTIONS_ID_TOKEN_REQUEST_TOKEN")
 	return ok1 && ok2
 }
 
 func authGitHubOIDC(ctx context.Context) (string, error) {
 	tokenURL := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL")
-	runtimeToken := os.Getenv("ACTIONS_RUNTIME_TOKEN")
+	runtimeToken := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN")
 
 	u, err := url.Parse(tokenURL)
 	if err != nil {
