@@ -29,7 +29,7 @@ func ensureAuth(ctx context.Context) (string, error) {
 	}
 
 	if canAuthGitHubOIDC() {
-		Info("Authenticating using GItHub Actions OIDC token...")
+		Info("Authenticating using GitHub Actions OIDC token...")
 		token, err = authGitHubOIDC(ctx)
 	} else {
 		token, err = authGitHubSSH(ctx)
