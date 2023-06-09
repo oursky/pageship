@@ -95,7 +95,7 @@ func (q query[T]) UpdateAppConfig(ctx context.Context, app *models.App) error {
 	}
 
 	_, err = q.ext.ExecContext(ctx, `
-		UPDATE app SET config = $1, credential_ids = $2, updated_at = $3 WHERE id = $4
+		UPDATE app SET config = $1, credential_index = $2, updated_at = $3 WHERE id = $4
 	`, app.Config, string(index), app.UpdatedAt, app.ID)
 	if err != nil {
 		return err
