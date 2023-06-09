@@ -1,5 +1,7 @@
 package config
 
+import "fmt"
+
 type AccessLevel string
 
 const (
@@ -33,8 +35,8 @@ func (l AccessLevel) CanAccess(a AccessLevel) bool {
 }
 
 type AccessRule struct {
-	AccessSubject `mapstructure:",squash"`
-	Access        AccessLevel `json:"access" pageship:"omitempty,accessLevel"`
+	CredentialMatcher `mapstructure:",squash"`
+	Access            AccessLevel `json:"access" pageship:"omitempty,accessLevel"`
 }
 
 func (r *AccessRule) SetDefaults() {
@@ -43,8 +45,20 @@ func (r *AccessRule) SetDefaults() {
 	}
 }
 
-type AccessSubject struct {
+type CredentialMatcher struct {
 	PageshipUser            string `json:"pageshipUser,omitempty" pageship:"max=100"`
 	GitHubUser              string `json:"githubUser,omitempty" pageship:"max=100"`
 	GitHubRepositoryActions string `json:"gitHubRepositoryActions,omitempty" pageship:"max=100"`
+}
+
+func (c CredentialMatcher) String() string {
+	switch {
+	case c.PageshipUser != "":
+		return fmt.Sprintf("pageshipUser:%s", c.PageshipUser)
+	case c.GitHubUser != "":
+		return fmt.Sprintf("githubUser:%s", c.GitHubUser)
+	case c.GitHubRepositoryActions != "":
+		return fmt.Sprintf("gitHubRepositoryActions:%s", c.GitHubRepositoryActions)
+	}
+	return "<unknown>"
 }

@@ -38,7 +38,7 @@ func (c *Controller) handleAuthGithubSSHConn(conn *websocket.Conn) {
 			fingerprint := ssh.FingerprintSHA256(pubKey)
 			pubKeys, err := c.githubKeys.PublicKey(meta.User())
 			if err != nil {
-				c.Logger.Warn("cannot get GitHub public key",
+				log(conn.Request()).Warn("cannot get GitHub public key",
 					zap.String("user", meta.User()),
 					zap.Error(err),
 				)
@@ -46,7 +46,7 @@ func (c *Controller) handleAuthGithubSSHConn(conn *websocket.Conn) {
 			}
 
 			if _, ok := pubKeys[string(pubKey.Marshal())]; !ok {
-				c.Logger.Debug(
+				log(conn.Request()).Debug(
 					"user authentication failed",
 					zap.String("user", meta.User()),
 					zap.String("fingerprint", fingerprint),
@@ -55,28 +55,28 @@ func (c *Controller) handleAuthGithubSSHConn(conn *websocket.Conn) {
 				return nil, fmt.Errorf("unknown public key for %q", meta.User())
 			}
 
-			cred := models.CredentialGitHubUser(meta.User())
-			list, err := c.Config.UserCredentialsAllowlist.Get(conn.Request().Context())
-			if err != nil {
-				return nil, fmt.Errorf("access denied")
+			if c.Config.UserCredentialsAllowlist != nil {
+				list, err := c.Config.UserCredentialsAllowlist.Get(conn.Request().Context())
+				if err != nil {
+					return nil, fmt.Errorf("access denied")
+				}
+
+				cred := models.CredentialGitHubUser(meta.User())
+				if !list.IsAllowed(cred) {
+					log(conn.Request()).Info(
+						"user rejected",
+						zap.String("github_user", meta.User()),
+						zap.String("ssh_fingerprint", fingerprint),
+					)
+
+					return nil, fmt.Errorf("access denied")
+				}
 			}
 
-			if !list.IsAllowed(cred) {
-				c.Logger.Info(
-					"user rejected",
-					zap.String("request_id", requestID(conn.Request())),
-					zap.String("user", meta.User()),
-					zap.String("fingerprint", fingerprint),
-				)
-
-				return nil, fmt.Errorf("access denied")
-			}
-
-			c.Logger.Info(
+			log(conn.Request()).Info(
 				"user authenticated",
-				zap.String("request_id", requestID(conn.Request())),
-				zap.String("user", meta.User()),
-				zap.String("fingerprint", fingerprint),
+				zap.String("github_user", meta.User()),
+				zap.String("ssh_fingerprint", fingerprint),
 			)
 
 			return &ssh.Permissions{
@@ -96,18 +96,20 @@ func (c *Controller) handleAuthGithubSSHConn(conn *websocket.Conn) {
 	case <-c.Clock.After(time.Second * 5):
 	case req := <-reqs:
 		if req.Type != "pageship" {
-			c.Logger.Debug("invalid req type")
+			log(conn.Request()).Debug("invalid req type")
 			break
 		}
 
+		username := sshConn.User()
 		token, err := c.generateUserToken(
 			conn.Request().Context(),
-			models.CredentialGitHubUser(sshConn.User()),
+			username,
+			models.CredentialGitHubUser(username),
 			&models.UserCredentialData{
 				KeyFingerprint: sshConn.Permissions.Extensions["pubkey-fp"],
 			})
 		if err != nil {
-			c.Logger.Warn("failed to generate token", zap.Error(err))
+			log(conn.Request()).Warn("failed to generate token", zap.Error(err))
 			req.Reply(false, []byte("internal server error"))
 			sshConn.Close()
 			return

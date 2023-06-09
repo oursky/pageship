@@ -12,22 +12,14 @@ import (
 	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/httputil"
 	"github.com/oursky/pageship/internal/models"
+	"go.uber.org/zap"
 )
 
 type authnInfo struct {
-	Subject         string
-	Name            string
-	IsBot           bool
-	CredentialIDs   []models.CredentialID
-	CredentialIDMap map[models.CredentialID]struct{}
-}
-
-func (i *authnInfo) checkCredentialID(id models.CredentialID) bool {
-	if id == "" {
-		return false
-	}
-	_, ok := i.CredentialIDMap[id]
-	return ok
+	Subject       string
+	Name          string
+	IsBot         bool
+	CredentialIDs []models.CredentialID
 }
 
 func createUser(
@@ -56,11 +48,12 @@ func ensureUser(
 	ctx context.Context,
 	tx db.Tx,
 	now time.Time,
+	name string,
 	credentialID models.CredentialID,
 ) (*models.User, *models.UserCredential, error) {
 	cred, err := tx.GetCredential(ctx, credentialID)
 	if errors.Is(err, models.ErrUserNotFound) {
-		user, err := createUser(ctx, tx, now, credentialID.Name())
+		user, err := createUser(ctx, tx, now, name)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -84,13 +77,14 @@ func ensureUser(
 
 func (c *Controller) generateUserToken(
 	ctx context.Context,
+	name string,
 	credentialID models.CredentialID,
 	data *models.UserCredentialData,
 ) (string, error) {
 	now := c.Clock.Now().UTC()
 
 	user, err := withTx(ctx, c.DB, func(tx db.Tx) (*models.User, error) {
-		user, cred, err := ensureUser(ctx, tx, now, credentialID)
+		user, cred, err := ensureUser(ctx, tx, now, name, credentialID)
 		if err != nil {
 			return nil, err
 		}
@@ -129,11 +123,19 @@ func (c *Controller) middlewareAuthn(next http.Handler) http.Handler {
 				return
 			}
 			authn = info
-
-			middleware.GetLogEntry(r).(*httputil.LogEntry).User = authn.Subject
 		}
 
 		r = set(r, authn)
+
+		if authn != nil {
+			loggers := get[*loggers](r)
+			loggers.Logger = loggers.Logger.With(zap.String("user", authn.Subject))
+			loggers.authn = loggers.Logger
+
+			entry := middleware.GetLogEntry(r).(*httputil.LogEntry)
+			entry.Logger = entry.Logger.With(zap.String("user", authn.Subject))
+		}
+
 		next.ServeHTTP(w, r)
 	})
 }

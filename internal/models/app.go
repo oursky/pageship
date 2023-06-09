@@ -1,6 +1,7 @@
 package models
 
 import (
+	"sort"
 	"time"
 
 	"github.com/oursky/pageship/internal/config"
@@ -29,12 +30,24 @@ func NewApp(now time.Time, id string, ownerUserID string) *App {
 	}
 }
 
-func (a *App) CredentialIDs() []CredentialID {
-	credIDs := []CredentialID{CredentialUserID(a.OwnerUserID)}
+func (a *App) CredentialIndexKeys() []CredentialndexKey {
+	m := make(map[CredentialndexKey]struct{})
+
+	collectIndexKeys(m, &config.CredentialMatcher{PageshipUser: a.OwnerUserID})
 	for _, r := range a.Config.Team {
-		if id := CredentialIDFromSubject(&r.AccessSubject); id != nil {
-			credIDs = append(credIDs, *id)
-		}
+		collectIndexKeys(m, &r.CredentialMatcher)
 	}
-	return credIDs
+
+	var keys []CredentialndexKey
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	return keys
+}
+
+func collectIndexKeys(keys map[CredentialndexKey]struct{}, m *config.CredentialMatcher) {
+	for _, k := range MakeCredentialMatcherIndexKeys(m) {
+		keys[k] = struct{}{}
+	}
 }

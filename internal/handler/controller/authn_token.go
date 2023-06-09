@@ -69,16 +69,10 @@ func (c *Controller) handleTokenUser(ctx context.Context, userID string) (*authn
 		return nil, err
 	}
 
-	idMap := make(map[models.CredentialID]struct{}, len(credIDs))
-	for _, id := range credIDs {
-		idMap[id] = struct{}{}
-	}
-
 	return &authnInfo{
-		Subject:         user.ID,
-		Name:            user.Name,
-		CredentialIDs:   credIDs,
-		CredentialIDMap: idMap,
+		Subject:       user.ID,
+		Name:          user.Name,
+		CredentialIDs: credIDs,
 	}, nil
 }
 
@@ -88,16 +82,10 @@ func (c *Controller) handleTokenGitHubActions(
 	name string,
 	credentials []models.CredentialID,
 ) (*authnInfo, error) {
-	idMap := make(map[models.CredentialID]struct{}, len(credentials))
-	for _, id := range credentials {
-		idMap[id] = struct{}{}
-	}
-
 	return &authnInfo{
-		Subject:         subject,
-		Name:            name,
-		IsBot:           true,
-		CredentialIDs:   credentials,
-		CredentialIDMap: idMap,
+		Subject:       subject,
+		Name:          name,
+		IsBot:         true,
+		CredentialIDs: credentials,
 	}, nil
 }

@@ -4,25 +4,9 @@ import (
 	"net/http"
 
 	"github.com/oursky/pageship/internal/config"
-	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/models"
+	"go.uber.org/zap"
 )
-
-func checkAuthz(r *http.Request, q db.DBQuery, level config.AccessLevel, authn *authnInfo) error {
-	app := get[*models.App](r)
-
-	if app.OwnerUserID == authn.Subject {
-		return nil
-	}
-	for _, r := range app.Config.Team {
-		credID := models.CredentialIDFromSubject(&r.AccessSubject)
-		if credID != nil && authn.checkCredentialID(*credID) && r.Access.CanAccess(level) {
-			return nil
-		}
-	}
-
-	return models.ErrAccessDenied
-}
 
 func (c *Controller) requireAccess(level config.AccessLevel) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -33,11 +17,25 @@ func (c *Controller) requireAccess(level config.AccessLevel) func(next http.Hand
 				return
 			}
 
-			err := checkAuthz(r, c.DB, level, info)
+			app := get[*models.App](r)
+			userID := ""
+			if !info.IsBot {
+				userID = info.Subject
+			}
+			authz, err := app.CheckAuthz(level, userID, info.CredentialIDs)
 			if err != nil {
 				writeResponse(w, nil, err)
 				return
 			}
+
+			fields := []zap.Field{
+				zap.String("app", string(app.ID)),
+				zap.String("credential", string(authz.CredentialID)),
+				zap.String("credential_rule", authz.MatchedRule()),
+			}
+
+			loggers := get[*loggers](r)
+			loggers.Logger = loggers.authn.With(fields...) // Replace authz logger fields
 
 			next.ServeHTTP(w, r)
 		})

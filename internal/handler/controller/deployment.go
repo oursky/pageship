@@ -148,12 +148,7 @@ func (c *Controller) handleDeploymentCreate(w http.ResponseWriter, r *http.Reque
 			return nil, err
 		}
 
-		c.Logger.Info("creating deployment",
-			zap.String("request_id", requestID(r)),
-			zap.String("subject", getSubject(r)),
-			zap.String("app", app.ID),
-			zap.String("deployment", deployment.ID),
-		)
+		log(r).Info("creating deployment", zap.String("deployment", deployment.ID))
 
 		return c.makeAPIDeployment(app, db.DeploymentInfo{
 			Deployment:    deployment,
@@ -176,12 +171,7 @@ func (c *Controller) handleDeploymentUpload(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	c.Logger.Info("uploading deployment",
-		zap.String("request_id", requestID(r)),
-		zap.String("subject", getSubject(r)),
-		zap.String("app", app.ID),
-		zap.String("deployment", deployment.ID),
-	)
+	log(r).Info("uploading deployment", zap.String("deployment", deployment.ID))
 
 	// Extract tarball to object stoarge
 
@@ -218,12 +208,7 @@ func (c *Controller) handleDeploymentUpload(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	c.Logger.Info("upload deployment complete",
-		zap.String("request_id", requestID(r)),
-		zap.String("subject", getSubject(r)),
-		zap.String("app", app.ID),
-		zap.String("deployment", deployment.ID),
-	)
+	log(r).Info("upload deployment complete", zap.String("deployment", deployment.ID))
 
 	now := c.Clock.Now().UTC()
 

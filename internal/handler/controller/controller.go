@@ -46,6 +46,14 @@ func (c *Controller) Handler() http.Handler {
 	}
 
 	r := chi.NewRouter()
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r = set(r, &loggers{
+				Logger: c.Logger.With(zap.String("request_id", requestID(r))),
+			})
+			next.ServeHTTP(w, r)
+		})
+	})
 	r.Use(middleware.Heartbeat("/healthz"))
 	r.Use(c.middlewareAuthn)
 

@@ -4,10 +4,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
-
-	"github.com/oursky/pageship/internal/config"
 )
 
 type User struct {
@@ -45,51 +42,6 @@ func NewUserCredential(now time.Time, userID string, id CredentialID, data *User
 		DeletedAt: nil,
 		UserID:    userID,
 		Data:      data,
-	}
-}
-
-type CredentialID string
-
-func CredentialIDFromSubject(s *config.AccessSubject) *CredentialID {
-	var id CredentialID
-	switch {
-	case s.PageshipUser != "":
-		id = CredentialUserID(s.PageshipUser)
-	case s.GitHubUser != "":
-		id = CredentialGitHubUser(s.GitHubUser)
-	case s.GitHubRepositoryActions != "":
-		id = CredentialGitHubRepositoryActions(s.GitHubRepositoryActions)
-	default:
-		return nil
-	}
-	return &id
-}
-
-func CredentialUserID(id string) CredentialID {
-	return CredentialID(id)
-}
-
-func CredentialGitHubUser(username string) CredentialID {
-	return CredentialID("github:" + username)
-}
-
-func CredentialGitHubRepositoryActions(repo string) CredentialID {
-	return CredentialID("github-repo-actions:" + repo)
-}
-
-func (i CredentialID) Name() string {
-	kind, data, found := strings.Cut(string(i), ":")
-	if !found {
-		return string(i)
-	}
-
-	switch kind {
-	case "github":
-		name := data
-		return name
-
-	default:
-		return string(i)
 	}
 }
 

@@ -78,12 +78,7 @@ func (c *Controller) handleSiteCreate(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 
-		c.Logger.Info("creating site",
-			zap.String("request_id", requestID(r)),
-			zap.String("subject", getSubject(r)),
-			zap.String("app", app.ID),
-			zap.String("deployment", site.ID),
-		)
+		log(r).Info("creating site", zap.String("site", site.ID))
 
 		return c.makeAPISite(app, *info), nil
 	}))
@@ -210,10 +205,7 @@ func (c *Controller) handleSiteUpdate(w http.ResponseWriter, r *http.Request) {
 			if site.DeploymentID != nil {
 				oldDeployment = *site.DeploymentID
 			}
-			c.Logger.Info("updating site deployment",
-				zap.String("request_id", requestID(r)),
-				zap.String("subject", getSubject(r)),
-				zap.String("app", app.ID),
+			log(r).Info("updating site deployment",
 				zap.String("old_deployment", oldDeployment),
 				zap.String("new_deployment", *request.DeploymentName),
 			)

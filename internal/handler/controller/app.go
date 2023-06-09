@@ -58,11 +58,7 @@ func (c *Controller) handleAppCreate(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 
-		c.Logger.Info("creating app",
-			zap.String("request_id", requestID(r)),
-			zap.String("subject", userID),
-			zap.String("app", app.ID),
-		)
+		log(r).Info("creating app", zap.String("app", app.ID))
 
 		return c.makeAPIApp(app), nil
 	}))

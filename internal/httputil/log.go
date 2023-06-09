@@ -9,10 +9,8 @@ import (
 )
 
 type LogEntry struct {
-	logger  *zap.Logger
+	Logger  *zap.Logger
 	request *http.Request
-	User    string
-	Site    string
 }
 
 func (l *LogEntry) Panic(v interface{}, stack []byte) {
@@ -22,21 +20,17 @@ func (l *LogEntry) Panic(v interface{}, stack []byte) {
 	} else {
 		f = zap.Any("error", v)
 	}
-	l.logger.Error("panic", f,
-		zap.String("request_id", middleware.GetReqID(l.request.Context())),
+	l.Logger.Error("panic", f,
 		zap.String("stack", string(stack)))
 }
 
 func (l *LogEntry) Write(status int, bytes int, header http.Header, elapsed time.Duration, extra interface{}) {
-	l.logger.Info("access",
-		zap.String("request_id", middleware.GetReqID(l.request.Context())),
+	l.Logger.Info("access",
 		zap.String("host", l.request.Host),
 		zap.String("uri", l.request.RequestURI),
 		zap.String("method", l.request.Method),
 		zap.String("remote", l.request.RemoteAddr),
 		zap.String("user_agent", l.request.UserAgent()),
-		zap.String("user", l.User),
-		zap.String("site", l.Site),
 		zap.Bool("tls", l.request.TLS != nil),
 		zap.Int64("request_length", l.request.ContentLength),
 		zap.Int("response_length", bytes),
@@ -48,5 +42,7 @@ func (l *LogEntry) Write(status int, bytes int, header http.Header, elapsed time
 type LogFormatter struct{ *zap.Logger }
 
 func (f LogFormatter) NewLogEntry(r *http.Request) middleware.LogEntry {
-	return &LogEntry{logger: f.Logger, request: r}
+	return &LogEntry{Logger: f.Logger.With(
+		zap.String("request_id", middleware.GetReqID(r.Context())),
+	), request: r}
 }

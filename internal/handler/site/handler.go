@@ -94,7 +94,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.logger.Debug("resolved site", zap.String("site", handler.ID()))
-	middleware.GetLogEntry(r).(*httputil.LogEntry).Site = handler.ID()
+	entry := middleware.GetLogEntry(r).(*httputil.LogEntry)
+	entry.Logger = entry.Logger.With(zap.String("site", handler.ID()))
 
 	handler.ServeHTTP(w, r)
 }

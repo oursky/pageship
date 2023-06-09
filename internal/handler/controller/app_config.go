@@ -6,7 +6,6 @@ import (
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/models"
-	"go.uber.org/zap"
 )
 
 func (c *Controller) handleAppConfigGet(w http.ResponseWriter, r *http.Request) {
@@ -37,11 +36,7 @@ func (c *Controller) handleAppConfigSet(w http.ResponseWriter, r *http.Request) 
 			return nil, err
 		}
 
-		c.Logger.Info("updating config",
-			zap.String("request_id", requestID(r)),
-			zap.String("subject", getSubject(r)),
-			zap.String("app", app.ID),
-		)
+		log(r).Info("updating config")
 
 		return app.Config, nil
 	}))
