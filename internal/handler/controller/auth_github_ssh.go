@@ -61,8 +61,9 @@ func (c *Controller) handleAuthGithubSSHConn(conn *websocket.Conn) {
 					return nil, fmt.Errorf("access denied")
 				}
 
-				cred := models.CredentialGitHubUser(meta.User())
-				if !list.IsAllowed(cred) {
+				creds := []models.CredentialID{models.CredentialGitHubUser(meta.User())}
+				creds = appendRequestCredentials(conn.Request(), creds)
+				if !list.IsAllowed(creds...) {
 					log(conn.Request()).Info(
 						"user rejected",
 						zap.String("github_user", meta.User()),

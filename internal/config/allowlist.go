@@ -29,7 +29,11 @@ func LoadAllowlist[T ~string](r io.Reader) (Allowlist[T], error) {
 	return list, scn.Err()
 }
 
-func (l Allowlist[T]) IsAllowed(value T) bool {
-	_, ok := l[value]
-	return ok
+func (l Allowlist[T]) IsAllowed(values ...T) bool {
+	for _, v := range values {
+		if _, ok := l[v]; ok {
+			return true
+		}
+	}
+	return false
 }
