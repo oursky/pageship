@@ -1,8 +1,8 @@
 package config
 
 type AppDeploymentsConfig struct {
-	Accessible bool   `json:"accessible"`
-	TTL        string `json:"ttl" pageship:"omitempty,duration"`
+	Access []CredentialMatcher `json:"access" pageship:"omitempty"`
+	TTL    string              `json:"ttl" pageship:"omitempty,duration"`
 }
 
 func (c *AppDeploymentsConfig) SetDefaults() {

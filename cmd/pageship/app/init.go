@@ -25,7 +25,7 @@ team = []
 
 [app.deployments]
 # ttl = "24h"
-# accessible = false
+# access = []
 
 [[app.sites]]
 name = "main"
@@ -38,6 +38,8 @@ name = "main"
 
 [site]
 public = {{.public}}
+
+# access = []
 `))
 
 func init() {

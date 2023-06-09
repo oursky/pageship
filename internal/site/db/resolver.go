@@ -25,43 +25,47 @@ func (r *Resolver) resolveDeployment(
 	ctx context.Context,
 	app *models.App,
 	siteName string,
-) (*models.Deployment, error) {
+) (*models.Deployment, string, error) {
 	deployment, err := r.DB.GetSiteDeployment(ctx, app.ID, siteName)
 
 	if deployment != nil {
 		// Site found, check site name
 		_, ok := app.Config.ResolveSite(siteName)
 		if !ok {
-			return nil, site.ErrSiteNotFound
+			return nil, "", site.ErrSiteNotFound
 		}
 	}
 
 	if errors.Is(err, models.ErrDeploymentNotFound) {
 		// Site not found, check deployment with same name
-		if !app.Config.Deployments.Accessible {
-			return nil, site.ErrSiteNotFound
+		deploymentName := siteName
+		siteName = ""
+
+		if len(app.Config.Deployments.Access) == 0 {
+			return nil, "", site.ErrSiteNotFound
 		}
 
-		deployment, err = r.DB.GetDeploymentByName(ctx, app.ID, siteName)
+		deployment, err = r.DB.GetDeploymentByName(ctx, app.ID, deploymentName)
 		if errors.Is(err, models.ErrDeploymentNotFound) {
-			return nil, site.ErrSiteNotFound
+			return nil, "", site.ErrSiteNotFound
 		} else if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 
 		sites, cerr := r.DB.GetDeploymentSiteNames(ctx, deployment)
 		if cerr != nil {
-			return nil, cerr
+			return nil, "", cerr
 		}
 		if len(sites) > 0 {
 			// Deployments assigned to site must be accessed through site
-			return nil, site.ErrSiteNotFound
+			return nil, "", site.ErrSiteNotFound
 		}
 
 	} else if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	return deployment, nil
+
+	return deployment, siteName, nil
 }
 
 func (h *Resolver) AllowAnyDomain() bool { return false }
@@ -78,7 +82,7 @@ func (r *Resolver) Resolve(ctx context.Context, matchedID string) (*site.Descrip
 		return nil, site.ErrSiteNotFound
 	}
 
-	deployment, err := r.resolveDeployment(ctx, app, siteName)
+	deployment, siteName, err := r.resolveDeployment(ctx, app, siteName)
 	if errors.Is(err, models.ErrDeploymentNotFound) {
 		return nil, site.ErrSiteNotFound
 	} else if err != nil {
@@ -89,10 +93,16 @@ func (r *Resolver) Resolve(ctx context.Context, matchedID string) (*site.Descrip
 		return nil, site.ErrSiteNotFound
 	}
 
+	config := deployment.Metadata.Config
+	if siteName == "" {
+		// Not assigned to site; use preview deployment access rules
+		config.Access = app.Config.Deployments.Access
+	}
+
 	id := strings.Join([]string{deployment.AppID, siteName, deployment.ID}, "/")
 	desc := &site.Descriptor{
 		ID:     id,
-		Config: &deployment.Metadata.Config,
+		Config: &config,
 		FS:     newStorageFS(r.Storage, deployment),
 	}
 

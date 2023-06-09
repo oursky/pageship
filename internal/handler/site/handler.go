@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/oursky/pageship/internal/cache"
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/httputil"
+	"github.com/oursky/pageship/internal/models"
 	"github.com/oursky/pageship/internal/site"
 	"go.uber.org/zap"
 )
@@ -82,6 +84,24 @@ func (h *Handler) CheckValidDomain(name string) error {
 	return err
 }
 
+func (h *Handler) checkAuthz(r *http.Request, handler *SiteHandler) error {
+	// Allow all access unless explicitly configured.
+	access := handler.desc.Config.Access
+	if len(access) == 0 {
+		return nil
+	}
+
+	var credentials []models.CredentialID
+
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err == nil {
+		credentials = append(credentials, models.CredentialIP(ip))
+	}
+
+	_, err = models.CheckDeploymentAuthz(access, credentials)
+	return err
+}
+
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	handler, err := h.resolveSite(r.Host)
 	if errors.Is(err, site.ErrSiteNotFound) {
@@ -96,6 +116,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.logger.Debug("resolved site", zap.String("site", handler.ID()))
 	entry := middleware.GetLogEntry(r).(*httputil.LogEntry)
 	entry.Logger = entry.Logger.With(zap.String("site", handler.ID()))
+
+	if err := h.checkAuthz(r, handler); err != nil {
+		http.NotFound(w, r)
+		return
+	}
 
 	handler.ServeHTTP(w, r)
 }

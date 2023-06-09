@@ -30,7 +30,7 @@ func (c *Controller) makeAPIDeployment(app *models.App, d db.DeploymentInfo) *ap
 	siteName := ""
 	if d.FirstSiteName != nil {
 		siteName = *d.FirstSiteName
-	} else if app.Config.Deployments.Accessible {
+	} else if len(app.Config.Deployments.Access) > 0 { // TODO: more detailed check
 		siteName = d.Name
 	}
 
