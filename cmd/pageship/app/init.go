@@ -19,23 +19,25 @@ import (
 
 var configTemplate = template.Must(template.New("").Parse(`
 [app]
-id={{.appID}}
+id = {{.appID}}
+
+team = []
 
 [app.deployments]
-# ttl="24h"
-# accessible=false
+# ttl = "24h"
+# accessible = false
 
 [[app.sites]]
-name="main"
+name = "main"
 
 # [[app.sites]]
-# name="dev"
+# name = "dev"
 
 # [[app.sites]]
-# name="staging"
+# name = "staging"
 
 [site]
-public={{.public}}
+public = {{.public}}
 `))
 
 func init() {
