@@ -19,6 +19,7 @@ type App struct {
 func NewApp(now time.Time, id string, ownerUserID string) *App {
 	config := config.DefaultAppConfig()
 	config.SetDefaults()
+	config.ID = id
 
 	return &App{
 		ID:          id,
