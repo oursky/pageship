@@ -18,11 +18,7 @@ func (c *Controller) requireAccess(level config.AccessLevel) func(next http.Hand
 			}
 
 			app := get[*models.App](r)
-			userID := ""
-			if !info.IsBot {
-				userID = info.Subject
-			}
-			authz, err := app.CheckAuthz(level, userID, info.CredentialIDs)
+			authz, err := app.CheckAuthz(level, info.UserID(), info.CredentialIDs)
 			if err != nil {
 				writeResponse(w, nil, err)
 				return

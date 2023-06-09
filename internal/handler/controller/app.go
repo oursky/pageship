@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/models"
 	"go.uber.org/zap"
@@ -69,12 +70,21 @@ func (c *Controller) handleAppGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controller) handleAppList(w http.ResponseWriter, r *http.Request) {
-	credIDs := get[*authnInfo](r).CredentialIDs
+	authn := get[*authnInfo](r)
 	respond(w, func() (any, error) {
-		apps, err := c.DB.ListApps(r.Context(), credIDs)
+		apps, err := c.DB.ListApps(r.Context(), authn.CredentialIDs)
 		if err != nil {
 			return nil, err
 		}
+
+		n := 0
+		for _, a := range apps {
+			if _, err := a.CheckAuthz(config.AccessLevelReader, authn.UserID(), authn.CredentialIDs); err == nil {
+				apps[n] = a
+				n++
+			}
+		}
+		apps = apps[:n]
 
 		return mapModels(apps, c.makeAPIApp), nil
 	})

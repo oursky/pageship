@@ -22,6 +22,13 @@ type authnInfo struct {
 	CredentialIDs []models.CredentialID
 }
 
+func (i *authnInfo) UserID() string {
+	if i.IsBot {
+		return ""
+	}
+	return i.Subject
+}
+
 func createUser(
 	ctx context.Context,
 	tx db.Tx,
@@ -117,7 +124,7 @@ func (c *Controller) middlewareAuthn(next http.Handler) http.Handler {
 
 		var authn *authnInfo
 		if token != "" {
-			info, err := c.verifyToken(r.Context(), token)
+			info, err := c.verifyToken(r, token)
 			if err != nil {
 				writeResponse(w, nil, err)
 				return

@@ -1,9 +1,10 @@
 package controller
 
 import (
-	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -27,7 +28,7 @@ func (c *Controller) issueToken(claims *models.TokenClaims) (string, error) {
 	return token, nil
 }
 
-func (c *Controller) verifyToken(ctx context.Context, token string) (*authnInfo, error) {
+func (c *Controller) verifyToken(r *http.Request, token string) (*authnInfo, error) {
 	claims := &models.TokenClaims{}
 	_, err := jwt.ParseWithClaims(
 		token,
@@ -48,23 +49,23 @@ func (c *Controller) verifyToken(ctx context.Context, token string) (*authnInfo,
 
 	switch kind {
 	case models.TokenSubjectKindUser:
-		return c.handleTokenUser(ctx, data)
+		return c.handleTokenUser(r, data)
 	case models.TokenSubjectKindGitHubActions:
-		return c.handleTokenGitHubActions(ctx, claims.Subject, claims.Name, claims.Credentials)
+		return c.handleTokenGitHubActions(r, claims.Subject, claims.Name, claims.Credentials)
 	default:
 		panic("unexpected kind: " + kind)
 	}
 }
 
-func (c *Controller) handleTokenUser(ctx context.Context, userID string) (*authnInfo, error) {
-	user, err := c.DB.GetUser(ctx, userID)
+func (c *Controller) handleTokenUser(r *http.Request, userID string) (*authnInfo, error) {
+	user, err := c.DB.GetUser(r.Context(), userID)
 	if errors.Is(err, models.ErrUserNotFound) {
 		return nil, models.ErrInvalidCredentials
 	} else if err != nil {
 		return nil, err
 	}
 
-	credIDs, err := c.DB.ListCredentialIDs(ctx, user.ID)
+	credIDs, err := c.DB.ListCredentialIDs(r.Context(), user.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -72,12 +73,12 @@ func (c *Controller) handleTokenUser(ctx context.Context, userID string) (*authn
 	return &authnInfo{
 		Subject:       user.ID,
 		Name:          user.Name,
-		CredentialIDs: credIDs,
+		CredentialIDs: appendRequestCredentials(r, credIDs),
 	}, nil
 }
 
 func (c *Controller) handleTokenGitHubActions(
-	ctx context.Context,
+	r *http.Request,
 	subject string,
 	name string,
 	credentials []models.CredentialID,
@@ -86,6 +87,14 @@ func (c *Controller) handleTokenGitHubActions(
 		Subject:       subject,
 		Name:          name,
 		IsBot:         true,
-		CredentialIDs: credentials,
+		CredentialIDs: appendRequestCredentials(r, credentials),
 	}, nil
+}
+
+func appendRequestCredentials(r *http.Request, credentials []models.CredentialID) []models.CredentialID {
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return credentials
+	}
+	return append(credentials, models.CredentialIP(ip))
 }
