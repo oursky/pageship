@@ -83,7 +83,7 @@ var initCmd = &cobra.Command{
 		if !fs.ValidPath(public) {
 			prompt := promptui.Prompt{
 				Label:   "Static files directory",
-				Default: "public",
+				Default: "dist",
 				Validate: func(s string) error {
 					if !fs.ValidPath(s) {
 						return errors.New("must be a valid path")
