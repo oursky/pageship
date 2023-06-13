@@ -1,0 +1,15 @@
+[app]
+id="test"
+
+team = []
+
+[[app.sites]]
+name = "main"
+
+[[app.sites]]
+name = "dev"
+
+[site]
+public="public"
+
+access=[]

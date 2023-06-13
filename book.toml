@@ -1,0 +1,12 @@
+[book]
+authors = ["kiootic"]
+language = "en"
+multilingual = false
+src = "docs"
+title = "Pageship"
+
+[build]
+extra-watch-dirs = ["README.md"]
+
+[output.html]
+git-repository-url = "https://github.com/oursky/pageship"
