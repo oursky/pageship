@@ -1,6 +1,6 @@
-# Unmanaged sites
+# Unmanaged-sites mode
 
-Unmanaged sites mode hosts multiple static sites in a server.
+Unmanaged-sites mode hosts multiple static sites in a server.
 
 ## Setup
 
@@ -28,7 +28,7 @@ The directory layout should look like this:
 ```yaml
 version: "3"
 services:
-  controller:
+  pageship:
     image: ghcr.io/oursky/pageship-server
     volumes:
       - /var/pageship:/var/pageship

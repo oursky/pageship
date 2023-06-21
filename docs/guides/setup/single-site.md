@@ -1,6 +1,6 @@
-# Single site
+# Single-site mode
 
-Single site mode hosts a single static site in a server.
+Single-site mode hosts a single static site in a server.
 
 ## Setup
 
@@ -21,7 +21,7 @@ layout should look like this:
 ```yaml
 version: "3"
 services:
-  controller:
+  pageship:
     image: ghcr.io/oursky/pageship-server
     volumes:
       - /var/pageship:/var/pageship
