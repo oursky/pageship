@@ -7,8 +7,17 @@ To deploy from GitHub Actions, first configure the app to accept GitHub Actions
 running in the repo as `deployer` permission. See [Access Control](./access-control.md)
 guide for details.
 
-After configuring access control, install `pageship` command in workflow and
-deploy directly.
+Then, enable OIDC token in GitHub Actions workflow by granting `id-token`
+permission to workflow jobs:
+```yaml
+jobs:
+  <job-name>:
+    permissions:
+      contents: read
+      id-token: write
+```
+
+Finally, install `pageship` command in workflow and deploy directly.
 
 ```
 docker run --rm \
