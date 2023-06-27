@@ -58,7 +58,7 @@ var appsCreateCmd = &cobra.Command{
 		if code, ok := api.ErrorStatusCode(err); ok && code == http.StatusNotFound {
 			app = nil
 		} else if err != nil {
-			return fmt.Errorf("fFailed to get app: %w", err)
+			return fmt.Errorf("failed to get app: %w", err)
 		}
 
 		if app != nil {
