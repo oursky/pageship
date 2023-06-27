@@ -34,7 +34,7 @@ func CredentialIP(ip string) CredentialID {
 	return CredentialID(string(CredentialIDIP) + ":" + ip)
 }
 
-func (c CredentialID) Matches(m *config.CredentialMatcher) bool {
+func (c CredentialID) Matches(r *config.ACLSubjectRule) bool {
 	kind, data, found := strings.Cut(string(c), ":")
 	if !found {
 		data = kind
@@ -43,17 +43,17 @@ func (c CredentialID) Matches(m *config.CredentialMatcher) bool {
 
 	switch CredentialIDKind(kind) {
 	case CredentialIDKindUserID:
-		return m.PageshipUser != "" && m.PageshipUser == data
+		return r.PageshipUser != "" && r.PageshipUser == data
 	case CredentialIDKindGitHubUser:
-		return m.GitHubUser != "" && m.GitHubUser == data
+		return r.GitHubUser != "" && r.GitHubUser == data
 	case CredentialIDGitHubRepositoryActions:
-		return m.GitHubRepositoryActions != "" && m.GitHubRepositoryActions == data
+		return r.GitHubRepositoryActions != "" && r.GitHubRepositoryActions == data
 	case CredentialIDIP:
-		if m.IpRange == "" {
+		if r.IpRange == "" {
 			return false
 		}
 
-		cidr, err := netip.ParsePrefix(m.IpRange)
+		cidr, err := netip.ParsePrefix(r.IpRange)
 		if err != nil {
 			return false
 		}
@@ -111,16 +111,16 @@ func CollectCredentialIDIndexKeys(ids []CredentialID) []CredentialIndexKey {
 	return keys
 }
 
-func MakeCredentialMatcherIndexKeys(c *config.CredentialMatcher) []CredentialIndexKey {
+func MakeCredentialRuleIndexKeys(r *config.ACLSubjectRule) []CredentialIndexKey {
 	switch {
-	case c.PageshipUser != "":
-		return MakeCredentialIDIndexKeys(CredentialUserID(c.PageshipUser))
-	case c.GitHubUser != "":
-		return MakeCredentialIDIndexKeys(CredentialGitHubUser(c.GitHubUser))
-	case c.GitHubRepositoryActions != "":
-		return MakeCredentialIDIndexKeys(CredentialGitHubRepositoryActions(c.GitHubRepositoryActions))
-	case c.IpRange != "":
-		cidr, err := netip.ParsePrefix(c.IpRange)
+	case r.PageshipUser != "":
+		return MakeCredentialIDIndexKeys(CredentialUserID(r.PageshipUser))
+	case r.GitHubUser != "":
+		return MakeCredentialIDIndexKeys(CredentialGitHubUser(r.GitHubUser))
+	case r.GitHubRepositoryActions != "":
+		return MakeCredentialIDIndexKeys(CredentialGitHubRepositoryActions(r.GitHubRepositoryActions))
+	case r.IpRange != "":
+		cidr, err := netip.ParsePrefix(r.IpRange)
 		if err != nil {
 			return nil
 		}

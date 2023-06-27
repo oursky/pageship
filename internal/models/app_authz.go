@@ -4,30 +4,30 @@ import "github.com/oursky/pageship/internal/config"
 
 type AppAuthzResult struct {
 	CredentialID CredentialID
-	Matcher      *config.CredentialMatcher // nil => is owner
+	Rule         *config.ACLSubjectRule // nil => is owner
 }
 
 func (i *AppAuthzResult) MatchedRule() string {
-	if i.Matcher == nil {
+	if i.Rule == nil {
 		return "<owner>"
 	}
-	return i.Matcher.String()
+	return i.Rule.String()
 }
 
 func (a *App) CheckAuthz(level config.AccessLevel, userID string, credentials []CredentialID) (*AppAuthzResult, error) {
 	if userID != "" && a.OwnerUserID == userID {
 		return &AppAuthzResult{
 			CredentialID: CredentialUserID(a.OwnerUserID),
-			Matcher:      nil,
+			Rule:         nil,
 		}, nil
 	}
 
 	for _, r := range a.Config.Team {
 		for _, id := range credentials {
-			if id.Matches(&r.CredentialMatcher) && r.Access.CanAccess(level) {
+			if id.Matches(&r.ACLSubjectRule) && r.Access.CanAccess(level) {
 				return &AppAuthzResult{
 					CredentialID: id,
-					Matcher:      &r.CredentialMatcher,
+					Rule:         &r.ACLSubjectRule,
 				}, nil
 			}
 		}
@@ -36,13 +36,13 @@ func (a *App) CheckAuthz(level config.AccessLevel, userID string, credentials []
 	return nil, ErrAccessDenied
 }
 
-func CheckDeploymentAuthz(access []config.CredentialMatcher, credentials []CredentialID) (*AppAuthzResult, error) {
-	for _, m := range access {
+func CheckACLAuthz(access config.ACL, credentials []CredentialID) (*AppAuthzResult, error) {
+	for _, r := range access {
 		for _, id := range credentials {
-			if id.Matches(&m) {
+			if id.Matches(&r) {
 				return &AppAuthzResult{
 					CredentialID: id,
-					Matcher:      &m,
+					Rule:         &r,
 				}, nil
 			}
 		}

@@ -98,7 +98,7 @@ func (h *Handler) checkAuthz(r *http.Request, handler *SiteHandler) error {
 		credentials = append(credentials, models.CredentialIP(ip))
 	}
 
-	_, err = models.CheckDeploymentAuthz(access, credentials)
+	_, err = models.CheckACLAuthz(access, credentials)
 	return err
 }
 

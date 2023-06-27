@@ -18,7 +18,6 @@ import (
 	"github.com/oursky/pageship/internal/handler/site"
 	"github.com/oursky/pageship/internal/handler/site/middleware"
 	"github.com/oursky/pageship/internal/httputil"
-	"github.com/oursky/pageship/internal/models"
 	sitedb "github.com/oursky/pageship/internal/site/db"
 	"github.com/oursky/pageship/internal/storage"
 	"github.com/oursky/pageship/internal/watch"
@@ -54,7 +53,7 @@ func init() {
 	startCmd.PersistentFlags().String("host-pattern", config.DefaultHostPattern, "host match pattern")
 	startCmd.PersistentFlags().String("host-id-scheme", string(config.HostIDSchemeDefault), "host ID scheme")
 	startCmd.PersistentFlags().StringSlice("reserved-apps", []string{defaultControllerHostID}, "reserved app IDs")
-	startCmd.PersistentFlags().String("user-credentials-allowlist", "", "user credentials allowlist file")
+	startCmd.PersistentFlags().String("api-acl", "", "API ACL file")
 
 	startCmd.PersistentFlags().String("token-authority", "pageship", "auth token authority")
 	startCmd.PersistentFlags().String("token-signing-key", "", "auth token signing key")
@@ -95,12 +94,12 @@ type StartSitesConfig struct {
 }
 
 type StartControllerConfig struct {
-	MaxDeploymentSize        string   `mapstructure:"max-deployment-size" validate:"size"`
-	StorageKeyPrefix         string   `mapstructure:"storage-key-prefix"`
-	TokenSigningKey          string   `mapstructure:"token-signing-key"`
-	TokenAuthority           string   `mapstructure:"token-authority"`
-	ReservedApps             []string `mapstructure:"reserved-apps"`
-	UserCredentialsAllowlist string   `mapstructure:"user-credentials-allowlist" validate:"omitempty,filepath"`
+	MaxDeploymentSize string   `mapstructure:"max-deployment-size" validate:"size"`
+	StorageKeyPrefix  string   `mapstructure:"storage-key-prefix"`
+	TokenSigningKey   string   `mapstructure:"token-signing-key"`
+	TokenAuthority    string   `mapstructure:"token-authority"`
+	ReservedApps      []string `mapstructure:"reserved-apps"`
+	APIACLFile        string   `mapstructure:"api-acl" validate:"omitempty,filepath"`
 }
 
 type StartCronConfig struct {
@@ -175,24 +174,24 @@ func (s *setup) controller(domain string, conf StartControllerConfig, sitesConf 
 		TokenAuthority:    conf.TokenAuthority,
 	}
 
-	if conf.UserCredentialsAllowlist != "" {
-		allowlistLog := logger.Named("allowlist")
-		list, err := watch.NewFile(
-			allowlistLog,
-			conf.UserCredentialsAllowlist,
-			func(path string) (config.Allowlist[models.CredentialID], error) {
+	if conf.APIACLFile != "" {
+		aclLog := logger.Named("api-acl")
+		acl, err := watch.NewFile(
+			aclLog,
+			conf.APIACLFile,
+			func(path string) (config.ACL, error) {
 				f, err := os.Open(path)
 				if err != nil {
 					return nil, err
 				}
 				defer f.Close()
 
-				list, err := config.LoadAllowlist[models.CredentialID](f)
+				list, err := config.LoadACL(f)
 				if err != nil {
 					return nil, err
 				}
 
-				allowlistLog.Info("loaded allowlist", zap.Int("count", len(list)))
+				aclLog.Info("loaded ACL", zap.Int("count", len(list)))
 				return list, nil
 			},
 		)
@@ -200,10 +199,10 @@ func (s *setup) controller(domain string, conf StartControllerConfig, sitesConf 
 			return err
 		}
 
-		controllerConf.UserCredentialsAllowlist = list
+		controllerConf.ACL = acl
 		s.works = append(s.works, func(ctx context.Context) error {
 			<-ctx.Done()
-			list.Close()
+			acl.Close()
 			return nil
 		})
 	}

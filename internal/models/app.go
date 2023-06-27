@@ -34,9 +34,9 @@ func NewApp(now time.Time, id string, ownerUserID string) *App {
 func (a *App) CredentialIndexKeys() []CredentialIndexKey {
 	m := make(map[CredentialIndexKey]struct{})
 
-	collectIndexKeys(m, &config.CredentialMatcher{PageshipUser: a.OwnerUserID})
+	collectIndexKeys(m, &config.ACLSubjectRule{PageshipUser: a.OwnerUserID})
 	for _, r := range a.Config.Team {
-		collectIndexKeys(m, &r.CredentialMatcher)
+		collectIndexKeys(m, &r.ACLSubjectRule)
 	}
 
 	var keys []CredentialIndexKey
@@ -47,8 +47,8 @@ func (a *App) CredentialIndexKeys() []CredentialIndexKey {
 	return keys
 }
 
-func collectIndexKeys(keys map[CredentialIndexKey]struct{}, m *config.CredentialMatcher) {
-	for _, k := range MakeCredentialMatcherIndexKeys(m) {
+func collectIndexKeys(keys map[CredentialIndexKey]struct{}, r *config.ACLSubjectRule) {
+	for _, k := range MakeCredentialRuleIndexKeys(r) {
 		keys[k] = struct{}{}
 	}
 }
