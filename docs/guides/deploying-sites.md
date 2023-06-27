@@ -23,6 +23,14 @@ $ pageship apps configure
 Configured app "...".
 ```
 
+You can reset the client side config using `pageship config reset`
+
+```
+$ pageship config reset
+Reset client config: y
+INFO   Client config reset.
+```
+
 ## Deploy site
 
 By default, each app has a default `main` site. Other sites can be configured in
