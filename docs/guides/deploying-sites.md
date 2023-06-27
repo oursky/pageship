@@ -42,7 +42,8 @@ uploading 100%
   INFO   Done!
 ```
 
-To deploy as a preview deployment, omit the `site` parameter.
+To deploy as a preview deployment, omit the `site` parameter. For details,
+refer to [Preview Deployment](./features/preview-deployment.md) guide.
 
 ```
 $ pageship deploy --site main

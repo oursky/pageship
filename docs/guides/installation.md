@@ -10,7 +10,7 @@ Docker images are available from GitHub Packages:
 
 ```sh
 docker pull ghcr.io/oursky/pageship:v0.3.1
-docker pull ghcr.io/oursky/pageship:v0.3.1
+docker pull ghcr.io/oursky/pageship-controller:v0.3.1
 ```
 
 ## Go install
