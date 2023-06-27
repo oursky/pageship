@@ -37,7 +37,7 @@ func (q query[T]) CreateSiteIfNotExist(ctx context.Context, site *models.Site) (
 func (q query[T]) GetSiteByName(ctx context.Context, appID string, name string) (*models.Site, error) {
 	var site models.Site
 	err := sqlx.GetContext(ctx, q.ext, &site, `
-		SELECT s.id, s.app_id, s.name, s.created_at, s.updated_at, s.deleted_at FROM site s
+		SELECT s.id, s.app_id, s.name, s.created_at, s.updated_at, s.deleted_at, s.deployment_id FROM site s
 			JOIN app a ON (a.id = s.app_id AND a.deleted_at IS NULL)
 			WHERE s.app_id = $1 AND s.name = $2 AND s.deleted_at IS NULL
 	`, appID, name)
@@ -68,7 +68,7 @@ func (q query[T]) GetSiteInfo(ctx context.Context, appID string, siteID string) 
 func (q query[T]) ListSitesInfo(ctx context.Context, appID string) ([]db.SiteInfo, error) {
 	var info []db.SiteInfo
 	err := sqlx.SelectContext(ctx, q.ext, &info, `
-		SELECT s.id, s.app_id, s.name, s.created_at, s.updated_at, s.deleted_at, s.deployment_id, s.deployment_id, d.name AS deployment_name FROM site s
+		SELECT s.id, s.app_id, s.name, s.created_at, s.updated_at, s.deleted_at, s.deployment_id, d.name AS deployment_name FROM site s
 			JOIN app a ON (a.id = s.app_id AND a.deleted_at IS NULL)
 			LEFT JOIN deployment d ON (d.id = s.deployment_id AND d.deleted_at IS NULL)
 			WHERE s.app_id = $1 AND s.deleted_at IS NULL
