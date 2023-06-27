@@ -47,7 +47,9 @@ func (c CredentialID) Matches(r *config.ACLSubjectRule) bool {
 	case CredentialIDKindGitHubUser:
 		return r.GitHubUser != "" && r.GitHubUser == data
 	case CredentialIDGitHubRepositoryActions:
-		return r.GitHubRepositoryActions != "" && r.GitHubRepositoryActions == data
+		return r.GitHubRepositoryActions != "" &&
+			(r.GitHubRepositoryActions == data ||
+				r.GitHubRepositoryActions == "*")
 	case CredentialIDIP:
 		if r.IpRange == "" {
 			return false
@@ -85,9 +87,14 @@ func MakeCredentialIDIndexKeys(id CredentialID) []CredentialIndexKey {
 
 	switch CredentialIDKind(kind) {
 	case CredentialIDKindUserID,
-		CredentialIDKindGitHubUser,
-		CredentialIDGitHubRepositoryActions:
+		CredentialIDKindGitHubUser:
 		return []CredentialIndexKey{CredentialIndexKey(id)}
+
+	case CredentialIDGitHubRepositoryActions:
+		return []CredentialIndexKey{
+			CredentialIndexKey(id),
+			CredentialIndexKey(CredentialIDGitHubRepositoryActions + ":*"),
+		}
 
 	case CredentialIDIP:
 		addr, err := netip.ParseAddr(data)
