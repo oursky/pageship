@@ -36,5 +36,5 @@ Actions integration, but is more complex to setup.
 You can use `pageship` command to deploy to server and manage sites using this
 mode.
 
-See the [setup guide for managed sites mode](./setup/unmanaged-sites.md)
+See the [setup guide for managed sites mode](./setup/managed-sites.md)
 
