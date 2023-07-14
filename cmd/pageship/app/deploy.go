@@ -78,6 +78,14 @@ func doDeploy(ctx context.Context, appID string, siteName string, deploymentName
 	}
 	defer os.Remove(tarfile.Name())
 
+	Debug("Configuring app...")
+	_, err = API().ConfigureApp(ctx, appID, &conf.App)
+	if code, ok := api.ErrorStatusCode(err); ok && code == http.StatusForbidden {
+		Warn("Insufficient permission; skip configuring app.")
+	} else if err != nil {
+		return fmt.Errorf("failed to configure app: %w", err)
+	}
+
 	Info("Collecting files...")
 	Debug("Tarball: %s", tarfile.Name())
 	files, tarSize, err := packTar(dir, tarfile, conf)
@@ -116,14 +124,6 @@ func doDeploy(ctx context.Context, appID string, siteName string, deploymentName
 	deployment, err = API().UploadDeploymentTarball(ctx, appID, deployment.Name, body, tarSize)
 	if err != nil {
 		return fmt.Errorf("failed to upload tarball: %w", err)
-	}
-
-	Debug("Configuring app...")
-	_, err = API().ConfigureApp(ctx, appID, &conf.App)
-	if code, ok := api.ErrorStatusCode(err); ok && code == http.StatusForbidden {
-		Warn("Insufficient permission; skip configuring app.")
-	} else if err != nil {
-		return fmt.Errorf("failed to configure app: %w", err)
 	}
 
 	if siteName != "" {
