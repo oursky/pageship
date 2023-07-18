@@ -4,7 +4,10 @@
 
 Download latest binary release from [GitHub](https://github.com/oursky/pageship/releases).
 
-For macOS user, run `xattr -c pageship_x.x.x_darwin_arm64.tar.gz` before unzip the binary file
+```
+curl https://raw.githubusercontent.com/oursky/pageship/main/install.sh | sh -s -- -b .
+sudo mv ./pageship /usr/local/bin
+```
 
 ## Runner with Docker
 
