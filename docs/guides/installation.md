@@ -5,7 +5,7 @@
 Download latest binary release from [GitHub](https://github.com/oursky/pageship/releases).
 
 ```
-curl https://raw.githubusercontent.com/oursky/pageship/main/install.sh | sh -s -- -b .
+curl -sSL https://raw.githubusercontent.com/oursky/pageship/main/install.sh | sh -s -- -b .
 sudo mv ./pageship /usr/local/bin
 ```
 
