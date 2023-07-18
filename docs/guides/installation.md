@@ -11,12 +11,12 @@ For macOS user, run `xattr -c pageship_x.x.x_darwin_arm64.tar.gz` before unzip t
 Docker images are available from GitHub Packages:
 
 ```sh
-docker pull ghcr.io/oursky/pageship:v0.3.1
-docker pull ghcr.io/oursky/pageship-controller:v0.3.1
+docker pull ghcr.io/oursky/pageship:v0.4.0
+docker pull ghcr.io/oursky/pageship-controller:v0.4.0
 ```
 
 ## Go install
 
 ```sh
-go install github.com/oursky/pageship@v0.3.1
+go install github.com/oursky/pageship@v0.4.0
 ```
