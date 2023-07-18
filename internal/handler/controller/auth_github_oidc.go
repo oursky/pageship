@@ -57,6 +57,11 @@ func (c *Controller) handleAuthGithubOIDC(w http.ResponseWriter, r *http.Request
 		credentials = append(credentials, models.CredentialGitHubRepositoryActions(oidcClaims.Repository))
 	}
 
+	if err := c.checkACL(r, credentials); err != nil {
+		writeResponse(w, nil, models.ErrInvalidCredentials)
+		return
+	}
+
 	log(r).Info("github actions authenticated",
 		zap.String("subject", oidcClaims.Subject),
 		zap.String("token_id", oidcClaims.ID),

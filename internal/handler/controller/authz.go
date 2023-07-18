@@ -71,3 +71,22 @@ func requireAuth(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+
+func (c *Controller) checkACL(r *http.Request, incoming []models.CredentialID) error {
+	if c.Config.ACL != nil {
+		acl, err := c.Config.ACL.Get(r.Context())
+		if err != nil {
+			return err
+		}
+
+		creds := make([]models.CredentialID, len(incoming))
+		copy(creds, incoming)
+		creds = appendRequestCredentials(r, creds)
+
+		if _, err := models.CheckACLAuthz(acl, creds); err != nil {
+			log(r).Info("user rejected", zap.Any("credentials", creds))
+			return err
+		}
+	}
+	return nil
+}

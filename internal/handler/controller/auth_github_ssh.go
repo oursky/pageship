@@ -55,23 +55,9 @@ func (c *Controller) handleAuthGithubSSHConn(conn *websocket.Conn) {
 				return nil, fmt.Errorf("unknown public key for %q", meta.User())
 			}
 
-			if c.Config.ACL != nil {
-				acl, err := c.Config.ACL.Get(conn.Request().Context())
-				if err != nil {
-					return nil, fmt.Errorf("access denied")
-				}
-
-				creds := []models.CredentialID{models.CredentialGitHubUser(meta.User())}
-				creds = appendRequestCredentials(conn.Request(), creds)
-				if _, err := models.CheckACLAuthz(acl, creds); err != nil {
-					log(conn.Request()).Info(
-						"user rejected",
-						zap.String("github_user", meta.User()),
-						zap.String("ssh_fingerprint", fingerprint),
-					)
-
-					return nil, fmt.Errorf("access denied")
-				}
+			creds := []models.CredentialID{models.CredentialGitHubUser(meta.User())}
+			if err := c.checkACL(conn.Request(), creds); err != nil {
+				return nil, fmt.Errorf("access denied")
 			}
 
 			log(conn.Request()).Info(
