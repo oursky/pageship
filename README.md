@@ -2,6 +2,13 @@
 
 Pageship is a self-hosted server for static pages (e.g. SPA, docs sites).
 
+Main features:
+- GitHub Pages-like site hosting
+- Preview deployments
+- Automatic TLS
+- GitHub Actions integration
+- Access Control for sites
+
 
 ## Installation
 
