@@ -1,3 +1,7 @@
+.PHONY: docs
+docs:
+	mdbook build
+
 .PHONY: migration
 migration:
 ifndef NAME
