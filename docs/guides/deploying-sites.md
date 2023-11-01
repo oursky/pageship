@@ -6,7 +6,7 @@ For managed-sites mode, you may deploy a site through `pageship` command.
 
 ## Configure app
 
-If it's the first time deploying the app on server, create the at with the
+If it's the first time deploying the app on server, create a new application with the
 server through `pageship apps create` command.
 
 ```
