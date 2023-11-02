@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-playground/validator/v10"
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/db"
+	"github.com/oursky/pageship/internal/httputil"
 	"github.com/oursky/pageship/internal/models"
 )
 
@@ -26,8 +28,13 @@ func init() {
 }
 
 const maxJSONSize = 10 * 1024 * 1024 // 10MB
+const requestIOTimeout = 10 * time.Second
 
 func bindJSON[T any](w http.ResponseWriter, r *http.Request, body *T) bool {
+	ctrl := http.NewResponseController(w)
+	dl := time.Now().Add(requestIOTimeout)
+	ctrl.SetReadDeadline(dl)
+
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxJSONSize))
 	decoder.DisallowUnknownFields()
 
@@ -35,6 +42,8 @@ func bindJSON[T any](w http.ResponseWriter, r *http.Request, body *T) bool {
 		writeJSON(w, http.StatusBadRequest, response{Error: err})
 		return false
 	}
+
+	ctrl.SetReadDeadline(time.Time{})
 
 	if err := validate.Struct(body); err != nil {
 		writeJSON(w, http.StatusBadRequest, response{Error: err})
@@ -59,7 +68,9 @@ func (r response) MarshalJSON() ([]byte, error) {
 func writeJSON(w http.ResponseWriter, statusCode int, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	encoder := json.NewEncoder(w)
+
+	writer := httputil.NewTimeoutResponseWriter(w, requestIOTimeout)
+	encoder := json.NewEncoder(writer)
 	if err := encoder.Encode(value); err != nil {
 		panic(err)
 	}

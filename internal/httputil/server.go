@@ -37,8 +37,6 @@ func (s *Server) makeServer(handler http.Handler) *http.Server {
 	return &http.Server{
 		ErrorLog:          zap.NewStdLog(s.Logger),
 		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       10 * time.Second,
-		WriteTimeout:      10 * time.Second,
 		IdleTimeout:       120 * time.Second,
 		MaxHeaderBytes:    10 * 1024,
 		Handler:           handler,

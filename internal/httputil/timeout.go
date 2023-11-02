@@ -9,30 +9,34 @@ import (
 type timeoutReader struct {
 	r           io.Reader
 	ctrl        *http.ResponseController
-	idleTimeout time.Duration
+	readTimeout time.Duration
 }
 
-func NewTimeoutReader(r io.Reader, ctrl *http.ResponseController, idleTimeout time.Duration) io.Reader {
-	return &timeoutReader{r: r, ctrl: ctrl, idleTimeout: idleTimeout}
+func NewTimeoutReader(r io.Reader, ctrl *http.ResponseController, readTimeout time.Duration) io.Reader {
+	return &timeoutReader{r: r, ctrl: ctrl, readTimeout: readTimeout}
 }
 
 func (r *timeoutReader) Read(p []byte) (int, error) {
-	n, err := r.r.Read(p)
-
-	dl := time.Now().Add(r.idleTimeout)
+	dl := time.Now().Add(r.readTimeout)
 	r.ctrl.SetReadDeadline(dl)
 	r.ctrl.SetWriteDeadline(dl)
+
+	n, err := r.r.Read(p)
+
+	r.ctrl.SetReadDeadline(time.Time{})
+	r.ctrl.SetWriteDeadline(time.Time{})
+
 	return n, err
 }
 
 type timeoutResponseWriter struct {
-	w           http.ResponseWriter
-	ctrl        *http.ResponseController
-	idleTimeout time.Duration
+	w            http.ResponseWriter
+	ctrl         *http.ResponseController
+	writeTimeout time.Duration
 }
 
-func NewTimeoutResponseWriter(w http.ResponseWriter, idleTimeout time.Duration) http.ResponseWriter {
-	return &timeoutResponseWriter{w: w, ctrl: http.NewResponseController(w), idleTimeout: idleTimeout}
+func NewTimeoutResponseWriter(w http.ResponseWriter, writeTimeout time.Duration) http.ResponseWriter {
+	return &timeoutResponseWriter{w: w, ctrl: http.NewResponseController(w), writeTimeout: writeTimeout}
 }
 
 func (w *timeoutResponseWriter) Header() http.Header {
@@ -44,9 +48,12 @@ func (w *timeoutResponseWriter) WriteHeader(statusCode int) {
 }
 
 func (w *timeoutResponseWriter) Write(p []byte) (int, error) {
+	dl := time.Now().Add(w.writeTimeout)
+	w.ctrl.SetWriteDeadline(dl)
+
 	n, err := w.w.Write(p)
 
-	dl := time.Now().Add(w.idleTimeout)
-	w.ctrl.SetWriteDeadline(dl)
+	w.ctrl.SetWriteDeadline(time.Time{})
+
 	return n, err
 }
