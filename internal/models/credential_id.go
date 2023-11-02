@@ -46,9 +46,12 @@ func (c CredentialID) Matches(r *config.ACLSubjectRule) bool {
 	case CredentialIDKindGitHubUser:
 		return r.GitHubUser != "" && r.GitHubUser == data
 	case CredentialIDGitHubRepositoryActions:
-		return r.GitHubRepositoryActions != "" &&
-			(r.GitHubRepositoryActions == data ||
-				r.GitHubRepositoryActions == "*")
+		if r.GitHubRepositoryActions == "*" || r.GitHubRepositoryActions == data {
+			return true
+		}
+
+		repoOwner, _, ok := strings.Cut(data, "/")
+		return ok && r.GitHubRepositoryActions == repoOwner+"/*"
 	case CredentialIDIP:
 		if r.IpRange == "" {
 			return false
