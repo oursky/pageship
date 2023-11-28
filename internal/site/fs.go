@@ -24,6 +24,7 @@ type FS interface {
 
 type Descriptor struct {
 	ID     string
+	Domain string
 	Config *config.SiteConfig
 	FS     FS
 }

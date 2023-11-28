@@ -17,7 +17,7 @@ type resolverStatic struct {
 
 func (h *resolverStatic) Kind() string { return "static config" }
 
-func (h *resolverStatic) AllowAnyDomain() bool { return false }
+func (h *resolverStatic) IsWildcard() bool { return false }
 
 func (h *resolverStatic) Resolve(ctx context.Context, matchedID string) (*site.Descriptor, error) {
 	if !site.CheckDefaultSite(&matchedID, h.defaultSite) {
@@ -45,6 +45,7 @@ func (h *resolverStatic) Resolve(ctx context.Context, matchedID string) (*site.D
 
 	return &site.Descriptor{
 		ID:     matchedID,
+		Domain: entry.Domain,
 		Config: &config.Site,
 		FS:     siteFS{fs: fsys},
 	}, nil

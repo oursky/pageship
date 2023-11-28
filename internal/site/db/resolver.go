@@ -68,7 +68,7 @@ func (r *Resolver) resolveDeployment(
 	return deployment, siteName, nil
 }
 
-func (h *Resolver) AllowAnyDomain() bool { return false }
+func (h *Resolver) IsWildcard() bool { return false }
 
 func (r *Resolver) Resolve(ctx context.Context, matchedID string) (*site.Descriptor, error) {
 	appID, siteName := r.HostIDScheme.Split(matchedID)
@@ -103,6 +103,7 @@ func (r *Resolver) Resolve(ctx context.Context, matchedID string) (*site.Descrip
 	desc := &site.Descriptor{
 		ID:     id,
 		Config: &config,
+		Domain: "", // FIXME: custom domain
 		FS:     newStorageFS(r.Storage, deployment),
 	}
 

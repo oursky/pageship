@@ -6,11 +6,11 @@ import (
 	"github.com/oursky/pageship/internal/site"
 )
 
-func IndexPage(fs site.FS, next http.Handler) http.Handler {
+func IndexPage(site *site.Descriptor, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		const indexPage = "index.html"
 
-		info, err := fs.Stat(r.URL.Path)
+		info, err := site.FS.Stat(r.URL.Path)
 		if err != nil {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return

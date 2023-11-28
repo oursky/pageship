@@ -8,6 +8,7 @@ type SitesConfig struct {
 
 type SitesConfigEntry struct {
 	Context string `json:"context"`
+	Domain  string `json:"domain"`
 }
 
 func DefaultSitesConfig() *SitesConfig {

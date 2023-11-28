@@ -1,5 +1,9 @@
 [sites."main"]
-context="main"
+context = "main"
 
 [sites."dev"]
-context="dev"
+context = "dev"
+
+[sites."custom"]
+context = "dev"
+domain = "example.com"
