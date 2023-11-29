@@ -99,11 +99,23 @@ func (r *Resolver) Resolve(ctx context.Context, matchedID string) (*site.Descrip
 		config.Access = app.Config.Deployments.Access
 	}
 
+	domain, err := r.DB.GetDomainBySite(ctx, app.ID, siteName)
+	if errors.Is(err, models.ErrDomainNotFound) {
+		domain = nil
+	} else if err != nil {
+		return nil, err
+	}
+
+	domainName := ""
+	if domain != nil {
+		domainName = domain.Domain
+	}
+
 	id := strings.Join([]string{deployment.AppID, siteName, deployment.ID}, "/")
 	desc := &site.Descriptor{
 		ID:     id,
 		Config: &config,
-		Domain: "", // FIXME: custom domain
+		Domain: domainName,
 		FS:     newStorageFS(r.Storage, deployment),
 	}
 

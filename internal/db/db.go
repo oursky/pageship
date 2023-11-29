@@ -78,6 +78,7 @@ type DeploymentsDB interface {
 type DomainsDB interface {
 	CreateDomain(ctx context.Context, domain *models.Domain) error
 	GetDomainByName(ctx context.Context, domain string) (*models.Domain, error)
+	GetDomainBySite(ctx context.Context, appID string, siteName string) (*models.Domain, error)
 	DeleteDomain(ctx context.Context, id string, now time.Time) error
 	ListDomains(ctx context.Context, appID string) ([]*models.Domain, error)
 }

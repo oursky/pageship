@@ -14,7 +14,7 @@ import (
 	"github.com/oursky/pageship/internal/db"
 	_ "github.com/oursky/pageship/internal/db/postgres"
 	_ "github.com/oursky/pageship/internal/db/sqlite"
-	"github.com/oursky/pageship/internal/domain"
+	domaindb "github.com/oursky/pageship/internal/domain/db"
 	"github.com/oursky/pageship/internal/handler/controller"
 	"github.com/oursky/pageship/internal/handler/site"
 	"github.com/oursky/pageship/internal/handler/site/middleware"
@@ -129,7 +129,10 @@ func (s *setup) checkDomain(name string) error {
 }
 
 func (s *setup) sites(conf StartSitesConfig) error {
-	domainResolver := &domain.ResolverNull{} // FIXME: custom domain
+	domainResolver := &domaindb.Resolver{
+		HostIDScheme: conf.HostIDScheme,
+		DB:           s.database,
+	}
 	siteResolver := &sitedb.Resolver{
 		HostIDScheme: conf.HostIDScheme,
 		DB:           s.database,

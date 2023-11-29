@@ -48,6 +48,23 @@ func (q query[T]) GetDomainByName(ctx context.Context, domainName string) (*mode
 	return &domain, nil
 }
 
+func (q query[T]) GetDomainBySite(ctx context.Context, appID string, siteName string) (*models.Domain, error) {
+	var domain models.Domain
+
+	err := sqlx.GetContext(ctx, q.ext, &domain, `
+		SELECT d.id, d.created_at, d.updated_at, d.deleted_at, d.domain, d.app_id, d.site_name FROM domain_association d
+			JOIN app a ON (a.id = d.app_id AND a.deleted_at IS NULL)
+			WHERE d.app_id = $1 AND d.site_name = $2 AND d.deleted_at IS NULL
+	`, appID, siteName)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, models.ErrDomainNotFound
+	} else if err != nil {
+		return nil, err
+	}
+
+	return &domain, nil
+}
+
 func (q query[T]) DeleteDomain(ctx context.Context, id string, now time.Time) error {
 	_, err := q.ext.ExecContext(ctx, `
 		UPDATE domain_association SET deleted_at = $1 WHERE id = $2
