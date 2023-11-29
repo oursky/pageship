@@ -16,6 +16,7 @@
     - [Automatic TLS](guides/features/automatic-tls.md)
     - [GitHub Actions Integration](guides/features/github-actions-integration.md)
     - [Access Control](guides/features/access-control.md)
+    - [Custom Domain](guides/features/custom-domain.md)
 
 # References
 
