@@ -9,7 +9,8 @@ var ErrSiteNotFound = errors.New("site not found")
 
 type Resolver interface {
 	Kind() string
-	AllowAnyDomain() bool
+	// IsWildcard indicates whether this resolver would always resolve successfully.
+	IsWildcard() bool
 	Resolve(ctx context.Context, matchedID string) (*Descriptor, error)
 }
 

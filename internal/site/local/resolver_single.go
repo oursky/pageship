@@ -18,7 +18,7 @@ func NewSingleSiteResolver(fs fs.FS) site.Resolver {
 
 func (h *resolverSingle) Kind() string { return "single site" }
 
-func (h *resolverSingle) AllowAnyDomain() bool { return true }
+func (h *resolverSingle) IsWildcard() bool { return true }
 
 func (h *resolverSingle) Resolve(ctx context.Context, matchedID string) (*site.Descriptor, error) {
 	if err := checkSiteFS(h.fs); err != nil {

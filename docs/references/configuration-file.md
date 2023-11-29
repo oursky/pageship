@@ -24,7 +24,10 @@ server.
   subdomain.
 - `app.deployments`: Configuration for preview deployments
     - `access`: ACL rules controlling access of preview deployments.
-    - `ttl`: the lifetime of a preview deployment (default to `24h`)``
+    - `ttl`: the lifetime of a preview deployment (default to `24h`)
+- `app.domains`: Configuration for custom domains
+    - `domain`: The custom domain to use
+    - `site`: The site name associated the custom domain
 
 ### `site` section
 

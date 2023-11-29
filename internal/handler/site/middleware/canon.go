@@ -10,9 +10,9 @@ import (
 	"github.com/oursky/pageship/internal/site"
 )
 
-func CanonicalizePath(fs site.FS, next http.Handler) http.Handler {
+func CanonicalizePath(site *site.Descriptor, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		urlpath, err := canonicalizePath(fs, r.URL.Path)
+		urlpath, err := canonicalizePath(site.FS, r.URL.Path)
 		if err != nil {
 			handler.Error(w, r, err)
 			return

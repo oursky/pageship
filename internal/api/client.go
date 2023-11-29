@@ -46,6 +46,29 @@ func (c *Client) attachToken(r *http.Request) error {
 	return nil
 }
 
+func (c *Client) GetManifest(ctx context.Context) (*APIManifest, error) {
+	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "manifest")
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.attachToken(req); err != nil {
+		return nil, err
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return decodeJSONResponse[*APIManifest](resp)
+}
+
 func (c *Client) CreateApp(ctx context.Context, appID string) (*APIApp, error) {
 	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps")
 	if err != nil {
@@ -404,6 +427,80 @@ func (c *Client) UploadDeploymentTarball(
 	defer resp.Body.Close()
 
 	return decodeJSONResponse[*models.Deployment](resp)
+}
+
+func (c *Client) ListDomains(ctx context.Context, appID string) ([]APIDomain, error) {
+	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "domains")
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.attachToken(req); err != nil {
+		return nil, err
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return decodeJSONResponse[[]APIDomain](resp)
+}
+
+func (c *Client) CreateDomain(ctx context.Context, appID string, domainName string, replaceApp string) (*APIDomain, error) {
+	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "domains", domainName)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	if replaceApp != "" {
+		req.URL.RawQuery = url.Values{
+			"replaceApp": []string{replaceApp},
+		}.Encode()
+	}
+	if err := c.attachToken(req); err != nil {
+		return nil, err
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return decodeJSONResponse[*APIDomain](resp)
+}
+
+func (c *Client) DeleteDomain(ctx context.Context, appID string, domainName string) (*APIDomain, error) {
+	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "domains", domainName)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "DELETE", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.attachToken(req); err != nil {
+		return nil, err
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return decodeJSONResponse[*APIDomain](resp)
 }
 
 func (c *Client) OpenAuthGitHubSSH(ctx context.Context) (*websocket.Conn, error) {

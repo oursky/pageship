@@ -101,6 +101,12 @@ func writeResponse(w http.ResponseWriter, result any, err error) {
 		writeJSON(w, http.StatusBadRequest, response{Error: err})
 	case errors.Is(err, models.ErrDeploymentExpired):
 		writeJSON(w, http.StatusBadRequest, response{Error: err})
+	case errors.Is(err, models.ErrUndefinedDomain):
+		writeJSON(w, http.StatusBadRequest, response{Error: err})
+	case errors.Is(err, models.ErrDomainNotFound):
+		writeJSON(w, http.StatusNotFound, response{Error: err})
+	case errors.Is(err, models.ErrDomainUsedName):
+		writeJSON(w, http.StatusConflict, response{Error: err})
 	case errors.Is(err, models.ErrUserNotFound):
 		writeJSON(w, http.StatusNotFound, response{Error: err})
 	case errors.Is(err, models.ErrAccessDenied):

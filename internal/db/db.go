@@ -43,6 +43,7 @@ type DBQuery interface {
 	AppsDB
 	SitesDB
 	DeploymentsDB
+	DomainsDB
 	UserDB
 	CertificateDB
 }
@@ -72,6 +73,14 @@ type DeploymentsDB interface {
 	GetDeploymentSiteNames(ctx context.Context, deployment *models.Deployment) ([]string, error)
 	SetDeploymentExpiry(ctx context.Context, deployment *models.Deployment) error
 	DeleteExpiredDeployments(ctx context.Context, now time.Time, expireBefore time.Time) (int64, error)
+}
+
+type DomainsDB interface {
+	CreateDomain(ctx context.Context, domain *models.Domain) error
+	GetDomainByName(ctx context.Context, domain string) (*models.Domain, error)
+	GetDomainBySite(ctx context.Context, appID string, siteName string) (*models.Domain, error)
+	DeleteDomain(ctx context.Context, id string, now time.Time) error
+	ListDomains(ctx context.Context, appID string) ([]*models.Domain, error)
 }
 
 type UserDB interface {

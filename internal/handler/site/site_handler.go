@@ -26,7 +26,9 @@ func NewSiteHandler(desc *site.Descriptor, middlewares []Middleware) *SiteHandle
 		publicFS: site.SubFS(desc.FS, path.Clean("/"+desc.Config.Public)),
 	}
 
-	h.next = applyMiddleware(h.publicFS, middlewares, http.HandlerFunc(h.serveFile))
+	publicDesc := *desc
+	publicDesc.FS = site.SubFS(desc.FS, path.Clean("/"+desc.Config.Public))
+	h.next = applyMiddleware(&publicDesc, middlewares, http.HandlerFunc(h.serveFile))
 	return h
 }
 

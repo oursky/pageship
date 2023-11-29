@@ -9,6 +9,10 @@ name = "main"
 [[app.sites]]
 name = "dev"
 
+[[app.domains]]
+domain="example.com:8001"
+site="dev"
+
 [site]
 public="public"
 

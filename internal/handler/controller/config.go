@@ -14,4 +14,7 @@ type Config struct {
 	TokenAuthority    string
 	TokenSigningKey   []byte
 	ACL               *watch.File[config.ACL]
+
+	ServerVersion       string
+	CustomDomainMessage string
 }

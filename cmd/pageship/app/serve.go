@@ -11,11 +11,13 @@ import (
 	"github.com/caddyserver/certmagic"
 	"github.com/oursky/pageship/internal/command"
 	"github.com/oursky/pageship/internal/config"
+	"github.com/oursky/pageship/internal/domain"
+	domainlocal "github.com/oursky/pageship/internal/domain/local"
 	handler "github.com/oursky/pageship/internal/handler/site"
 	"github.com/oursky/pageship/internal/handler/site/middleware"
 	"github.com/oursky/pageship/internal/httputil"
 	"github.com/oursky/pageship/internal/site"
-	"github.com/oursky/pageship/internal/site/local"
+	sitelocal "github.com/oursky/pageship/internal/site/local"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -53,11 +55,13 @@ func makeHandler(prefix string, defaultSite string, hostPattern string) (*handle
 
 	fsys := os.DirFS(dir)
 
-	var resolver site.Resolver
-	resolver = local.NewSingleSiteResolver(fsys)
+	var siteResolver site.Resolver
+	siteResolver = sitelocal.NewSingleSiteResolver(fsys)
+	var domainResolver domain.Resolver
+	domainResolver = &domain.ResolverNull{}
 
 	// Check site on startup.
-	_, err = resolver.Resolve(context.Background(), defaultSite)
+	_, err = siteResolver.Resolve(context.Background(), defaultSite)
 	if errors.Is(err, config.ErrConfigNotFound) {
 		// continue in multi-site mode
 
@@ -72,17 +76,23 @@ func makeHandler(prefix string, defaultSite string, hostPattern string) (*handle
 		if sitesConf != nil {
 			sites = sitesConf.Sites
 		}
-		resolver = local.NewMultiSiteResolver(fsys, defaultSite, sites)
+		siteResolver = sitelocal.NewResolver(fsys, defaultSite, sites)
+		domainResolver, err = domainlocal.NewResolver(defaultSite, sites)
+		if err != nil {
+			return nil, err
+		}
 	} else if err != nil {
 		return nil, err
 	}
 
-	Info("site resolution mode: %s", resolver.Kind())
+	Info("site resolution mode: %s", siteResolver.Kind())
 
-	handler, err := handler.NewHandler(context.Background(), zapLogger, resolver, handler.HandlerConfig{
-		HostPattern: hostPattern,
-		Middlewares: middleware.Default,
-	})
+	handler, err := handler.NewHandler(context.Background(), zapLogger,
+		domainResolver, siteResolver,
+		handler.HandlerConfig{
+			HostPattern: hostPattern,
+			Middlewares: middleware.Default,
+		})
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +137,7 @@ var serveCmd = &cobra.Command{
 
 			if len(tlsDomain) > 0 {
 				tls.DomainNames = []string{tlsDomain}
-			} else if handler.AllowAnyDomain() {
+			} else if handler.AcceptsAllDomain() {
 				return fmt.Errorf("must provide domain name via --tls-domain to enable TLS")
 			}
 		}

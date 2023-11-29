@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/carlmjohnson/versioninfo"
 	"github.com/dustin/go-humanize"
 	"github.com/oursky/pageship/internal/command"
 	"github.com/oursky/pageship/internal/config"
@@ -14,6 +15,7 @@ import (
 	"github.com/oursky/pageship/internal/db"
 	_ "github.com/oursky/pageship/internal/db/postgres"
 	_ "github.com/oursky/pageship/internal/db/sqlite"
+	domaindb "github.com/oursky/pageship/internal/domain/db"
 	"github.com/oursky/pageship/internal/handler/controller"
 	"github.com/oursky/pageship/internal/handler/site"
 	"github.com/oursky/pageship/internal/handler/site/middleware"
@@ -58,6 +60,8 @@ func init() {
 	startCmd.PersistentFlags().String("token-authority", "pageship", "auth token authority")
 	startCmd.PersistentFlags().String("token-signing-key", "", "auth token signing key")
 
+	startCmd.PersistentFlags().String("custom-domain-message", "", "message for custom domain users")
+
 	startCmd.PersistentFlags().String("cleanup-expired-crontab", "", "cleanup expired schedule")
 	startCmd.PersistentFlags().Duration("keep-after-expired", time.Hour*24, "keep-after-expired")
 
@@ -100,6 +104,8 @@ type StartControllerConfig struct {
 	TokenAuthority    string   `mapstructure:"token-authority"`
 	ReservedApps      []string `mapstructure:"reserved-apps"`
 	APIACLFile        string   `mapstructure:"api-acl" validate:"omitempty,filepath"`
+
+	CustomDomainMessage string `mapstructure:"custom-domain-message"`
 }
 
 type StartCronConfig struct {
@@ -128,7 +134,11 @@ func (s *setup) checkDomain(name string) error {
 }
 
 func (s *setup) sites(conf StartSitesConfig) error {
-	resolver := &sitedb.Resolver{
+	domainResolver := &domaindb.Resolver{
+		HostIDScheme: conf.HostIDScheme,
+		DB:           s.database,
+	}
+	siteResolver := &sitedb.Resolver{
 		HostIDScheme: conf.HostIDScheme,
 		DB:           s.database,
 		Storage:      s.storage,
@@ -136,7 +146,8 @@ func (s *setup) sites(conf StartSitesConfig) error {
 	handler, err := site.NewHandler(
 		s.ctx,
 		logger.Named("site"),
-		resolver,
+		domainResolver,
+		siteResolver,
 		site.HandlerConfig{
 			HostPattern: conf.HostPattern,
 			Middlewares: middleware.Default,
@@ -165,13 +176,15 @@ func (s *setup) controller(domain string, conf StartControllerConfig, sitesConf 
 	}
 
 	controllerConf := controller.Config{
-		MaxDeploymentSize: int64(maxDeploymentSize),
-		StorageKeyPrefix:  conf.StorageKeyPrefix,
-		HostIDScheme:      sitesConf.HostIDScheme,
-		HostPattern:       config.NewHostPattern(sitesConf.HostPattern),
-		ReservedApps:      reservedApps,
-		TokenSigningKey:   []byte(tokenSigningKey),
-		TokenAuthority:    conf.TokenAuthority,
+		MaxDeploymentSize:   int64(maxDeploymentSize),
+		StorageKeyPrefix:    conf.StorageKeyPrefix,
+		HostIDScheme:        sitesConf.HostIDScheme,
+		HostPattern:         config.NewHostPattern(sitesConf.HostPattern),
+		ReservedApps:        reservedApps,
+		TokenSigningKey:     []byte(tokenSigningKey),
+		TokenAuthority:      conf.TokenAuthority,
+		ServerVersion:       versioninfo.Short(),
+		CustomDomainMessage: conf.CustomDomainMessage,
 	}
 
 	if conf.APIACLFile != "" {

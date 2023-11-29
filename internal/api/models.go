@@ -4,6 +4,11 @@ import (
 	"github.com/oursky/pageship/internal/models"
 )
 
+type APIManifest struct {
+	Version             string `json:"version"`
+	CustomDomainMessage string `json:"customDomainMessage,omitempty"`
+}
+
 type APIApp struct {
 	*models.App
 	URL string `json:"url"`
@@ -19,6 +24,10 @@ type APIDeployment struct {
 	*models.Deployment
 	SiteName *string `json:"siteName"`
 	URL      *string `json:"url"`
+}
+
+type APIDomain struct {
+	*models.Domain
 }
 
 type APIUser struct {

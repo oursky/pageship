@@ -12,6 +12,7 @@ type AppConfig struct {
 	Sites       []AppSiteConfig      `json:"sites" pageship:"max=10,dive,required"`
 	Deployments AppDeploymentsConfig `json:"deployments"`
 	Team        []*AccessRule        `json:"team" pageship:"max=100,dive,required"`
+	Domains     []AppDomainConfig    `json:"domains" pageship:"max=10,unique=Domain,unique=Site,dive,required"`
 }
 
 func DefaultAppConfig() AppConfig {
@@ -45,6 +46,17 @@ func (c *AppConfig) SetDefaults() {
 	for _, r := range c.Team {
 		r.SetDefaults()
 	}
+}
+
+func (c *AppConfig) ResolveDomain(domain string) (resolved AppDomainConfig, ok bool) {
+	for _, d := range c.Domains {
+		if d.Domain == domain {
+			resolved = d
+			ok = true
+			return
+		}
+	}
+	return
 }
 
 func (c *AppConfig) ResolveSite(site string) (resolved AppSiteConfig, ok bool) {

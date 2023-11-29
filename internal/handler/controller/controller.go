@@ -88,8 +88,19 @@ func (c *Controller) Handler() http.Handler {
 						r.With(c.requireAccessDeployer()).Put("/tarball", c.handleDeploymentUpload)
 					})
 				})
+
+				r.Route("/domains", func(r chi.Router) {
+					r.Get("/", c.handleDomainList)
+
+					r.With(c.requireAccessAdmin()).Route("/{domain-name}", func(r chi.Router) {
+						r.With(c.requireAccessDeployer()).Post("/", c.handleDomainCreate)
+						r.With(c.requireAccessDeployer()).Delete("/", c.handleDomainDelete)
+					})
+				})
 			})
 		})
+
+		r.With(requireAuth).Get("/manifest", c.handleManifest)
 
 		r.With(requireAuth).Get("/auth/me", c.handleMe)
 		r.Get("/auth/github-ssh", c.handleAuthGithubSSH)

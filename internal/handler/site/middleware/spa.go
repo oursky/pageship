@@ -10,11 +10,11 @@ import (
 )
 
 // RouteSPA routes non-existing files to nearest parent directory
-func RouteSPA(fs site.FS, next http.Handler) http.Handler {
+func RouteSPA(site *site.Descriptor, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		urlpath := r.URL.Path
 		for {
-			_, err := fs.Stat(urlpath)
+			_, err := site.FS.Stat(urlpath)
 			if os.IsNotExist(err) {
 				if urlpath == "/" {
 					// Reached root; stop

@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/oursky/pageship/internal/cache"
 	"github.com/oursky/pageship/internal/config"
+	"github.com/oursky/pageship/internal/domain"
 	"github.com/oursky/pageship/internal/httputil"
 	"github.com/oursky/pageship/internal/models"
 	"github.com/oursky/pageship/internal/site"
@@ -28,21 +29,23 @@ type HandlerConfig struct {
 }
 
 type Handler struct {
-	ctx         context.Context
-	logger      *zap.Logger
-	resolver    site.Resolver
-	hostPattern *config.HostPattern
-	cache       *cache.Cache[*SiteHandler]
-	middlewares []Middleware
+	ctx            context.Context
+	logger         *zap.Logger
+	domainResolver domain.Resolver
+	siteResolver   site.Resolver
+	hostPattern    *config.HostPattern
+	cache          *cache.Cache[*SiteHandler]
+	middlewares    []Middleware
 }
 
-func NewHandler(ctx context.Context, logger *zap.Logger, resolver site.Resolver, conf HandlerConfig) (*Handler, error) {
+func NewHandler(ctx context.Context, logger *zap.Logger, domainResolver domain.Resolver, siteResolver site.Resolver, conf HandlerConfig) (*Handler, error) {
 	h := &Handler{
-		ctx:         ctx,
-		logger:      logger,
-		resolver:    resolver,
-		hostPattern: config.NewHostPattern(conf.HostPattern),
-		middlewares: conf.Middlewares,
+		ctx:            ctx,
+		logger:         logger,
+		domainResolver: domainResolver,
+		siteResolver:   siteResolver,
+		hostPattern:    config.NewHostPattern(conf.HostPattern),
+		middlewares:    conf.Middlewares,
 	}
 
 	cache, err := cache.NewCache(cacheSize, cacheTTL, h.doResolve)
@@ -54,17 +57,23 @@ func NewHandler(ctx context.Context, logger *zap.Logger, resolver site.Resolver,
 	return h, nil
 }
 
-func (h *Handler) resolveSite(host string) (*SiteHandler, error) {
-	matchedID, ok := h.hostPattern.MatchString(host)
-	if !ok {
-		return nil, site.ErrSiteNotFound
-	}
-
-	return h.cache.Load(matchedID)
+func (h *Handler) resolveSite(hostname string) (*SiteHandler, error) {
+	return h.cache.Load(hostname)
 }
 
-func (h *Handler) doResolve(matchedID string) (*SiteHandler, error) {
-	desc, err := h.resolver.Resolve(h.ctx, matchedID)
+func (h *Handler) doResolve(hostname string) (*SiteHandler, error) {
+	matchedID, ok := h.hostPattern.MatchString(hostname)
+	if !ok {
+		id, err := h.domainResolver.Resolve(h.ctx, hostname)
+		if errors.Is(err, domain.ErrDomainNotFound) {
+			return nil, site.ErrSiteNotFound
+		} else if err != nil {
+			return nil, err
+		}
+		matchedID = id
+	}
+
+	desc, err := h.siteResolver.Resolve(h.ctx, matchedID)
 	if err != nil {
 		return nil, err
 	}
@@ -72,15 +81,15 @@ func (h *Handler) doResolve(matchedID string) (*SiteHandler, error) {
 	return NewSiteHandler(desc, h.middlewares), nil
 }
 
-func (h *Handler) AllowAnyDomain() bool {
-	return h.resolver.AllowAnyDomain()
+func (h *Handler) AcceptsAllDomain() bool {
+	return h.siteResolver.IsWildcard()
 }
 
-func (h *Handler) CheckValidDomain(name string) error {
-	if h.resolver.AllowAnyDomain() {
+func (h *Handler) CheckValidDomain(hostname string) error {
+	if h.siteResolver.IsWildcard() {
 		return nil
 	}
-	_, err := h.resolveSite(name)
+	_, err := h.resolveSite(hostname)
 	return err
 }
 
