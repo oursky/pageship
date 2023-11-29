@@ -100,6 +100,8 @@ func (c *Controller) Handler() http.Handler {
 			})
 		})
 
+		r.With(requireAuth).Get("/manifest", c.handleManifest)
+
 		r.With(requireAuth).Get("/auth/me", c.handleMe)
 		r.Get("/auth/github-ssh", c.handleAuthGithubSSH)
 		r.Post("/auth/github-oidc", c.handleAuthGithubOIDC)

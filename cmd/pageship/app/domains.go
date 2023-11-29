@@ -35,6 +35,11 @@ var domainsCmd = &cobra.Command{
 			return fmt.Errorf("app ID is not set")
 		}
 
+		manifest, err := API().GetManifest(cmd.Context())
+		if err != nil {
+			return fmt.Errorf("failed to get manifest: %w", err)
+		}
+
 		app, err := API().GetApp(cmd.Context(), appID)
 		if err != nil {
 			return fmt.Errorf("failed to get app: %w", err)
@@ -93,6 +98,12 @@ var domainsCmd = &cobra.Command{
 			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", domain.name, site, createdAt, status)
 		}
 		w.Flush()
+
+		if manifest.CustomDomainMessage != "" {
+			os.Stdout.WriteString("\n")
+			Info(manifest.CustomDomainMessage)
+		}
+
 		return nil
 	},
 }

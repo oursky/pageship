@@ -46,6 +46,29 @@ func (c *Client) attachToken(r *http.Request) error {
 	return nil
 }
 
+func (c *Client) GetManifest(ctx context.Context) (*APIManifest, error) {
+	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "manifest")
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.attachToken(req); err != nil {
+		return nil, err
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return decodeJSONResponse[*APIManifest](resp)
+}
+
 func (c *Client) CreateApp(ctx context.Context, appID string) (*APIApp, error) {
 	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps")
 	if err != nil {
