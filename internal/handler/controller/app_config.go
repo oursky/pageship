@@ -1,11 +1,13 @@
 package controller
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/models"
+	"go.uber.org/zap"
 )
 
 func (c *Controller) handleAppConfigGet(w http.ResponseWriter, r *http.Request) {
@@ -29,14 +31,33 @@ func (c *Controller) handleAppConfigSet(w http.ResponseWriter, r *http.Request) 
 
 	respond(w, withTx(r.Context(), c.DB, func(tx db.Tx) (any, error) {
 		app.Config = request.Config
-		app.UpdatedAt = c.Clock.Now().UTC()
+		now := c.Clock.Now().UTC()
+		app.UpdatedAt = now
 
-		err := c.DB.UpdateAppConfig(r.Context(), app)
+		err := tx.UpdateAppConfig(r.Context(), app)
 		if err != nil {
 			return nil, err
 		}
 
 		log(r).Info("updating config")
+
+		// Deactivated removed domains; added domains need manual activation.
+		domains, err := tx.ListDomains(r.Context(), app.ID)
+		if err != nil {
+			return nil, err
+		}
+		for _, d := range domains {
+			if _, exists := app.Config.ResolveDomain(d.Domain); exists {
+				continue
+			}
+
+			err = tx.DeleteDomain(r.Context(), d.ID, now)
+			if err != nil {
+				return nil, fmt.Errorf("failed to deactivate domain: %w", err)
+			}
+
+			log(r).Info("deleting domain", zap.String("domain", d.Domain))
+		}
 
 		return app.Config, nil
 	}))

@@ -48,6 +48,17 @@ func (c *AppConfig) SetDefaults() {
 	}
 }
 
+func (c *AppConfig) ResolveDomain(domain string) (resolved AppDomainConfig, ok bool) {
+	for _, d := range c.Domains {
+		if d.Domain == domain {
+			resolved = d
+			ok = true
+			return
+		}
+	}
+	return
+}
+
 func (c *AppConfig) ResolveSite(site string) (resolved AppSiteConfig, ok bool) {
 	for _, s := range c.Sites {
 		pattern, err := s.CompilePattern()

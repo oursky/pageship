@@ -140,9 +140,21 @@ var appsConfigureCmd = &cobra.Command{
 			return fmt.Errorf("failed to get app: %w", err)
 		}
 
+		oldConfig := app.Config
+
 		app, err = API().ConfigureApp(cmd.Context(), app.ID, &conf.App)
 		if err != nil {
 			return fmt.Errorf("failed to configure app: %w", err)
+		}
+
+		for _, dconf := range conf.App.Domains {
+			if _, exists := oldConfig.ResolveDomain(dconf.Domain); !exists {
+				Info("Activating custom domain %q...", dconf.Domain)
+				_, err = API().CreateDomain(cmd.Context(), app.ID, dconf.Domain, "")
+				if err != nil {
+					Warn("Activation of custom domain %q failed: %s", dconf.Domain, err)
+				}
+			}
 		}
 
 		Info("Configured app %q.", app.ID)

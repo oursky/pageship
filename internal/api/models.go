@@ -21,6 +21,10 @@ type APIDeployment struct {
 	URL      *string `json:"url"`
 }
 
+type APIDomain struct {
+	*models.Domain
+}
+
 type APIUser struct {
 	ID          string                `json:"id"`
 	Name        string                `json:"name"`
