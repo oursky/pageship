@@ -12,6 +12,7 @@ type AppConfig struct {
 	Sites       []AppSiteConfig      `json:"sites" pageship:"max=10,dive,required"`
 	Deployments AppDeploymentsConfig `json:"deployments"`
 	Team        []*AccessRule        `json:"team" pageship:"max=100,dive,required"`
+	Domains     []AppDomainConfig    `json:"domains" pageship:"max=10,unique=Domain,unique=Site,dive,required"`
 }
 
 func DefaultAppConfig() AppConfig {
