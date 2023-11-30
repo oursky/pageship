@@ -48,7 +48,7 @@ func NewHandler(ctx context.Context, logger *zap.Logger, domainResolver domain.R
 		middlewares:    conf.Middlewares,
 	}
 
-	cache, err := cache.NewCache(cacheSize, cacheTTL, h.doResolve)
+	cache, err := cache.NewCache(cacheSize, cacheTTL, h.doResolveHandler)
 	if err != nil {
 		return nil, fmt.Errorf("setup cache: %w", err)
 	}
@@ -57,13 +57,17 @@ func NewHandler(ctx context.Context, logger *zap.Logger, domainResolver domain.R
 	return h, nil
 }
 
-func (h *Handler) resolveSite(hostname string) (*SiteHandler, error) {
-	return h.cache.Load(hostname)
+func (h *Handler) resolveHandler(host string) (*SiteHandler, error) {
+	return h.cache.Load(host)
 }
 
-func (h *Handler) doResolve(hostname string) (*SiteHandler, error) {
-	matchedID, ok := h.hostPattern.MatchString(hostname)
+func (h *Handler) ResolveSite(host string) (*site.Descriptor, error) {
+	matchedID, ok := h.hostPattern.MatchString(host)
 	if !ok {
+		hostname, _, err := net.SplitHostPort(host)
+		if err != nil {
+			hostname = host
+		}
 		id, err := h.domainResolver.Resolve(h.ctx, hostname)
 		if errors.Is(err, domain.ErrDomainNotFound) {
 			return nil, site.ErrSiteNotFound
@@ -74,6 +78,15 @@ func (h *Handler) doResolve(hostname string) (*SiteHandler, error) {
 	}
 
 	desc, err := h.siteResolver.Resolve(h.ctx, matchedID)
+	if err != nil {
+		return nil, err
+	}
+
+	return desc, nil
+}
+
+func (h *Handler) doResolveHandler(host string) (*SiteHandler, error) {
+	desc, err := h.ResolveSite(host)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +102,7 @@ func (h *Handler) CheckValidDomain(hostname string) error {
 	if h.siteResolver.IsWildcard() {
 		return nil
 	}
-	_, err := h.resolveSite(hostname)
+	_, err := h.ResolveSite(hostname)
 	return err
 }
 
@@ -112,7 +125,7 @@ func (h *Handler) checkAuthz(r *http.Request, handler *SiteHandler) error {
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	handler, err := h.resolveSite(r.Host)
+	handler, err := h.resolveHandler(r.Host)
 	if errors.Is(err, site.ErrSiteNotFound) {
 		http.NotFound(w, r)
 		return
