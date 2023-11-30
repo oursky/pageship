@@ -44,14 +44,17 @@ func (c CredentialID) Matches(r *config.ACLSubjectRule) bool {
 	case CredentialIDKindUserID:
 		return r.PageshipUser != "" && r.PageshipUser == data
 	case CredentialIDKindGitHubUser:
-		return r.GitHubUser != "" && r.GitHubUser == data
+		return r.GitHubUser != "" && strings.EqualFold(r.GitHubUser, data)
 	case CredentialIDGitHubRepositoryActions:
-		if r.GitHubRepositoryActions == "*" || r.GitHubRepositoryActions == data {
+		if r.GitHubRepositoryActions == "*" {
+			return true
+		}
+		if strings.EqualFold(r.GitHubRepositoryActions, data) {
 			return true
 		}
 
-		repoOwner, _, ok := strings.Cut(data, "/")
-		return ok && r.GitHubRepositoryActions == repoOwner+"/*"
+		repoOwner, _, ok := strings.Cut(strings.ToLower(data), "/")
+		return ok && strings.ToLower(r.GitHubRepositoryActions) == repoOwner+"/*"
 	case CredentialIDIP:
 		if r.IpRange == "" {
 			return false

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/oursky/pageship/internal/cache"
@@ -37,7 +38,7 @@ func NewGitHubKeys(ctx context.Context) (*GitHubKeys, error) {
 }
 
 func (g *GitHubKeys) PublicKey(username string) (map[string]struct{}, error) {
-	pkeys, err := g.cache.Load(username)
+	pkeys, err := g.cache.Load(strings.ToLower(username))
 	if err != nil {
 		return nil, err
 	}

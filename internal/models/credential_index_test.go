@@ -7,10 +7,9 @@ import (
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/models"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/suite"
 )
 
-func matchRule(rule *config.ACLSubjectRule, id models.CredentialID) bool {
+func matchIndex(rule *config.ACLSubjectRule, id models.CredentialID) bool {
 	index := make(map[string]struct{})
 	for _, key := range models.MakeCredentialRuleIndexKeys(rule) {
 		index[string(key)] = struct{}{}
@@ -24,101 +23,97 @@ func matchRule(rule *config.ACLSubjectRule, id models.CredentialID) bool {
 	return false
 }
 
-type GitHubActionsCredentialsTestSuite struct {
-	suite.Suite
-}
-
-func TestGitHubActionsCredentials(t *testing.T) {
-	assert.True(t, matchRule(
+func TestGitHubActionsCredentialsIndex(t *testing.T) {
+	assert.True(t, matchIndex(
 		&config.ACLSubjectRule{GitHubRepositoryActions: "oursky/pageship"},
 		models.CredentialGitHubRepositoryActions("oursky/pageship"),
 	))
-	assert.False(t, matchRule(
+	assert.False(t, matchIndex(
 		&config.ACLSubjectRule{GitHubRepositoryActions: "oursky/pageship"},
 		models.CredentialGitHubRepositoryActions("oursky/other"),
 	))
-	assert.False(t, matchRule(
+	assert.False(t, matchIndex(
 		&config.ACLSubjectRule{GitHubRepositoryActions: "oursky/pageship"},
 		models.CredentialGitHubRepositoryActions("other/pageship"),
 	))
 
-	assert.True(t, matchRule(
+	assert.True(t, matchIndex(
 		&config.ACLSubjectRule{GitHubRepositoryActions: "oursky/*"},
 		models.CredentialGitHubRepositoryActions("oursky/pageship"),
 	))
-	assert.True(t, matchRule(
+	assert.True(t, matchIndex(
 		&config.ACLSubjectRule{GitHubRepositoryActions: "oursky/*"},
 		models.CredentialGitHubRepositoryActions("oursky/other"),
 	))
-	assert.False(t, matchRule(
+	assert.False(t, matchIndex(
 		&config.ACLSubjectRule{GitHubRepositoryActions: "oursky/*"},
 		models.CredentialGitHubRepositoryActions("other/oursky"),
 	))
 
-	assert.True(t, matchRule(
+	assert.True(t, matchIndex(
 		&config.ACLSubjectRule{GitHubRepositoryActions: "*"},
 		models.CredentialGitHubRepositoryActions("oursky/pageship"),
 	))
-	assert.True(t, matchRule(
+	assert.True(t, matchIndex(
 		&config.ACLSubjectRule{GitHubRepositoryActions: "*"},
 		models.CredentialGitHubRepositoryActions("oursky/other"),
 	))
-	assert.True(t, matchRule(
+	assert.True(t, matchIndex(
 		&config.ACLSubjectRule{GitHubRepositoryActions: "*"},
 		models.CredentialGitHubRepositoryActions("other/oursky"),
 	))
 }
 
-func TestGitHubUserCredentials(t *testing.T) {
-	assert.True(t, matchRule(
+func TestGitHubUserCredentialsIndex(t *testing.T) {
+	assert.True(t, matchIndex(
 		&config.ACLSubjectRule{GitHubUser: "oursky"},
 		models.CredentialGitHubUser("oursky"),
 	))
-	assert.False(t, matchRule(
+	assert.False(t, matchIndex(
 		&config.ACLSubjectRule{GitHubUser: "oursky"},
 		models.CredentialGitHubUser("other"),
 	))
 }
 
-func TestIPCredentials(t *testing.T) {
-	assert.True(t, matchRule(
+func TestIPCredentialsIndex(t *testing.T) {
+	assert.True(t, matchIndex(
 		&config.ACLSubjectRule{IpRange: "127.0.0.1/32"},
 		models.CredentialIP("127.0.0.1"),
 	))
-	assert.False(t, matchRule(
+	assert.False(t, matchIndex(
 		&config.ACLSubjectRule{IpRange: "127.0.0.1/32"},
 		models.CredentialIP("127.0.0.2"),
 	))
 
-	assert.True(t, matchRule(
+	assert.True(t, matchIndex(
 		&config.ACLSubjectRule{IpRange: "127.0.0.1/16"},
 		models.CredentialIP("127.0.0.1"),
 	))
-	assert.True(t, matchRule(
+	assert.True(t, matchIndex(
 		&config.ACLSubjectRule{IpRange: "127.0.0.1/16"},
 		models.CredentialIP("127.0.100.2"),
 	))
 
-	assert.True(t, matchRule(
+	assert.True(t, matchIndex(
 		&config.ACLSubjectRule{IpRange: "2001:db8::/48"},
 		models.CredentialIP("2001:db8::1"),
 	))
-	assert.False(t, matchRule(
+	assert.False(t, matchIndex(
 		&config.ACLSubjectRule{IpRange: "2001:db8::/48"},
 		models.CredentialIP("::1"),
 	))
 
-	assert.True(t, matchRule(
+	assert.True(t, matchIndex(
 		&config.ACLSubjectRule{IpRange: "::/0"},
 		models.CredentialIP("192.168.0.1"),
 	))
-	assert.True(t, matchRule(
+	assert.True(t, matchIndex(
 		&config.ACLSubjectRule{IpRange: "::ffff:192.168.0.1/120"},
 		models.CredentialIP("192.168.0.255"),
 	))
 }
 
-func FuzzIPCredentials(f *testing.F) {
+func FuzzIPCredentialsIndex(f *testing.F) {
 	add := func(cidr string, ip string) {
 		prefix := netip.MustParsePrefix(cidr)
 		f.Add(prefix.Addr().AsSlice(), prefix.Bits(), netip.MustParseAddr(ip).AsSlice())
@@ -151,7 +146,7 @@ func FuzzIPCredentials(f *testing.F) {
 		rule := &config.ACLSubjectRule{IpRange: ruleCIDR.String()}
 		cred := models.CredentialIP(credIP.String())
 
-		assert.True(t, matchRule(
+		assert.True(t, matchIndex(
 			&config.ACLSubjectRule{IpRange: ruleCIDR.String()},
 			models.CredentialIP(credIP.String()),
 		), "range=%s;ip=%s;range_keys=%+v;cred_keys=%+v",
