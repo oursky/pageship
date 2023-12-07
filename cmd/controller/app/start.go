@@ -64,6 +64,8 @@ func init() {
 
 	startCmd.PersistentFlags().String("cleanup-expired-crontab", "", "cleanup expired schedule")
 	startCmd.PersistentFlags().Duration("keep-after-expired", time.Hour*24, "keep-after-expired")
+	startCmd.PersistentFlags().String("verify-domain-ownership-crontab", "", "verify domain ownership schedule")
+	startCmd.PersistentFlags().Bool("domain-verification", false, "domain must be verified")
 
 	startCmd.PersistentFlags().Bool("controller", true, "run controller server")
 	startCmd.PersistentFlags().Bool("cron", true, "run cron jobs")
@@ -106,11 +108,14 @@ type StartControllerConfig struct {
 	APIACLFile        string   `mapstructure:"api-acl" validate:"omitempty,filepath"`
 
 	CustomDomainMessage string `mapstructure:"custom-domain-message"`
+	DomainVerification  bool   `json:"domain-verification" pageship:"omitempty"`
 }
 
 type StartCronConfig struct {
-	CleanupExpiredCrontab string        `mapstructure:"cleanup-expired-crontab" validate:"omitempty,cron"`
-	KeepAfterExpired      time.Duration `mapstructure:"keep-after-expired" validate:"min=0"`
+	CleanupExpiredCrontab        string        `mapstructure:"cleanup-expired-crontab" validate:"omitempty,cron"`
+	KeepAfterExpired             time.Duration `mapstructure:"keep-after-expired" validate:"min=0"`
+	VerifyDomainOwnershipCrontab string        `mapstructure:"verify-domain-ownership-crontab" validate:"omitempty,cron"`
+	DomainVerification           bool          `mapstructure:"domain-verification" validate:"omitempty"`
 }
 
 type setup struct {
@@ -185,6 +190,7 @@ func (s *setup) controller(domain string, conf StartControllerConfig, sitesConf 
 		TokenAuthority:      conf.TokenAuthority,
 		ServerVersion:       versioninfo.Short(),
 		CustomDomainMessage: conf.CustomDomainMessage,
+		DomainVerification:  conf.DomainVerification,
 	}
 
 	if conf.APIACLFile != "" {
