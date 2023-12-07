@@ -46,16 +46,18 @@ var domainsCmd = &cobra.Command{
 		}
 
 		type domainEntry struct {
-			name  string
-			site  string
-			model *api.APIDomain
+			name         string
+			site         string
+			model        *models.Domain
+			verification *models.DomainVerification
 		}
 		domains := map[string]domainEntry{}
 		for _, dconf := range app.Config.Domains {
 			domains[dconf.Domain] = domainEntry{
-				name:  dconf.Domain,
-				site:  dconf.Site,
-				model: nil,
+				name:         dconf.Domain,
+				site:         dconf.Site,
+				model:        nil,
+				verification: nil,
 			}
 		}
 
@@ -66,10 +68,24 @@ var domainsCmd = &cobra.Command{
 
 		for _, d := range apiDomains {
 			dd := d
-			domains[d.Domain.Domain] = domainEntry{
-				name:  d.Domain.Domain,
-				site:  d.Domain.SiteName,
-				model: &dd,
+			domain := dd.Domain
+			verification := dd.DomainVerification
+			if domain != nil {
+				domains[domain.Domain] = domainEntry{
+					name:         domain.Domain,
+					site:         domain.SiteName,
+					model:        domain,
+					verification: verification,
+				}
+			} else if verification != nil {
+				if record, ok := domains[verification.Domain]; ok {
+					domains[verification.Domain] = domainEntry{
+						name:         verification.Domain,
+						site:         record.site,
+						model:        nil,
+						verification: verification,
+					}
+				}
 			}
 		}
 
@@ -91,6 +107,8 @@ var domainsCmd = &cobra.Command{
 				status = "IN_USE"
 			case domain.model != nil && domain.model.AppID == app.ID:
 				status = "ACTIVE"
+			case domain.verification != nil:
+				status = "PENDING"
 			default:
 				status = "INACTIVE"
 			}
@@ -116,8 +134,8 @@ func promptDomainReplaceApp(ctx context.Context, appID string, domainName string
 
 	appID = ""
 	for _, d := range domains {
-		if d.Domain.Domain == domainName {
-			appID = d.AppID
+		if d.Domain != nil && d.Domain.Domain == domainName {
+			appID = d.Domain.AppID
 		}
 	}
 
@@ -160,21 +178,36 @@ var domainsActivateCmd = &cobra.Command{
 			return fmt.Errorf("undefined domain")
 		}
 
-		_, err = API().CreateDomain(cmd.Context(), appID, domainName, "")
+		var result *api.APIDomain = nil
+		_, err = API().ActivateDomain(cmd.Context(), appID, domainName, "")
 		if code, ok := api.ErrorStatusCode(err); ok && code == http.StatusConflict {
 			var replaceApp string
 			replaceApp, err = promptDomainReplaceApp(cmd.Context(), appID, domainName)
 			if err != nil {
 				return err
 			}
-			_, err = API().CreateDomain(cmd.Context(), appID, domainName, replaceApp)
+			result, err = API().ActivateDomain(cmd.Context(), appID, domainName, replaceApp)
+
 		}
 
 		if err != nil {
 			return fmt.Errorf("failed to create domain: %w", err)
 		}
+		if result != nil {
+			if result.Domain != nil {
+				Info("Domain %q activated.", domainName)
+				return nil
+			}
+			domainVerification := result.DomainVerification
+			if domainVerification != nil {
+				Info("Please add the following TXT record into your domain:")
 
-		Info("Domain %q activated.", domainName)
+				w := tabwriter.NewWriter(os.Stdout, 1, 4, 4, ' ', 0)
+				fmt.Fprintln(w, "DOMAIN NAME\tVALUE")
+				domain, value := domainVerification.GetTxtRecord()
+				fmt.Fprintf(w, "%s\t%s\n", domain, value)
+			}
+		}
 		return nil
 	},
 }
