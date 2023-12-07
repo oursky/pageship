@@ -44,6 +44,7 @@ type DBQuery interface {
 	SitesDB
 	DeploymentsDB
 	DomainsDB
+	DomainVerificationDB
 	UserDB
 	CertificateDB
 }
@@ -81,6 +82,13 @@ type DomainsDB interface {
 	GetDomainBySite(ctx context.Context, appID string, siteName string) (*models.Domain, error)
 	DeleteDomain(ctx context.Context, id string, now time.Time) error
 	ListDomains(ctx context.Context, appID string) ([]*models.Domain, error)
+}
+
+type DomainVerificationDB interface {
+	CreateDomainVerification(ctx context.Context, domainVerification *models.DomainVerification) error
+	GetDomainVerificationByName(ctx context.Context, domain string) (*models.DomainVerification, error)
+	DeleteDomainVerification(ctx context.Context, id string, now time.Time) error
+	ListDomainVerifications(ctx context.Context, appID string) ([]*models.DomainVerification, error)
 }
 
 type UserDB interface {
