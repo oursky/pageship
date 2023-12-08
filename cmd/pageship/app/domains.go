@@ -90,10 +90,11 @@ var domainsCmd = &cobra.Command{
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 1, 4, 4, ' ', 0)
-		fmt.Fprintln(w, "NAME\tSITE\tCREATED AT\tSTATUS")
+		fmt.Fprintln(w, "NAME\tSITE\tCREATED AT\tSTATUS\tNOTE")
 		for _, domain := range domains {
 			createdAt := "-"
 			site := "-"
+			note := ""
 			if domain.model != nil {
 				createdAt = domain.model.CreatedAt.Local().Format(time.DateTime)
 				site = fmt.Sprintf("%s/%s", domain.model.AppID, domain.model.SiteName)
@@ -109,11 +110,13 @@ var domainsCmd = &cobra.Command{
 				status = "ACTIVE"
 			case domain.verification != nil:
 				status = "PENDING"
+				key, value := domain.verification.GetTxtRecord()
+				note = fmt.Sprintf("Add TXT record with domain \"%s\" and value \"%s\" to your DNS server", key, value)
 			default:
 				status = "INACTIVE"
 			}
 
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", domain.name, site, createdAt, status)
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", domain.name, site, createdAt, status, note)
 		}
 		w.Flush()
 
@@ -179,7 +182,7 @@ var domainsActivateCmd = &cobra.Command{
 		}
 
 		var result *api.APIDomain = nil
-		_, err = API().ActivateDomain(cmd.Context(), appID, domainName, "")
+		result, err = API().ActivateDomain(cmd.Context(), appID, domainName, "")
 		if code, ok := api.ErrorStatusCode(err); ok && code == http.StatusConflict {
 			var replaceApp string
 			replaceApp, err = promptDomainReplaceApp(cmd.Context(), appID, domainName)
@@ -187,12 +190,12 @@ var domainsActivateCmd = &cobra.Command{
 				return err
 			}
 			result, err = API().ActivateDomain(cmd.Context(), appID, domainName, replaceApp)
-
 		}
 
 		if err != nil {
 			return fmt.Errorf("failed to create domain: %w", err)
 		}
+
 		if result != nil {
 			if result.Domain != nil {
 				Info("Domain %q activated.", domainName)
@@ -200,12 +203,14 @@ var domainsActivateCmd = &cobra.Command{
 			}
 			domainVerification := result.DomainVerification
 			if domainVerification != nil {
-				Info("Please add the following TXT record into your domain:")
+				Info("To activate the domain, please add a TXT record into your DNS server:")
 
 				w := tabwriter.NewWriter(os.Stdout, 1, 4, 4, ' ', 0)
-				fmt.Fprintln(w, "DOMAIN NAME\tVALUE")
+				fmt.Fprintln(w, "DOMAIN\tVALUE")
 				domain, value := domainVerification.GetTxtRecord()
-				fmt.Fprintf(w, "%s\t%s\n", domain, value)
+				fmt.Fprintf(w, "%s\t%s\n\n", domain, value)
+				fmt.Fprintf(w, "The activation may take few minutes, run \"pageship domains\" to check latest activation status.")
+				w.Flush()
 			}
 		}
 		return nil
