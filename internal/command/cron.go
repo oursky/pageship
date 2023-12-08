@@ -31,6 +31,7 @@ func (s *CronRunner) Run(ctx context.Context) error {
 		s.Logger.Info("schedule job", zap.String("job", jobName), zap.String("schedule", schedule))
 
 		jobLogger := s.Logger.Named(jobName)
+		finalJob := job
 		c.AddFunc(schedule, func() {
 			defer func() {
 				if err := recover(); err != nil {
@@ -39,8 +40,7 @@ func (s *CronRunner) Run(ctx context.Context) error {
 					}
 				}
 			}()
-
-			err := job.Run(ctx, jobLogger)
+			err := finalJob.Run(ctx, jobLogger)
 			if err != nil {
 				jobLogger.Error("job failed", zap.Error(err))
 			}
