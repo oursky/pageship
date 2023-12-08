@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -60,16 +61,47 @@ func (q query[T]) DeleteDomainVerification(ctx context.Context, id string, now t
 	return nil
 }
 
-func (q query[T]) ListDomainVerifications(ctx context.Context, appID string) ([]*models.DomainVerification, error) {
+func (q query[T]) ListDomainVerifications(ctx context.Context, appID *string, count *uint, isVerified *bool) ([]*models.DomainVerification, error) {
 	var domainVerifications []*models.DomainVerification
-	err := sqlx.SelectContext(ctx, q.ext, &domainVerifications, `
+	stmt := `
 		SELECT d.id, d.created_at, d.updated_at, d.deleted_at, d.domain, d.app_id, d.value, d.verified_at, d.domain_prefix
             FROM domain_verification d
-			WHERE d.app_id = ? AND d.deleted_at IS NULL
-			ORDER BY d.domain, d.created_at
-	`, appID)
+			WHERE %s
+			ORDER BY d.domain, d.updated_at
+	`
+	where := "d.deleted_at IS NULL"
+	if appID != nil {
+		where += " AND d.app_id = $1"
+	}
+	if isVerified != nil {
+		if *isVerified {
+			where += " AND d.verified_at IS NOT NULL"
+		} else {
+			where += " AND d.verified_at IS NULL"
+		}
+	}
+	stmt = fmt.Sprintf(stmt, where)
+	if count != nil {
+		stmt += fmt.Sprintf(" LIMIT %d", *count)
+	}
+	err := sqlx.SelectContext(ctx, q.ext, &domainVerifications, stmt, appID)
 	if err != nil {
 		return nil, err
 	}
 	return domainVerifications, err
+}
+
+func (q query[T]) UpdateDomainVerification(ctx context.Context, domainVerification *models.DomainVerification) error {
+	_, err := sqlx.NamedExecContext(ctx, q.ext, `
+    UPDATE domain_verification SET created_at = :created_at,
+    updated_at = :updated_at,
+    deleted_at = :deleted_at,
+    domain = :domain,
+    app_id = :app_id,
+    value = :value,
+    verified_at = :verified_at,
+    domain_prefix = :domain_prefix
+    where id = :id
+    `, domainVerification)
+	return err
 }

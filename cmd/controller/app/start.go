@@ -251,15 +251,26 @@ func (s *setup) controller(domain string, conf StartControllerConfig, sitesConf 
 }
 
 func (s *setup) cron(conf StartCronConfig) error {
+	cronjobs := []command.CronJob{
+		&cron.CleanupExpired{
+			Schedule:         conf.CleanupExpiredCrontab,
+			KeepAfterExpired: conf.KeepAfterExpired,
+			DB:               s.database,
+		},
+	}
+	if conf.DomainVerification {
+		cronjobs = append(cronjobs,
+			&cron.VerifyDomainOwnership{
+				Schedule:                     conf.VerifyDomainOwnershipCrontab,
+				DB:                           s.database,
+				MaxConsumeActiveDomainCount:  10,
+				MaxConsumePendingDomainCount: 10,
+			},
+		)
+	}
 	cronr := command.CronRunner{
 		Logger: logger.Named("cron"),
-		Jobs: []command.CronJob{
-			&cron.CleanupExpired{
-				Schedule:         conf.CleanupExpiredCrontab,
-				KeepAfterExpired: conf.KeepAfterExpired,
-				DB:               s.database,
-			},
-		},
+		Jobs:   cronjobs,
 	}
 
 	s.works = append(s.works, cronr.Run)
