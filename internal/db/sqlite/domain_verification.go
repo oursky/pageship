@@ -67,7 +67,7 @@ func (q query[T]) ListDomainVerifications(ctx context.Context, appID *string, co
 		SELECT d.id, d.created_at, d.updated_at, d.deleted_at, d.domain, d.app_id, d.value, d.verified_at, d.domain_prefix
             FROM domain_verification d
 			WHERE %s
-			ORDER BY d.domain, d.updated_at
+			ORDER BY d.updated_at
 	`
 	where := "d.deleted_at IS NULL"
 	if appID != nil {
