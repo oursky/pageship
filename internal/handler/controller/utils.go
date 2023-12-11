@@ -113,6 +113,8 @@ func writeResponse(w http.ResponseWriter, result any, err error) {
 		writeJSON(w, http.StatusForbidden, response{Error: err})
 	case errors.Is(err, models.ErrInvalidCredentials):
 		writeJSON(w, http.StatusUnauthorized, response{Error: err})
+	case errors.Is(err, models.ErrDomainVerificationNotSupported):
+		writeJSON(w, http.StatusBadRequest, response{Error: err})
 	default:
 		panic(err)
 	}
