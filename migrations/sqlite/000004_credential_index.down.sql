@@ -1,1 +1,1 @@
-ALTER TABLE app RENAME COLUMN credential_index TO credential_idsx;
+ALTER TABLE app RENAME COLUMN credential_index TO credential_ids;
