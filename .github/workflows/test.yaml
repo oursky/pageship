@@ -1,0 +1,31 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: stable
+      - name: Setup local storages
+        run: |
+          mkdir -p data.local/
+          mkdir -p data.local/storage
+          echo "TEST_PAGESHIP_DATABASE_URL=sqlite:///${PWD}/data.local/test_data.db" >> "$GITHUB_ENV"
+          echo "TEST_PAGESHIP_STORAGE_URL=file:///${PWD}/data.local/storage" >> "$GITHUB_ENV"
+      - name: Test 
+        run: go test ./...
+        env:
+          TEST_PAGESHIP_HOST_PATTERN: http://*.localtest.me
+          TEST_PAGESHIP_STORAGE_KEY_PREFIX: pageship/
+
