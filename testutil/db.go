@@ -18,14 +18,14 @@ func init() {
 }
 
 func SetupDB() (database db.DB, resetDB func()) {
-	db_url := viper.GetString("database-url")
-	database, err := db.New(db_url)
+	dbUrl := viper.GetString("database-url")
+	database, err := db.New(dbUrl)
 	if err != nil {
 		panic(err)
 	}
-	err = doMigrate(db_url, false)
+	err = doMigrate(dbUrl, false)
 	resetDB = func() {
-		doMigrate(db_url, true)
+		doMigrate(dbUrl, true)
 	}
 	if err != nil {
 		panic(err)
