@@ -93,8 +93,13 @@ func (c *Controller) Handler() http.Handler {
 					r.Get("/", c.handleDomainList)
 
 					r.With(c.requireAccessAdmin()).Route("/{domain-name}", func(r chi.Router) {
-						r.With(c.requireAccessDeployer()).Post("/", c.handleDomainCreate)
-						r.With(c.requireAccessDeployer()).Post("/activate", c.handleDomainActivate)
+						r.With(c.requireAccessDeployer()).Post("/", func(w http.ResponseWriter, r *http.Request) {
+							if c.Config.DomainVerificationEnabled {
+								c.handleDomainVerification(w, r)
+							} else {
+								c.handleDomainCreate(w, r)
+							}
+						})
 						r.With(c.requireAccessDeployer()).Delete("/", c.handleDomainDelete)
 					})
 				})

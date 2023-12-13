@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/oursky/pageship/internal/api"
 	"github.com/oursky/pageship/internal/config"
+	"github.com/oursky/pageship/internal/db"
 	"github.com/oursky/pageship/internal/handler/controller"
 	"github.com/oursky/pageship/internal/models"
 	"github.com/oursky/pageship/testutil"
@@ -187,40 +189,6 @@ func TestDomainCreation(t *testing.T) {
 			}
 		})
 	})
-	t.Run("Should raise domain verificaiton not supported", func(t *testing.T) {
-		testutil.WithTestController(func(c *testutil.TestController) {
-			c.UpdateConfig(func(config *controller.Config) {
-				config.DomainVerificationEnabled = true
-			})
-			user, token := c.SigninUser("mock user")
-			c.NewApp("test", user, &config.AppConfig{
-				Domains: []config.AppDomainConfig{
-					{
-						Site:   "main",
-						Domain: "test.com",
-					},
-				},
-				Team: []*config.AccessRule{
-					{
-
-						ACLSubjectRule: config.ACLSubjectRule{
-							PageshipUser: user.ID,
-						},
-						Access: config.AccessLevelAdmin,
-					},
-				},
-			})
-			req := httptest.NewRequest("POST", "http://localtest.me/api/v1/apps/test/domains/test.com", nil)
-			req.Header.Add("Authorization", "bearer "+token)
-			w := httptest.NewRecorder()
-			c.ServeHTTP(w, req)
-			_, err := testutil.DecodeJSONResponse[*api.APIDomain](w.Result())
-			if assert.Error(t, err) {
-				assert.Equal(t, 400, err.(api.ServerError).Code)
-				assert.Equal(t, models.ErrDomainVerificationNotSupported.Error(), err.(api.ServerError).Message)
-			}
-		})
-	})
 }
 
 func TestDomainDeletion(t *testing.T) {
@@ -298,79 +266,107 @@ func TestDomainDeletion(t *testing.T) {
 	})
 }
 
-func TestDomainActivation(t *testing.T) {
-	t.Run("Activate domain", func(t *testing.T) {
+func setupDomainVerification(c *testutil.TestController) (token string) {
+
+	c.UpdateConfig(func(config *controller.Config) {
+		config.DomainVerificationEnabled = true
+	})
+	user, token := c.SigninUser("mock user")
+	c.NewApp("test", user, &config.AppConfig{
+		Domains: []config.AppDomainConfig{
+			{
+				Site:   "main",
+				Domain: "test.com",
+			},
+		},
+		Team: []*config.AccessRule{
+			{
+
+				ACLSubjectRule: config.ACLSubjectRule{
+					PageshipUser: user.ID,
+				},
+				Access: config.AccessLevelAdmin,
+			},
+		},
+	})
+	c.NewApp("test2", user, &config.AppConfig{
+		Domains: []config.AppDomainConfig{
+			{
+				Site:   "main",
+				Domain: "test.com",
+			},
+		},
+		Team: []*config.AccessRule{
+			{
+
+				ACLSubjectRule: config.ACLSubjectRule{
+					PageshipUser: user.ID,
+				},
+				Access: config.AccessLevelAdmin,
+			},
+		},
+	})
+	return
+}
+
+func TestDomainVerification(t *testing.T) {
+	t.Run("Should raise domain is undefined", func(t *testing.T) {
 		testutil.WithTestController(func(c *testutil.TestController) {
-			c.UpdateConfig(func(config *controller.Config) {
-				config.DomainVerificationEnabled = true
+			token := setupDomainVerification(c)
+			req := httptest.NewRequest("POST", "http://localtest.me/api/v1/apps/test/domains/test-undefined.com", nil)
+			req.Header.Add("Authorization", "bearer "+token)
+			w := httptest.NewRecorder()
+			c.ServeHTTP(w, req)
+			_, err := testutil.DecodeJSONResponse[*api.APIDomain](w.Result())
+			if assert.Error(t, err) {
+				assert.Equal(t, models.ErrUndefinedDomain.Error(), err.(api.ServerError).Message)
+			}
+		})
+	})
+	t.Run("Should add a pending activating domain with app A", func(t *testing.T) {
+		testutil.WithTestController(func(c *testutil.TestController) {
+			token := setupDomainVerification(c)
+			req := httptest.NewRequest("POST", "http://localtest.me/api/v1/apps/test/domains/test.com", nil)
+			req.Header.Add("Authorization", "bearer "+token)
+			w := httptest.NewRecorder()
+			c.ServeHTTP(w, req)
+			domain, err := testutil.DecodeJSONResponse[*api.APIDomain](w.Result())
+			if assert.NoError(t, err) {
+				assert.Nil(t, domain.Domain)
+				assert.Equal(t, "test.com", domain.DomainVerification.Domain)
+			}
+		})
+	})
+	t.Run("Should add a pending activating domain with app B", func(t *testing.T) {
+		testutil.WithTestController(func(c *testutil.TestController) {
+			token := setupDomainVerification(c)
+			req := httptest.NewRequest("POST", "http://localtest.me/api/v1/apps/test2/domains/test.com", nil)
+			req.Header.Add("Authorization", "bearer "+token)
+			w := httptest.NewRecorder()
+			c.ServeHTTP(w, req)
+			domain, err := testutil.DecodeJSONResponse[*api.APIDomain](w.Result())
+			if assert.NoError(t, err) {
+				assert.Nil(t, domain.Domain)
+				assert.Equal(t, "test.com", domain.DomainVerification.Domain)
+			}
+		})
+	})
+	t.Run("Should not add a pending domain for existing domain", func(t *testing.T) {
+		testutil.WithTestController(func(c *testutil.TestController) {
+			token := setupDomainVerification(c)
+			db.WithTx(c.Context, c.DB, func(tx db.Tx) error {
+				return tx.CreateDomain(c.Context, models.NewDomain(time.Now(), "test.com", "test", "main"))
 			})
-			user, token := c.SigninUser("mock user")
-			c.NewApp("test", user, &config.AppConfig{
-				Domains: []config.AppDomainConfig{
-					{
-						Site:   "main",
-						Domain: "test.com",
-					},
-				},
-				Team: []*config.AccessRule{
-					{
-
-						ACLSubjectRule: config.ACLSubjectRule{
-							PageshipUser: user.ID,
-						},
-						Access: config.AccessLevelAdmin,
-					},
-				},
-			})
-			c.NewApp("test2", user, &config.AppConfig{
-				Domains: []config.AppDomainConfig{
-					{
-						Site:   "main",
-						Domain: "test.com",
-					},
-				},
-				Team: []*config.AccessRule{
-					{
-
-						ACLSubjectRule: config.ACLSubjectRule{
-							PageshipUser: user.ID,
-						},
-						Access: config.AccessLevelAdmin,
-					},
-				},
-			})
-			t.Run("Should raise domain is undefined", func(t *testing.T) {
-				req := httptest.NewRequest("POST", "http://localtest.me/api/v1/apps/test/domains/test-undefined.com/activate", nil)
-				req.Header.Add("Authorization", "bearer "+token)
-				w := httptest.NewRecorder()
-				c.ServeHTTP(w, req)
-				_, err := testutil.DecodeJSONResponse[*api.APIDomain](w.Result())
-				if assert.Error(t, err) {
-					assert.Equal(t, models.ErrUndefinedDomain.Error(), err.(api.ServerError).Message)
-				}
-			})
-			t.Run("Should pending for activating domain with app A", func(t *testing.T) {
-				req := httptest.NewRequest("POST", "http://localtest.me/api/v1/apps/test/domains/test.com/activate", nil)
-				req.Header.Add("Authorization", "bearer "+token)
-				w := httptest.NewRecorder()
-				c.ServeHTTP(w, req)
-				domain, err := testutil.DecodeJSONResponse[*api.APIDomain](w.Result())
-				if assert.NoError(t, err) {
-					assert.Nil(t, domain.Domain)
-					assert.Equal(t, "test.com", domain.DomainVerification.Domain)
-				}
-			})
-			t.Run("Should pending for activating domain with app B", func(t *testing.T) {
-				req := httptest.NewRequest("POST", "http://localtest.me/api/v1/apps/test2/domains/test.com/activate", nil)
-				req.Header.Add("Authorization", "bearer "+token)
-				w := httptest.NewRecorder()
-				c.ServeHTTP(w, req)
-				domain, err := testutil.DecodeJSONResponse[*api.APIDomain](w.Result())
-				if assert.NoError(t, err) {
-					assert.Nil(t, domain.Domain)
-					assert.Equal(t, "test.com", domain.DomainVerification.Domain)
-				}
-			})
+			req := httptest.NewRequest("POST", "http://localtest.me/api/v1/apps/test/domains/test.com", nil)
+			req.Header.Add("Authorization", "bearer "+token)
+			w := httptest.NewRecorder()
+			c.ServeHTTP(w, req)
+			domain, err := testutil.DecodeJSONResponse[*api.APIDomain](w.Result())
+			if assert.NoError(t, err) {
+				assert.Nil(t, domain.DomainVerification)
+				assert.NotNil(t, domain.Domain)
+				assert.Equal(t, "test.com", domain.Domain.Domain)
+			}
 		})
 	})
 }

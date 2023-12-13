@@ -49,7 +49,7 @@ func (c *Controller) handleDomainList(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (c *Controller) handleDomainActivate(w http.ResponseWriter, r *http.Request) {
+func (c *Controller) handleDomainVerification(w http.ResponseWriter, r *http.Request) {
 	app := get[*models.App](r)
 	domainName := chi.URLParam(r, "domain-name")
 
@@ -57,26 +57,22 @@ func (c *Controller) handleDomainActivate(w http.ResponseWriter, r *http.Request
 	if !ok {
 		respond(w, func() (any, error) { return nil, models.ErrUndefinedDomain })
 	}
-	if c.Config.DomainVerificationEnabled {
-		respond(w, withTx(r.Context(), c.DB, func(tx db.Tx) (any, error) {
-			var domainVerification *models.DomainVerification
-			domain, _ := tx.GetDomainByName(r.Context(), domainName)
-			domainVerification, _ = tx.GetDomainVerificationByName(r.Context(), domainName)
-			if domainVerification == nil {
-				domainVerification = models.NewDomainVerification(c.Clock.Now().UTC(), domainName, app.ID)
-				err := tx.CreateDomainVerification(r.Context(), domainVerification)
-				if err != nil {
-					return nil, err
-				}
-				log(r).Info("creating domain verification",
-					zap.String("domain", domainName),
-					zap.String("site", config.Site))
+	respond(w, withTx(r.Context(), c.DB, func(tx db.Tx) (any, error) {
+		var domainVerification *models.DomainVerification
+		domain, _ := tx.GetDomainByName(r.Context(), domainName)
+		domainVerification, _ = tx.GetDomainVerificationByName(r.Context(), domainName)
+		if domain == nil && domainVerification == nil {
+			domainVerification = models.NewDomainVerification(c.Clock.Now().UTC(), domainName, app.ID)
+			err := tx.CreateDomainVerification(r.Context(), domainVerification)
+			if err != nil {
+				return nil, err
 			}
-			return c.makeAPIDomain(domain, domainVerification), nil
-		}))
-	} else {
-		c.handleDomainCreate(w, r)
-	}
+			log(r).Info("creating domain verification",
+				zap.String("domain", domainName),
+				zap.String("site", config.Site))
+		}
+		return c.makeAPIDomain(domain, domainVerification), nil
+	}))
 }
 
 func (c *Controller) handleDomainCreate(w http.ResponseWriter, r *http.Request) {
@@ -90,10 +86,6 @@ func (c *Controller) handleDomainCreate(w http.ResponseWriter, r *http.Request) 
 		if !ok {
 			return nil, models.ErrUndefinedDomain
 		}
-		if c.Config.DomainVerificationEnabled {
-			return nil, models.ErrDomainVerificationNotSupported
-		}
-
 		domain, err := tx.GetDomainByName(r.Context(), domainName)
 		if errors.Is(err, models.ErrDomainNotFound) {
 			// Continue create new domain.
