@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -265,6 +266,7 @@ func (s *setup) cron(conf StartCronConfig) error {
 				DB:                           s.database,
 				MaxConsumeActiveDomainCount:  10,
 				MaxConsumePendingDomainCount: 10,
+				Resolver:                     net.DefaultResolver,
 			},
 		)
 	}

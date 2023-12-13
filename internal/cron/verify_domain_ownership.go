@@ -11,11 +11,16 @@ import (
 	"go.uber.org/zap"
 )
 
+type DNSResolver interface {
+	LookupTXT(context context.Context, key string) ([]string, error)
+}
+
 type VerifyDomainOwnership struct {
 	Schedule                     string
 	DB                           db.DB
 	MaxConsumeActiveDomainCount  uint
 	MaxConsumePendingDomainCount uint
+	Resolver                     DNSResolver
 }
 
 func (v *VerifyDomainOwnership) Name() string { return "verify-domain-ownership" }
@@ -41,7 +46,7 @@ func (v *VerifyDomainOwnership) Run(ctx context.Context, logger *zap.Logger) err
 		var consumedCount = 0
 		for _, domainVerification := range domainVerifications {
 			key, value := domainVerification.GetTxtRecord()
-			values, err := net.LookupTXT(key)
+			values, err := v.Resolver.LookupTXT(ctx, key)
 			var dnsErr *net.DNSError
 			if err != nil && errors.As(err, &dnsErr) && !dnsErr.IsNotFound {
 				continue
