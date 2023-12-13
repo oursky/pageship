@@ -19,10 +19,6 @@ type apiDomainVerification struct {
 	*models.DomainVerification
 }
 
-func (c *Controller) makeAPIDomainVerification(domainVerification *models.DomainVerification) *apiDomainVerification {
-	return &apiDomainVerification{DomainVerification: domainVerification}
-}
-
 type DomainInfo struct {
 	domain       *models.Domain
 	verification *models.DomainVerification
