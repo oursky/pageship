@@ -1,11 +1,10 @@
 package models
 
 import (
+	"crypto/rand"
 	"fmt"
-	"strings"
+	"math/big"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type DomainVerification struct {
@@ -21,8 +20,14 @@ type DomainVerification struct {
 }
 
 func NewDomainVerification(now time.Time, domain string, appID string) *DomainVerification {
-	uuid, _ := uuid.NewRandom()
-	tokens := strings.Split(uuid.String(), "-")
+	num1, err := rand.Int(rand.Reader, big.NewInt(999999))
+	if err != nil {
+		panic(err)
+	}
+	num2, err := rand.Int(rand.Reader, big.NewInt(999999))
+	if err != nil {
+		panic(err)
+	}
 	return &DomainVerification{
 		ID:           newID("domain_verification"),
 		CreatedAt:    now,
@@ -30,8 +35,8 @@ func NewDomainVerification(now time.Time, domain string, appID string) *DomainVe
 		DeletedAt:    nil,
 		Domain:       domain,
 		AppID:        appID,
-		DomainPrefix: tokens[0],
-		Value:        tokens[1],
+		DomainPrefix: fmt.Sprintf("%06d", num1),
+		Value:        fmt.Sprintf("%06d", num2),
 	}
 }
 

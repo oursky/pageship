@@ -1,7 +1,6 @@
 package models_test
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -11,7 +10,7 @@ import (
 
 func TestDomainVerification(t *testing.T) {
 	v := models.NewDomainVerification(time.Now(), "example.com", "appId")
-	expectedDommain := fmt.Sprintf("%s._pageship.example.com", v.DomainPrefix)
-	domain, _ := v.GetTxtRecord()
-	assert.Equal(t, expectedDommain, domain)
+	domain, value := v.GetTxtRecord()
+	assert.Regexp(t, "\\d{6}\\._pageship\\.example\\.com", domain)
+	assert.Regexp(t, "\\d{6}", value)
 }
