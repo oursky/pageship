@@ -64,7 +64,7 @@ func (c *Controller) handleAppConfigSet(w http.ResponseWriter, r *http.Request) 
 			return nil, err
 		}
 		for _, d := range domainVerifications {
-			if _, exists := app.Config.ResolveDomain(d.Domain); exists && c.Config.DomainVerification {
+			if _, exists := app.Config.ResolveDomain(d.Domain); exists && c.Config.DomainVerificationEnabled {
 				continue
 			}
 

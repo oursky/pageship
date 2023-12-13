@@ -6,15 +6,15 @@ import (
 )
 
 type Config struct {
-	MaxDeploymentSize  int64
-	StorageKeyPrefix   string
-	HostIDScheme       config.HostIDScheme
-	HostPattern        *config.HostPattern
-	ReservedApps       map[string]struct{}
-	TokenAuthority     string
-	TokenSigningKey    []byte
-	ACL                *watch.File[config.ACL]
-	DomainVerification bool
+	MaxDeploymentSize         int64
+	StorageKeyPrefix          string
+	HostIDScheme              config.HostIDScheme
+	HostPattern               *config.HostPattern
+	ReservedApps              map[string]struct{}
+	TokenAuthority            string
+	TokenSigningKey           []byte
+	ACL                       *watch.File[config.ACL]
+	DomainVerificationEnabled bool
 
 	ServerVersion       string
 	CustomDomainMessage string

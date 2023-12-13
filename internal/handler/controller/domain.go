@@ -61,7 +61,7 @@ func (c *Controller) handleDomainActivate(w http.ResponseWriter, r *http.Request
 	if !ok {
 		respond(w, func() (any, error) { return nil, models.ErrUndefinedDomain })
 	}
-	if c.Config.DomainVerification {
+	if c.Config.DomainVerificationEnabled {
 		respond(w, withTx(r.Context(), c.DB, func(tx db.Tx) (any, error) {
 			var domainVerification *models.DomainVerification
 			domain, _ := tx.GetDomainByName(r.Context(), domainName)
@@ -94,7 +94,7 @@ func (c *Controller) handleDomainCreate(w http.ResponseWriter, r *http.Request) 
 		if !ok {
 			return nil, models.ErrUndefinedDomain
 		}
-		if c.Config.DomainVerification {
+		if c.Config.DomainVerificationEnabled {
 			return nil, models.ErrDomainVerificationNotSupported
 		}
 

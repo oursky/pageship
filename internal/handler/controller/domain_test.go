@@ -190,7 +190,7 @@ func TestDomainCreation(t *testing.T) {
 	t.Run("Should raise domain verificaiton not supported", func(t *testing.T) {
 		testutil.WithTestController(func(c *testutil.TestController) {
 			c.UpdateConfig(func(config *controller.Config) {
-				config.DomainVerification = true
+				config.DomainVerificationEnabled = true
 			})
 			user, token := c.SigninUser("mock user")
 			c.NewApp("test", user, &config.AppConfig{
@@ -302,7 +302,7 @@ func TestDomainActivation(t *testing.T) {
 	t.Run("Activate domain", func(t *testing.T) {
 		testutil.WithTestController(func(c *testutil.TestController) {
 			c.UpdateConfig(func(config *controller.Config) {
-				config.DomainVerification = true
+				config.DomainVerificationEnabled = true
 			})
 			user, token := c.SigninUser("mock user")
 			c.NewApp("test", user, &config.AppConfig{
