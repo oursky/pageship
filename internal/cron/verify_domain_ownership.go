@@ -16,6 +16,7 @@ type DNSResolver interface {
 }
 
 type VerifyDomainOwnership struct {
+	Clock                        time.Clock
 	Schedule                     string
 	DB                           db.DB
 	MaxConsumeActiveDomainCount  uint
@@ -29,7 +30,11 @@ func (v *VerifyDomainOwnership) Name() string { return "verify-domain-ownership"
 func (v *VerifyDomainOwnership) CronSchedule() string { return v.Schedule }
 
 func (v *VerifyDomainOwnership) Run(ctx context.Context, logger *zap.Logger) error {
-	now := time.SystemClock.Now().UTC()
+	clock := v.Clock
+	if clock == nil {
+		clock = time.SystemClock
+	}
+	now := clock.Now().UTC()
 
 	return db.WithTx(ctx, v.DB, func(c db.Tx) error {
 		domainVerifications := []*models.DomainVerification{}
