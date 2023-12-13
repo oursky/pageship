@@ -9,7 +9,7 @@ CREATE TABLE domain_verification (
     domain_prefix       TEXT NOT NULL,
     value               TEXT NOT NULL,
     app_id              TEXT NOT NULL REFERENCES app(id),
-    verified_at         TIMESTAMP
+    verified_at         TIMESTAMPTZ
 );
 CREATE UNIQUE INDEX app_domain_mapping ON domain_verification(app_id, domain) WHERE deleted_at IS NULL;
 
