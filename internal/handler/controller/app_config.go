@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -44,7 +43,7 @@ func (c *Controller) handleAppConfigSet(w http.ResponseWriter, r *http.Request) 
 
 		// Deactivated removed domains; added domains need manual activation.
 		domains, err := tx.ListDomains(r.Context(), app.ID)
-		if err != nil && !errors.Is(err, models.ErrDomainNotFound) {
+		if err != nil {
 			return nil, err
 		}
 		for _, d := range domains {
@@ -60,7 +59,7 @@ func (c *Controller) handleAppConfigSet(w http.ResponseWriter, r *http.Request) 
 			log(r).Info("deleting domain", zap.String("domain", d.Domain))
 		}
 		domainVerifications, err := tx.ListDomainVerifications(r.Context(), app.ID)
-		if err != nil && !errors.Is(err, models.ErrDomainNotFound) {
+		if err != nil {
 			return nil, err
 		}
 		for _, d := range domainVerifications {
