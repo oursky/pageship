@@ -88,8 +88,10 @@ type DomainVerificationDB interface {
 	CreateDomainVerification(ctx context.Context, domainVerification *models.DomainVerification) error
 	GetDomainVerificationByName(ctx context.Context, domain string) (*models.DomainVerification, error)
 	DeleteDomainVerification(ctx context.Context, id string, now time.Time) error
-	ListDomainVerifications(ctx context.Context, appID *string, count *uint, isVerified *bool) ([]*models.DomainVerification, error)
-	UpdateDomainVerification(ctx context.Context, domainVerification *models.DomainVerification) error
+	ListDomainVerifications(ctx context.Context, appID string) ([]*models.DomainVerification, error)
+	ListLeastRecentlyCheckedDomain(ctx context.Context, now time.Time, isVerified bool, count uint) ([]*models.DomainVerification, error)
+	SetDomainIsVerified(ctx context.Context, id string, now time.Time, nextVerifyAt time.Time) error
+	SetDomainIsInvalid(ctx context.Context, id string, now time.Time) error
 }
 
 type UserDB interface {

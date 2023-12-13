@@ -59,7 +59,7 @@ func (c *Controller) handleAppConfigSet(w http.ResponseWriter, r *http.Request) 
 
 			log(r).Info("deleting domain", zap.String("domain", d.Domain))
 		}
-		domainVerifications, err := tx.ListDomainVerifications(r.Context(), &app.ID, nil, nil)
+		domainVerifications, err := tx.ListDomainVerifications(r.Context(), app.ID)
 		if err != nil && !errors.Is(err, models.ErrDomainNotFound) {
 			return nil, err
 		}

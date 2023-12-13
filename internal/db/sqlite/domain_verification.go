@@ -13,8 +13,8 @@ import (
 
 func (q query[T]) CreateDomainVerification(ctx context.Context, domainVerification *models.DomainVerification) error {
 	result, err := sqlx.NamedExecContext(ctx, q.ext, `
-		INSERT INTO domain_verification (id, created_at, updated_at, deleted_at, domain, app_id, value, verified_at, domain_prefix)
-        VALUES (:id, :created_at, :updated_at, :deleted_at, :domain, :app_id, :value, :verified_at, :domain_prefix)
+		INSERT INTO domain_verification (id, created_at, updated_at, deleted_at, domain, app_id, value, verified_at, domain_prefix, will_check_at, last_checked_at)
+        VALUES (:id, :created_at, :updated_at, :deleted_at, :domain, :app_id, :value, :verified_at, :domain_prefix, :will_check_at, :last_checked_at)
 			ON CONFLICT (domain, app_id) WHERE deleted_at IS NULL DO NOTHING
 	`, domainVerification)
 	if err != nil {
@@ -36,7 +36,8 @@ func (q query[T]) GetDomainVerificationByName(ctx context.Context, domainName st
 	var domainVerification models.DomainVerification
 
 	err := sqlx.GetContext(ctx, q.ext, &domainVerification, `
-		SELECT d.id, d.created_at, d.updated_at, d.deleted_at, d.domain, d.app_id, d.value, d.verified_at, d.domain_prefix FROM domain_verification d
+		SELECT d.id, d.created_at, d.updated_at, d.deleted_at, d.verified_at, d.last_checked_at, d.will_check_at, d.domain, d.domain_prefix, d.app_id, d.value
+        FROM domain_verification d
 			JOIN app a ON (a.id = d.app_id AND a.deleted_at IS NULL)
 			WHERE d.domain = ? AND d.deleted_at IS NULL
 	`, domainName)
@@ -61,29 +62,14 @@ func (q query[T]) DeleteDomainVerification(ctx context.Context, id string, now t
 	return nil
 }
 
-func (q query[T]) ListDomainVerifications(ctx context.Context, appID *string, count *uint, isVerified *bool) ([]*models.DomainVerification, error) {
+func (q query[T]) ListDomainVerifications(ctx context.Context, appID string) ([]*models.DomainVerification, error) {
 	var domainVerifications []*models.DomainVerification
 	stmt := `
-		SELECT d.id, d.created_at, d.updated_at, d.deleted_at, d.domain, d.app_id, d.value, d.verified_at, d.domain_prefix
+		SELECT d.id, d.created_at, d.updated_at, d.deleted_at, d.verified_at, d.last_checked_at, d.will_check_at, d.domain, d.domain_prefix, d.app_id, d.value
             FROM domain_verification d
-			WHERE %s
-			ORDER BY d.updated_at
+			WHERE d.deleted_at IS NULL AND d.app_id = ?
+			ORDER BY d.domain, d.created_at
 	`
-	where := "d.deleted_at IS NULL"
-	if appID != nil {
-		where += " AND d.app_id = ?"
-	}
-	if isVerified != nil {
-		if *isVerified {
-			where += " AND d.verified_at IS NOT NULL"
-		} else {
-			where += " AND d.verified_at IS NULL"
-		}
-	}
-	stmt = fmt.Sprintf(stmt, where)
-	if count != nil {
-		stmt += fmt.Sprintf(" LIMIT %d", *count)
-	}
 	err := sqlx.SelectContext(ctx, q.ext, &domainVerifications, stmt, appID)
 	if err != nil {
 		return nil, err
@@ -91,17 +77,49 @@ func (q query[T]) ListDomainVerifications(ctx context.Context, appID *string, co
 	return domainVerifications, err
 }
 
-func (q query[T]) UpdateDomainVerification(ctx context.Context, domainVerification *models.DomainVerification) error {
-	_, err := sqlx.NamedExecContext(ctx, q.ext, `
-    UPDATE domain_verification SET created_at = :created_at,
-    updated_at = :updated_at,
-    deleted_at = :deleted_at,
-    domain = :domain,
-    app_id = :app_id,
-    value = :value,
-    verified_at = :verified_at,
-    domain_prefix = :domain_prefix
-    where id = :id
-    `, domainVerification)
+func (q query[T]) SetDomainIsVerified(ctx context.Context, id string, now time.Time, nextVerifyAt time.Time) error {
+	_, err := q.ext.ExecContext(ctx, `
+    UPDATE domain_verification SET
+        updated_at = ?,
+        verified_at = ?,
+        last_checked_at = ?,
+        will_check_at = ?
+        WHERE id = ?
+    `, now, now, now, nextVerifyAt, id)
 	return err
+}
+
+func (q query[T]) SetDomainIsInvalid(ctx context.Context, id string, now time.Time) error {
+	_, err := q.ext.ExecContext(ctx, `
+    UPDATE domain_verification SET
+        updated_at = ?,
+        verified_at = ?,
+        last_checked_at = ?,
+        will_check_at = ?
+        WHERE id = ?
+    `, now, nil, now, nil, id)
+	return err
+}
+
+func (q query[T]) ListLeastRecentlyCheckedDomain(ctx context.Context, time time.Time, isVerified bool, count uint) ([]*models.DomainVerification, error) {
+	var domainVerifications []*models.DomainVerification
+	stmt := `
+		SELECT d.id, d.created_at, d.updated_at, d.deleted_at, d.verified_at, d.last_checked_at, d.will_check_at, d.domain, d.domain_prefix, d.app_id, d.value
+            FROM domain_verification d
+			WHERE %s
+            ORDER BY d.will_check_at, d.last_checked_at NULLS FIRST
+            LIMIT ?
+	`
+	where := "d.deleted_at IS NULL AND d.will_check_at IS NOT NULL"
+	if isVerified {
+		where += " AND d.verified_at IS NOT NULL"
+	} else {
+		where += " AND d.verified_at IS NULL"
+	}
+	stmt = fmt.Sprintf(stmt, where)
+	err := sqlx.SelectContext(ctx, q.ext, &domainVerifications, stmt, count)
+	if err != nil {
+		return nil, err
+	}
+	return domainVerifications, err
 }

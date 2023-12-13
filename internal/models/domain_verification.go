@@ -8,15 +8,17 @@ import (
 )
 
 type DomainVerification struct {
-	ID           string     `json:"id" db:"id"`
-	CreatedAt    time.Time  `json:"createdAt" db:"created_at"`
-	UpdatedAt    time.Time  `json:"updatedAt" db:"updated_at"`
-	DeletedAt    *time.Time `json:"deletedAt" db:"deleted_at"`
-	VerifiedAt   *time.Time `json:"verifiedAt" db:"verified_at"`
-	Domain       string     `json:"domain" db:"domain"`
-	DomainPrefix string     `json:"domainPrefix" db:"domain_prefix"`
-	AppID        string     `json:"appID" db:"app_id"`
-	Value        string     `json:"value" db:"value"`
+	ID            string     `json:"id" db:"id"`
+	CreatedAt     time.Time  `json:"createdAt" db:"created_at"`
+	UpdatedAt     time.Time  `json:"updatedAt" db:"updated_at"`
+	DeletedAt     *time.Time `json:"deletedAt" db:"deleted_at"`
+	VerifiedAt    *time.Time `json:"verifiedAt" db:"verified_at"`
+	LastCheckedAt *time.Time `json:"lastCheckedAt" db:"last_checked_at"`
+	WillCheckAt   *time.Time `json:"willCheckAt" db:"will_check_at"`
+	Domain        string     `json:"domain" db:"domain"`
+	DomainPrefix  string     `json:"domainPrefix" db:"domain_prefix"`
+	AppID         string     `json:"appID" db:"app_id"`
+	Value         string     `json:"value" db:"value"`
 }
 
 func NewDomainVerification(now time.Time, domain string, appID string) *DomainVerification {
@@ -29,14 +31,16 @@ func NewDomainVerification(now time.Time, domain string, appID string) *DomainVe
 		panic(err)
 	}
 	return &DomainVerification{
-		ID:           newID("domain_verification"),
-		CreatedAt:    now,
-		UpdatedAt:    now,
-		DeletedAt:    nil,
-		Domain:       domain,
-		AppID:        appID,
-		DomainPrefix: fmt.Sprintf("%06d", num1),
-		Value:        fmt.Sprintf("%06d", num2),
+		ID:            newID("domain_verification"),
+		CreatedAt:     now,
+		UpdatedAt:     now,
+		DeletedAt:     nil,
+		Domain:        domain,
+		AppID:         appID,
+		DomainPrefix:  fmt.Sprintf("%06d", num1),
+		Value:         fmt.Sprintf("%06d", num2),
+		WillCheckAt:   &now,
+		LastCheckedAt: nil,
 	}
 }
 

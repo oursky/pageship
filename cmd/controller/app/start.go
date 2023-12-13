@@ -267,6 +267,7 @@ func (s *setup) cron(conf StartCronConfig) error {
 				MaxConsumeActiveDomainCount:  10,
 				MaxConsumePendingDomainCount: 10,
 				Resolver:                     net.DefaultResolver,
+				RevalidatePeriod:             time.Hour,
 			},
 		)
 	}
