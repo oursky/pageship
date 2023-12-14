@@ -34,7 +34,7 @@ func (c *Controller) handleDomainList(w http.ResponseWriter, r *http.Request) {
 			if err != nil && !errors.Is(err, models.ErrDomainNotFound) {
 				return nil, err
 			}
-			domainVerification, err := c.DB.GetDomainVerificationByName(r.Context(), dconf.Domain)
+			domainVerification, err := c.DB.GetDomainVerificationByName(r.Context(), dconf.Domain, app.ID)
 			if err != nil && !errors.Is(err, models.ErrDomainNotFound) {
 				return nil, err
 			}
@@ -60,8 +60,7 @@ func (c *Controller) handleDomainVerification(w http.ResponseWriter, r *http.Req
 	respond(w, withTx(r.Context(), c.DB, func(tx db.Tx) (any, error) {
 		var domainVerification *models.DomainVerification
 		domain, _ := tx.GetDomainByName(r.Context(), domainName)
-		domainVerification, _ = tx.GetDomainVerificationByName(r.Context(), domainName)
-		if domain == nil && domainVerification == nil {
+		domainVerification, _ = tx.GetDomainVerificationByName(r.Context(), domainName, app.ID)
 			domainVerification = models.NewDomainVerification(c.Clock.Now().UTC(), domainName, app.ID)
 			err := tx.CreateDomainVerification(r.Context(), domainVerification)
 			if err != nil {
@@ -87,6 +86,7 @@ func (c *Controller) handleDomainCreate(w http.ResponseWriter, r *http.Request) 
 			return nil, models.ErrUndefinedDomain
 		}
 		domain, err := tx.GetDomainByName(r.Context(), domainName)
+		domainVerification, _ := tx.GetDomainVerificationByName(r.Context(), domainName, app.ID)
 		if errors.Is(err, models.ErrDomainNotFound) {
 			// Continue create new domain.
 		} else if err != nil {

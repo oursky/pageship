@@ -90,6 +90,19 @@ func (v *VerifyDomainOwnership) Run(ctx context.Context, logger *zap.Logger) err
 							now, domainName, domainVerification.AppID, config.Site,
 						))
 					}
+				} else if domain.AppID != domainVerification.AppID {
+					domainName := domainVerification.Domain
+					app, err := c.GetApp(ctx, domainVerification.AppID)
+					if err != nil {
+						continue
+					}
+					config, ok := app.Config.ResolveDomain(domainName)
+					if ok {
+						c.DeleteDomain(ctx, domain.ID, now)
+						c.CreateDomain(ctx, models.NewDomain(
+							now, domainName, domainVerification.AppID, config.Site,
+						))
+					}
 				}
 				err = c.SetDomainIsVerified(ctx, domainVerification.ID, now, now.Add(v.RevalidatePeriod))
 				if err != nil {

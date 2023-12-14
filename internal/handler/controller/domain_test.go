@@ -323,9 +323,36 @@ func TestDomainVerification(t *testing.T) {
 			}
 		})
 	})
-	t.Run("Should add a pending activating domain with app A", func(t *testing.T) {
+	t.Run("Should add a pending activating domain for same domain with different Apps", func(t *testing.T) {
 		testutil.WithTestController(func(c *testutil.TestController) {
 			token := setupDomainVerification(c)
+
+			t.Run("Should add a pending activating domain with app B", func(t *testing.T) {
+				req := httptest.NewRequest("POST", "http://localtest.me/api/v1/apps/test/domains/test.com", nil)
+				req.Header.Add("Authorization", "bearer "+token)
+				w := httptest.NewRecorder()
+				c.ServeHTTP(w, req)
+				domain, err := testutil.DecodeJSONResponse[*api.APIDomain](w.Result())
+				if assert.NoError(t, err) {
+					assert.Nil(t, domain.Domain)
+					assert.Equal(t, "test.com", domain.DomainVerification.Domain)
+					assert.Equal(t, "test", domain.DomainVerification.AppID)
+				}
+			})
+			t.Run("Should add a pending activating domain with app B", func(t *testing.T) {
+				req := httptest.NewRequest("POST", "http://localtest.me/api/v1/apps/test2/domains/test.com", nil)
+				req.Header.Add("Authorization", "bearer "+token)
+				w := httptest.NewRecorder()
+				c.ServeHTTP(w, req)
+				domain, err := testutil.DecodeJSONResponse[*api.APIDomain](w.Result())
+				if assert.NoError(t, err) {
+					assert.Nil(t, domain.Domain)
+					assert.Equal(t, "test.com", domain.DomainVerification.Domain)
+					assert.Equal(t, "test2", domain.DomainVerification.AppID)
+				}
+			})
+		})
+	})
 			req := httptest.NewRequest("POST", "http://localtest.me/api/v1/apps/test/domains/test.com", nil)
 			req.Header.Add("Authorization", "bearer "+token)
 			w := httptest.NewRecorder()
@@ -337,9 +364,6 @@ func TestDomainVerification(t *testing.T) {
 			}
 		})
 	})
-	t.Run("Should add a pending activating domain with app B", func(t *testing.T) {
-		testutil.WithTestController(func(c *testutil.TestController) {
-			token := setupDomainVerification(c)
 			req := httptest.NewRequest("POST", "http://localtest.me/api/v1/apps/test2/domains/test.com", nil)
 			req.Header.Add("Authorization", "bearer "+token)
 			w := httptest.NewRecorder()
@@ -350,14 +374,6 @@ func TestDomainVerification(t *testing.T) {
 				assert.Equal(t, "test.com", domain.DomainVerification.Domain)
 			}
 		})
-	})
-	t.Run("Should not add a pending domain for existing domain", func(t *testing.T) {
-		testutil.WithTestController(func(c *testutil.TestController) {
-			token := setupDomainVerification(c)
-			db.WithTx(c.Context, c.DB, func(tx db.Tx) error {
-				return tx.CreateDomain(c.Context, models.NewDomain(time.Now(), "test.com", "test", "main"))
-			})
-			req := httptest.NewRequest("POST", "http://localtest.me/api/v1/apps/test/domains/test.com", nil)
 			req.Header.Add("Authorization", "bearer "+token)
 			w := httptest.NewRecorder()
 			c.ServeHTTP(w, req)

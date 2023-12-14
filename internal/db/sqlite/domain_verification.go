@@ -32,15 +32,16 @@ func (q query[T]) CreateDomainVerification(ctx context.Context, domainVerificati
 	return nil
 }
 
-func (q query[T]) GetDomainVerificationByName(ctx context.Context, domainName string) (*models.DomainVerification, error) {
+func (q query[T]) GetDomainVerificationByName(ctx context.Context, domainName string, appId string) (*models.DomainVerification, error) {
 	var domainVerification models.DomainVerification
 
 	err := sqlx.GetContext(ctx, q.ext, &domainVerification, `
-		SELECT d.id, d.created_at, d.updated_at, d.deleted_at, d.verified_at, d.last_checked_at, d.will_check_at, d.domain, d.domain_prefix, d.app_id, d.value
+		SELECT d.id, d.created_at, d.updated_at, d.deleted_at, d.verified_at, d.last_checked_at, d.will_check_at, d.domain, d.domain_prefix, d.app_id, d.value,
+        d.verified_at, d.domain_prefix, d.will_check_at, d.last_checked_at
         FROM domain_verification d
 			JOIN app a ON (a.id = d.app_id AND a.deleted_at IS NULL)
-			WHERE d.domain = ? AND d.deleted_at IS NULL
-	`, domainName)
+			WHERE d.domain = ? AND d.deleted_at IS NULL AND d.app_id = ?
+	`, domainName, appId)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, models.ErrDomainNotFound
 	} else if err != nil {
@@ -65,7 +66,8 @@ func (q query[T]) DeleteDomainVerification(ctx context.Context, id string, now t
 func (q query[T]) ListDomainVerifications(ctx context.Context, appID string) ([]*models.DomainVerification, error) {
 	var domainVerifications []*models.DomainVerification
 	stmt := `
-		SELECT d.id, d.created_at, d.updated_at, d.deleted_at, d.verified_at, d.last_checked_at, d.will_check_at, d.domain, d.domain_prefix, d.app_id, d.value
+		SELECT d.id, d.created_at, d.updated_at, d.deleted_at, d.verified_at, d.last_checked_at, d.will_check_at, d.domain, d.domain_prefix, d.app_id, d.value,
+            d.verified_at, d.domain_prefix, d.will_check_at, d.last_checked_at
             FROM domain_verification d
 			WHERE d.deleted_at IS NULL AND d.app_id = ?
 			ORDER BY d.domain, d.created_at
@@ -104,7 +106,8 @@ func (q query[T]) SetDomainIsInvalid(ctx context.Context, id string, now time.Ti
 func (q query[T]) ListLeastRecentlyCheckedDomain(ctx context.Context, time time.Time, isVerified bool, count uint) ([]*models.DomainVerification, error) {
 	var domainVerifications []*models.DomainVerification
 	stmt := `
-		SELECT d.id, d.created_at, d.updated_at, d.deleted_at, d.verified_at, d.last_checked_at, d.will_check_at, d.domain, d.domain_prefix, d.app_id, d.value
+		SELECT d.id, d.created_at, d.updated_at, d.deleted_at, d.verified_at, d.last_checked_at, d.will_check_at, d.domain, d.domain_prefix, d.app_id, d.value,
+            d.verified_at, d.domain_prefix, d.will_check_at, d.last_checked_at
             FROM domain_verification d
 			WHERE %s
             ORDER BY d.will_check_at, d.last_checked_at NULLS FIRST
