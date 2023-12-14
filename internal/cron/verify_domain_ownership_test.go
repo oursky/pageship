@@ -219,6 +219,65 @@ func TestVerifyDomainOwnership(t *testing.T) {
 			}
 		})
 	})
+	t.Run("Should not delete domain owned by another app", func(t *testing.T) {
+		testutil.WithTestDB(func(database db.DB) {
+			data := setupDB(now, ctx, database)
+			err := db.WithTx(ctx, database, func(tx db.Tx) error {
+				return tx.CreateApp(ctx, models.NewApp(
+					now,
+					"test2",
+					data.userId,
+				))
+			})
+			assert.NoError(t, err)
+			err = db.WithTx(ctx, database, func(tx db.Tx) error {
+				return tx.CreateDomain(ctx, models.NewDomain(
+					now,
+					"test.com",
+					"test2",
+					"main",
+				))
+			})
+			assert.NoError(t, err)
+
+			db.WithTx(ctx, database, func(tx db.Tx) error {
+				return tx.CreateDomain(ctx, models.NewDomain(
+					now,
+					"test.com",
+					"test2",
+					"main",
+				))
+			})
+			domainVerification, err := database.GetDomainVerificationByName(ctx, "test.com", "test")
+			txtDomain, _ := domainVerification.GetTxtRecord()
+			r := mockdns.Resolver{
+				Zones: map[string]mockdns.Zone{
+					txtDomain + ".": {
+						TXT: []string{
+							"incorrect value",
+						},
+					},
+				},
+			}
+			job := cron.VerifyDomainOwnership{
+				DB:                           database,
+				Resolver:                     &r,
+				MaxConsumeActiveDomainCount:  1,
+				MaxConsumePendingDomainCount: 1,
+				RevalidatePeriod:             time.Hour,
+			}
+			err = job.Run(ctx, logger)
+			assert.NoError(t, err)
+
+			domain, err := database.GetDomainByName(ctx, "test.com")
+			if assert.NoError(t, err) {
+				assert.Equal(t, domain.Domain, "test.com")
+				assert.Equal(t, domain.AppID, "test2")
+			}
+		})
+
+	})
+
 	t.Run("Should replace the conflict domain", func(t *testing.T) {
 		testutil.WithTestDB(func(database db.DB) {
 			data := setupDB(now, ctx, database)
@@ -239,6 +298,15 @@ func TestVerifyDomainOwnership(t *testing.T) {
 				))
 			})
 			assert.NoError(t, err)
+
+			db.WithTx(ctx, database, func(tx db.Tx) error {
+				return tx.CreateDomain(ctx, models.NewDomain(
+					now,
+					"test.com",
+					"test2",
+					"main",
+				))
+			})
 			domainVerification, err := database.GetDomainVerificationByName(ctx, "test.com", "test")
 			txtDomain, value := domainVerification.GetTxtRecord()
 			r := mockdns.Resolver{

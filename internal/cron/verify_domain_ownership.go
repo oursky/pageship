@@ -109,7 +109,7 @@ func (v *VerifyDomainOwnership) Run(ctx context.Context, logger *zap.Logger) err
 					return err
 				}
 			} else {
-				if domain != nil {
+				if domain != nil && domain.AppID == domainVerification.AppID {
 					c.DeleteDomain(ctx, domain.ID, now)
 				}
 				err = c.LabelDomainVerificationAsInvalid(ctx, domainVerification.ID, now)
