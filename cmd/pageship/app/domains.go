@@ -182,14 +182,14 @@ var domainsActivateCmd = &cobra.Command{
 		}
 
 		var result *api.APIDomain = nil
-		result, err = API().ActivateDomain(cmd.Context(), appID, domainName, "")
+		result, err = API().CreateDomain(cmd.Context(), appID, domainName, "")
 		if code, ok := api.ErrorStatusCode(err); ok && code == http.StatusConflict {
 			var replaceApp string
 			replaceApp, err = promptDomainReplaceApp(cmd.Context(), appID, domainName)
 			if err != nil {
 				return err
 			}
-			result, err = API().ActivateDomain(cmd.Context(), appID, domainName, replaceApp)
+			result, err = API().CreateDomain(cmd.Context(), appID, domainName, replaceApp)
 		}
 
 		if err != nil {

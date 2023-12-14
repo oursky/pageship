@@ -452,8 +452,8 @@ func (c *Client) ListDomains(ctx context.Context, appID string) ([]APIDomain, er
 	return decodeJSONResponse[[]APIDomain](resp)
 }
 
-func (c *Client) ActivateDomain(ctx context.Context, appID string, domainName string, replaceApp string) (*APIDomain, error) {
-	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "domains", domainName, "activate")
+func (c *Client) CreateDomain(ctx context.Context, appID string, domainName string, replaceApp string) (*APIDomain, error) {
+	endpoint, err := url.JoinPath(c.endpoint, "api", "v1", "apps", appID, "domains", domainName)
 	if err != nil {
 		return nil, err
 	}

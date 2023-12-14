@@ -150,7 +150,7 @@ var appsConfigureCmd = &cobra.Command{
 		for _, dconf := range conf.App.Domains {
 			if _, exists := oldConfig.ResolveDomain(dconf.Domain); !exists {
 				Info("Activating custom domain %q...", dconf.Domain)
-				_, err = API().ActivateDomain(cmd.Context(), app.ID, dconf.Domain, "")
+				_, err = API().CreateDomain(cmd.Context(), app.ID, dconf.Domain, "")
 				if err != nil {
 					Warn("Activation of custom domain %q failed: %s", dconf.Domain, err)
 				}
