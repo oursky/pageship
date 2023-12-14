@@ -86,6 +86,7 @@ type DomainsDB interface {
 
 type DomainVerificationDB interface {
 	CreateDomainVerification(ctx context.Context, domainVerification *models.DomainVerification) error
+	ScheduleDomainVerificationAt(ctx context.Context, id string, time time.Time) error
 	GetDomainVerificationByName(ctx context.Context, domain string, appID string) (*models.DomainVerification, error)
 	DeleteDomainVerification(ctx context.Context, id string, now time.Time) error
 	ListDomainVerifications(ctx context.Context, appID string) ([]*models.DomainVerification, error)

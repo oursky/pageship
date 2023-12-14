@@ -353,14 +353,50 @@ func TestDomainVerification(t *testing.T) {
 			})
 		})
 	})
+	t.Run("Should not add a pending domain for existing domain", func(t *testing.T) {
+		testutil.WithTestController(func(c *testutil.TestController) {
+			token := setupDomainVerification(c)
+			db.WithTx(c.Context, c.DB, func(tx db.Tx) error {
+				return tx.CreateDomain(c.Context, models.NewDomain(time.Now(), "test.com", "test", "main"))
+			})
 			req := httptest.NewRequest("POST", "http://localtest.me/api/v1/apps/test/domains/test.com", nil)
 			req.Header.Add("Authorization", "bearer "+token)
 			w := httptest.NewRecorder()
 			c.ServeHTTP(w, req)
 			domain, err := testutil.DecodeJSONResponse[*api.APIDomain](w.Result())
 			if assert.NoError(t, err) {
-				assert.Nil(t, domain.Domain)
-				assert.Equal(t, "test.com", domain.DomainVerification.Domain)
+				assert.Nil(t, domain.DomainVerification)
+				assert.NotNil(t, domain.Domain)
+				assert.Equal(t, "test.com", domain.Domain.Domain)
+			}
+		})
+	})
+	t.Run("Should retrigger domain verification", func(t *testing.T) {
+		testutil.WithTestController(func(c *testutil.TestController) {
+			token := setupDomainVerification(c)
+			req := httptest.NewRequest("POST", "http://localtest.me/api/v1/apps/test/domains/test.com", nil)
+			req.Header.Add("Authorization", "bearer "+token)
+			w := httptest.NewRecorder()
+			c.ServeHTTP(w, req)
+			domain, err := testutil.DecodeJSONResponse[*api.APIDomain](w.Result())
+			now := time.Now()
+			if assert.NoError(t, err) {
+				assert.NotNil(t, domain.DomainVerification)
+				assert.NotNil(t, domain.DomainVerification.WillCheckAt)
+				assert.True(t, domain.DomainVerification.WillCheckAt.Before(now))
+			}
+			db.WithTx(c.Context, c.DB, func(tx db.Tx) error {
+				return tx.SetDomainIsInvalid(c.Context, domain.DomainVerification.ID, now)
+			})
+			req = httptest.NewRequest("POST", "http://localtest.me/api/v1/apps/test/domains/test.com", nil)
+			req.Header.Add("Authorization", "bearer "+token)
+			w = httptest.NewRecorder()
+			c.ServeHTTP(w, req)
+			domain, err = testutil.DecodeJSONResponse[*api.APIDomain](w.Result())
+			if assert.NoError(t, err) {
+				assert.NotNil(t, domain.DomainVerification)
+				assert.NotNil(t, domain.DomainVerification.WillCheckAt)
+				assert.True(t, domain.DomainVerification.WillCheckAt.After(now))
 			}
 		})
 	})

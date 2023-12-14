@@ -126,3 +126,12 @@ func (q query[T]) ListLeastRecentlyCheckedDomain(ctx context.Context, time time.
 	}
 	return domainVerifications, err
 }
+
+func (q query[T]) ScheduleDomainVerificationAt(ctx context.Context, id string, time time.Time) error {
+	_, err := q.ext.ExecContext(ctx, `
+    UPDATE domain_verification SET
+        will_check_at = $1
+        WHERE id = $2
+    `, time, id)
+	return err
+}

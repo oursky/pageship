@@ -65,8 +65,8 @@ func (c *Controller) handleDomainVerification(w http.ResponseWriter, r *http.Req
 	}
 	respond(w, withTx(r.Context(), c.DB, func(tx db.Tx) (any, error) {
 		var domainVerification *models.DomainVerification
-		domain, _ := tx.GetDomainByName(r.Context(), domainName)
 		domainVerification, _ = tx.GetDomainVerificationByName(r.Context(), domainName, app.ID)
+		if domainVerification == nil {
 			domainVerification = models.NewDomainVerification(c.Clock.Now().UTC(), domainName, app.ID)
 			err := tx.CreateDomainVerification(r.Context(), domainVerification)
 			if err != nil {
@@ -75,7 +75,16 @@ func (c *Controller) handleDomainVerification(w http.ResponseWriter, r *http.Req
 			log(r).Info("creating domain verification",
 				zap.String("domain", domainName),
 				zap.String("site", config.Site))
+		} else if domainVerification.WillCheckAt == nil {
+			err := tx.ScheduleDomainVerificationAt(r.Context(), domainVerification.ID, c.Clock.Now().UTC())
+			if err != nil {
+				return nil, err
+			}
+			log(r).Info("triggering domain verification",
+				zap.String("domain", domainName),
+				zap.String("site", config.Site))
 		}
+		domainVerification, _ = tx.GetDomainVerificationByName(r.Context(), domainName, app.ID)
 		return c.makeAPIDomain(domain, domainVerification), nil
 	}))
 }
@@ -99,7 +108,7 @@ func (c *Controller) handleDomainCreate(w http.ResponseWriter, r *http.Request) 
 			return nil, err
 		} else {
 			if domain.AppID == app.ID {
-				return c.makeAPIDomain(domain, nil), nil
+				return c.makeAPIDomain(domain, domainVerification), nil
 			} else if replaceApp != domain.AppID {
 				return nil, models.ErrDomainUsedName
 			}
@@ -120,7 +129,7 @@ func (c *Controller) handleDomainCreate(w http.ResponseWriter, r *http.Request) 
 			zap.String("domain", domain.Domain),
 			zap.String("site", domain.SiteName))
 
-		return c.makeAPIDomain(domain, nil), nil
+		return c.makeAPIDomain(domain, domainVerification), nil
 	}))
 }
 
