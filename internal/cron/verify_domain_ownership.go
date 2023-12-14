@@ -104,7 +104,7 @@ func (v *VerifyDomainOwnership) Run(ctx context.Context, logger *zap.Logger) err
 						))
 					}
 				}
-				err = c.SetDomainIsVerified(ctx, domainVerification.ID, now, now.Add(v.RevalidatePeriod))
+				err = c.LabelDomainVerificationAsVerified(ctx, domainVerification.ID, now, now.Add(v.RevalidatePeriod))
 				if err != nil {
 					return err
 				}
@@ -112,7 +112,7 @@ func (v *VerifyDomainOwnership) Run(ctx context.Context, logger *zap.Logger) err
 				if domain != nil {
 					c.DeleteDomain(ctx, domain.ID, now)
 				}
-				err = c.SetDomainIsInvalid(ctx, domainVerification.ID, now)
+				err = c.LabelDomainVerificationAsInvalid(ctx, domainVerification.ID, now)
 				if err != nil {
 					return err
 				}

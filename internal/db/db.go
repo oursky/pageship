@@ -91,8 +91,8 @@ type DomainVerificationDB interface {
 	DeleteDomainVerification(ctx context.Context, id string, now time.Time) error
 	ListDomainVerifications(ctx context.Context, appID string) ([]*models.DomainVerification, error)
 	ListLeastRecentlyCheckedDomain(ctx context.Context, now time.Time, isVerified bool, count uint) ([]*models.DomainVerification, error)
-	SetDomainIsVerified(ctx context.Context, id string, now time.Time, nextVerifyAt time.Time) error
-	SetDomainIsInvalid(ctx context.Context, id string, now time.Time) error
+	LabelDomainVerificationAsVerified(ctx context.Context, id string, now time.Time, nextVerifyAt time.Time) error
+	LabelDomainVerificationAsInvalid(ctx context.Context, id string, now time.Time) error
 }
 
 type UserDB interface {

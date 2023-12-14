@@ -386,7 +386,7 @@ func TestDomainVerification(t *testing.T) {
 				assert.True(t, domain.DomainVerification.WillCheckAt.Before(now))
 			}
 			db.WithTx(c.Context, c.DB, func(tx db.Tx) error {
-				return tx.SetDomainIsInvalid(c.Context, domain.DomainVerification.ID, now)
+				return tx.LabelDomainVerificationAsInvalid(c.Context, domain.DomainVerification.ID, now)
 			})
 			req = httptest.NewRequest("POST", "http://localtest.me/api/v1/apps/test/domains/test.com", nil)
 			req.Header.Add("Authorization", "bearer "+token)

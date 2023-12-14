@@ -79,7 +79,7 @@ func (q query[T]) ListDomainVerifications(ctx context.Context, appID string) ([]
 	return domainVerifications, err
 }
 
-func (q query[T]) SetDomainIsVerified(ctx context.Context, id string, now time.Time, nextVerifyAt time.Time) error {
+func (q query[T]) LabelDomainVerificationAsVerified(ctx context.Context, id string, now time.Time, nextVerifyAt time.Time) error {
 	_, err := q.ext.ExecContext(ctx, `
     UPDATE domain_verification SET
         updated_at = ?,
@@ -91,7 +91,7 @@ func (q query[T]) SetDomainIsVerified(ctx context.Context, id string, now time.T
 	return err
 }
 
-func (q query[T]) SetDomainIsInvalid(ctx context.Context, id string, now time.Time) error {
+func (q query[T]) LabelDomainVerificationAsInvalid(ctx context.Context, id string, now time.Time) error {
 	_, err := q.ext.ExecContext(ctx, `
     UPDATE domain_verification SET
         updated_at = ?,
