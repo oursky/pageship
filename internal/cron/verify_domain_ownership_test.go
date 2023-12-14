@@ -185,6 +185,40 @@ func TestVerifyDomainOwnership(t *testing.T) {
 			}
 		})
 	})
+	t.Run("Should ignore domain verification when DNS Server connection error", func(t *testing.T) {
+		testutil.WithTestDB(func(database db.DB) {
+
+			setupDB(now, ctx, database)
+			domainVerification, err := database.GetDomainVerificationByName(ctx, "test.com", "test")
+			if assert.NoError(t, err) {
+				assert.Nil(t, domainVerification.VerifiedAt)
+			}
+			db.WithTx(ctx, database, func(tx db.Tx) error {
+				return tx.CreateDomain(ctx, models.NewDomain(
+					now,
+					"test.com",
+					"test",
+					"main",
+				))
+			})
+			r := RaiseErrorDNSResolver{
+				err: net.DNSError{},
+			}
+			job := cron.VerifyDomainOwnership{
+				DB:                           database,
+				Resolver:                     &r,
+				MaxConsumeActiveDomainCount:  1,
+				MaxConsumePendingDomainCount: 1,
+				RevalidatePeriod:             time.Hour,
+			}
+			job.Run(ctx, logger)
+			domain, err := database.GetDomainByName(ctx, "test.com")
+			if assert.NoError(t, err) {
+				assert.Equal(t, "test.com", domain.Domain)
+				assert.Equal(t, "test", domain.AppID)
+			}
+		})
+	})
 	t.Run("Should replace the conflict domain", func(t *testing.T) {
 		testutil.WithTestDB(func(database db.DB) {
 			data := setupDB(now, ctx, database)
