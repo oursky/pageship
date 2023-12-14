@@ -90,16 +90,20 @@ var domainsCmd = &cobra.Command{
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 1, 4, 4, ' ', 0)
-		fmt.Fprintln(w, "NAME\tSITE\tCREATED AT\tSTATUS\tNOTE")
+		fmt.Fprintln(w, "NAME\tSITE\tCREATED AT\tSTATUS\tLAST CHECKED AT\tNOTE")
 		for _, domain := range domains {
 			createdAt := "-"
+			lastCheckedAt := "-"
 			site := "-"
-			note := ""
+			note := "-"
 			if domain.model != nil {
 				createdAt = domain.model.CreatedAt.Local().Format(time.DateTime)
 				site = fmt.Sprintf("%s/%s", domain.model.AppID, domain.model.SiteName)
 			} else {
 				site = fmt.Sprintf("%s/%s", app.ID, domain.site)
+			}
+			if domain.verification != nil && domain.verification.LastCheckedAt != nil {
+				lastCheckedAt = domain.verification.LastCheckedAt.Local().Format(time.DateTime)
 			}
 
 			var status string
@@ -109,14 +113,18 @@ var domainsCmd = &cobra.Command{
 			case domain.model != nil && domain.model.AppID == app.ID:
 				status = "ACTIVE"
 			case domain.verification != nil:
-				status = "PENDING"
+				if domain.verification.WillCheckAt == nil {
+					status = "INACTIVE"
+				} else {
+					status = "PENDING"
+				}
 				key, value := domain.verification.GetTxtRecord()
 				note = fmt.Sprintf("Add TXT record with domain \"%s\" and value \"%s\" to your DNS server", key, value)
 			default:
 				status = "INACTIVE"
 			}
 
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", domain.name, site, createdAt, status, note)
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", domain.name, site, createdAt, status, lastCheckedAt, note)
 		}
 		w.Flush()
 
