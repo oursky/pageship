@@ -57,6 +57,12 @@ func (c *Controller) handleDomainVerification(w http.ResponseWriter, r *http.Req
 	if !ok {
 		respond(w, func() (any, error) { return nil, models.ErrUndefinedDomain })
 	}
+
+	domain, _ := c.DB.GetDomainByName(r.Context(), domainName)
+	if domain != nil {
+		c.handleDomainCreate(w, r)
+		return
+	}
 	respond(w, withTx(r.Context(), c.DB, func(tx db.Tx) (any, error) {
 		var domainVerification *models.DomainVerification
 		domain, _ := tx.GetDomainByName(r.Context(), domainName)

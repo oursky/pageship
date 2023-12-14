@@ -364,16 +364,26 @@ func TestDomainVerification(t *testing.T) {
 			}
 		})
 	})
+	testutil.WithTestController(func(c *testutil.TestController) {
+		token := setupDomainVerification(c)
+		db.WithTx(c.Context, c.DB, func(tx db.Tx) error {
+			return tx.CreateDomain(c.Context, models.NewDomain(time.Now(), "test.com", "test", "main"))
+		})
+
+		t.Run("Should raise used domain error", func(t *testing.T) {
 			req := httptest.NewRequest("POST", "http://localtest.me/api/v1/apps/test2/domains/test.com", nil)
 			req.Header.Add("Authorization", "bearer "+token)
 			w := httptest.NewRecorder()
 			c.ServeHTTP(w, req)
-			domain, err := testutil.DecodeJSONResponse[*api.APIDomain](w.Result())
-			if assert.NoError(t, err) {
-				assert.Nil(t, domain.Domain)
-				assert.Equal(t, "test.com", domain.DomainVerification.Domain)
+			_, err := testutil.DecodeJSONResponse[*api.APIDomain](w.Result())
+			if assert.Error(t, err) {
+				assert.Equal(t, 409, err.(api.ServerError).Code)
+				assert.Equal(t, models.ErrDomainUsedName.Error(), err.(api.ServerError).Message)
 			}
 		})
+
+		t.Run("Should replace app of the used domain", func(t *testing.T) {
+			req := httptest.NewRequest("POST", "http://localtest.me/api/v1/apps/test2/domains/test.com?replaceApp=test", nil)
 			req.Header.Add("Authorization", "bearer "+token)
 			w := httptest.NewRecorder()
 			c.ServeHTTP(w, req)
@@ -382,6 +392,7 @@ func TestDomainVerification(t *testing.T) {
 				assert.Nil(t, domain.DomainVerification)
 				assert.NotNil(t, domain.Domain)
 				assert.Equal(t, "test.com", domain.Domain.Domain)
+				assert.Equal(t, "test2", domain.Domain.AppID)
 			}
 		})
 	})
