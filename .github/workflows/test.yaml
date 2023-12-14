@@ -9,14 +9,29 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:11.5
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-
       - uses: actions/setup-go@v4
         with:
           go-version: stable
-      - name: Test 
+      - name: Test with sqlite
         run: go test ./...
+      - name: Test with postgres
+        run: go test ./...
+        env:
+          TEST_PAGESHIP_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
 
