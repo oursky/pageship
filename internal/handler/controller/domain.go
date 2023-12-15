@@ -49,7 +49,7 @@ func (c *Controller) handleDomainList(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (c *Controller) handleDomainVerification(w http.ResponseWriter, r *http.Request) {
+func (c *Controller) handleDomainCreate(w http.ResponseWriter, r *http.Request) {
 	app := get[*models.App](r)
 	domainName := chi.URLParam(r, "domain-name")
 
@@ -59,8 +59,8 @@ func (c *Controller) handleDomainVerification(w http.ResponseWriter, r *http.Req
 	}
 
 	domain, _ := c.DB.GetDomainByName(r.Context(), domainName)
-	if domain != nil {
-		c.handleDomainCreate(w, r)
+	if domain != nil || !c.Config.DomainVerificationEnabled {
+		c.createDomain(w, r)
 		return
 	}
 	respond(w, withTx(r.Context(), c.DB, func(tx db.Tx) (any, error) {
@@ -89,7 +89,7 @@ func (c *Controller) handleDomainVerification(w http.ResponseWriter, r *http.Req
 	}))
 }
 
-func (c *Controller) handleDomainCreate(w http.ResponseWriter, r *http.Request) {
+func (c *Controller) createDomain(w http.ResponseWriter, r *http.Request) {
 	app := get[*models.App](r)
 
 	domainName := chi.URLParam(r, "domain-name")
