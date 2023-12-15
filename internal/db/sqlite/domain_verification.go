@@ -54,8 +54,8 @@ func (q query[T]) GetDomainVerificationByName(ctx context.Context, domainName st
 
 func (q query[T]) DeleteDomainVerification(ctx context.Context, id string, now time.Time) error {
 	_, err := q.ext.ExecContext(ctx, `
-		UPDATE domain_verification SET deleted_at = ? WHERE id = ?
-	`, now, id)
+		UPDATE domain_verification SET deleted_at = ?, updated_at = ? WHERE id = ?
+	`, now, now, id)
 	if err != nil {
 		return err
 	}
@@ -130,8 +130,9 @@ func (q query[T]) ListLeastRecentlyCheckedDomain(ctx context.Context, time time.
 func (q query[T]) ScheduleDomainVerificationAt(ctx context.Context, id string, time time.Time) error {
 	_, err := q.ext.ExecContext(ctx, `
     UPDATE domain_verification SET
+        updated_at = ?,
         will_check_at = ?
         WHERE id = ?
-    `, time, id)
+    `, time, time, id)
 	return err
 }
