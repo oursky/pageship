@@ -72,7 +72,7 @@ func TestVerifyDomainOwnership(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	logger, _ := zap.NewDevelopmentConfig().Build()
-	now := time.Now()
+	now := time.Now().UTC()
 
 	t.Run("Should verify valid domain", func(t *testing.T) {
 		testutil.WithTestDB(func(database db.DB) {

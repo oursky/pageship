@@ -113,14 +113,14 @@ func (q query[T]) ListLeastRecentlyCheckedDomain(ctx context.Context, time time.
             ORDER BY d.will_check_at, d.last_checked_at NULLS FIRST
             LIMIT ?
 	`
-	where := "d.deleted_at IS NULL AND d.will_check_at IS NOT NULL"
+	where := "d.deleted_at IS NULL AND d.will_check_at IS NOT NULL AND d.will_check_at <= ?"
 	if isVerified {
 		where += " AND d.verified_at IS NOT NULL"
 	} else {
 		where += " AND d.verified_at IS NULL"
 	}
 	stmt = fmt.Sprintf(stmt, where)
-	err := sqlx.SelectContext(ctx, q.ext, &domainVerifications, stmt, count)
+	err := sqlx.SelectContext(ctx, q.ext, &domainVerifications, stmt, time, count)
 	if err != nil {
 		return nil, err
 	}

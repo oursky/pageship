@@ -55,9 +55,6 @@ func (v *VerifyDomainOwnership) Run(ctx context.Context, logger *zap.Logger) err
 
 		var consumedCount = 0
 		for _, domainVerification := range domainVerifications {
-			if domainVerification.WillCheckAt.After(now) {
-				continue
-			}
 			domainVerification.LastCheckedAt = &now
 			key, value := domainVerification.GetTxtRecord()
 			values, err := v.Resolver.LookupTXT(ctx, key)
