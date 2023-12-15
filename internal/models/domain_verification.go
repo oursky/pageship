@@ -1,9 +1,7 @@
 package models
 
 import (
-	"crypto/rand"
 	"fmt"
-	"math/big"
 	"time"
 )
 
@@ -22,14 +20,6 @@ type DomainVerification struct {
 }
 
 func NewDomainVerification(now time.Time, domain string, appID string) *DomainVerification {
-	num1, err := rand.Int(rand.Reader, big.NewInt(999999))
-	if err != nil {
-		panic(err)
-	}
-	num2, err := rand.Int(rand.Reader, big.NewInt(999999))
-	if err != nil {
-		panic(err)
-	}
 	return &DomainVerification{
 		ID:            newID("domain_verification"),
 		CreatedAt:     now,
@@ -37,8 +27,8 @@ func NewDomainVerification(now time.Time, domain string, appID string) *DomainVe
 		DeletedAt:     nil,
 		Domain:        domain,
 		AppID:         appID,
-		DomainPrefix:  fmt.Sprintf("%06d", num1),
-		Value:         fmt.Sprintf("%06d", num2),
+		DomainPrefix:  RandomID(4),
+		Value:         RandomID(4),
 		WillCheckAt:   &now,
 		LastCheckedAt: nil,
 	}
