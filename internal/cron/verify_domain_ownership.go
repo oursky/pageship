@@ -95,7 +95,10 @@ func (v *VerifyDomainOwnership) Run(ctx context.Context, logger *zap.Logger) err
 					}
 					config, ok := app.Config.ResolveDomain(domainName)
 					if ok {
-						c.DeleteDomain(ctx, domain.ID, now)
+						err := c.DeleteDomain(ctx, domain.ID, now)
+						if err != nil {
+							return err
+						}
 						c.CreateDomain(ctx, models.NewDomain(
 							now, domainName, domainVerification.AppID, config.Site,
 						))
@@ -107,7 +110,7 @@ func (v *VerifyDomainOwnership) Run(ctx context.Context, logger *zap.Logger) err
 				}
 			} else {
 				if domain != nil && domain.AppID == domainVerification.AppID {
-					c.DeleteDomain(ctx, domain.ID, now)
+					return c.DeleteDomain(ctx, domain.ID, now)
 				}
 				err = c.LabelDomainVerificationAsInvalid(ctx, domainVerification.ID, now)
 				if err != nil {
