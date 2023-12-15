@@ -94,7 +94,7 @@ func TestVerifyDomainOwnership(t *testing.T) {
 				Resolver:                     &r,
 				MaxConsumeActiveDomainCount:  1,
 				MaxConsumePendingDomainCount: 1,
-				RevalidatePeriod:             time.Hour,
+				VerificationInterval:         time.Hour,
 			}
 			job.Run(ctx, logger)
 
@@ -140,7 +140,7 @@ func TestVerifyDomainOwnership(t *testing.T) {
 					Resolver:                     &r,
 					MaxConsumeActiveDomainCount:  1,
 					MaxConsumePendingDomainCount: 1,
-					RevalidatePeriod:             time.Hour,
+					VerificationInterval:         time.Hour,
 				}
 				job.Run(ctx, logger)
 				_, err = database.GetDomainByName(ctx, "test.com")
@@ -176,7 +176,7 @@ func TestVerifyDomainOwnership(t *testing.T) {
 				Resolver:                     &r,
 				MaxConsumeActiveDomainCount:  1,
 				MaxConsumePendingDomainCount: 1,
-				RevalidatePeriod:             time.Hour,
+				VerificationInterval:         time.Hour,
 			}
 			job.Run(ctx, logger)
 			_, err = database.GetDomainByName(ctx, "test.com")
@@ -209,7 +209,7 @@ func TestVerifyDomainOwnership(t *testing.T) {
 				Resolver:                     &r,
 				MaxConsumeActiveDomainCount:  1,
 				MaxConsumePendingDomainCount: 1,
-				RevalidatePeriod:             time.Hour,
+				VerificationInterval:         time.Hour,
 			}
 			job.Run(ctx, logger)
 			domain, err := database.GetDomainByName(ctx, "test.com")
@@ -264,7 +264,7 @@ func TestVerifyDomainOwnership(t *testing.T) {
 				Resolver:                     &r,
 				MaxConsumeActiveDomainCount:  1,
 				MaxConsumePendingDomainCount: 1,
-				RevalidatePeriod:             time.Hour,
+				VerificationInterval:         time.Hour,
 			}
 			err = job.Run(ctx, logger)
 			assert.NoError(t, err)
@@ -323,7 +323,7 @@ func TestVerifyDomainOwnership(t *testing.T) {
 				Resolver:                     &r,
 				MaxConsumeActiveDomainCount:  1,
 				MaxConsumePendingDomainCount: 1,
-				RevalidatePeriod:             time.Hour,
+				VerificationInterval:         time.Hour,
 			}
 			err = job.Run(ctx, logger)
 			assert.NoError(t, err)

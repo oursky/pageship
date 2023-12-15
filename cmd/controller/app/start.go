@@ -67,6 +67,7 @@ func init() {
 	startCmd.PersistentFlags().Duration("keep-after-expired", time.Hour*24, "keep-after-expired")
 	startCmd.PersistentFlags().String("verify-domain-ownership-crontab", "", "verify domain ownership schedule")
 	startCmd.PersistentFlags().Bool("domain-verification-enabled", false, "enable/disable domain verification")
+	startCmd.PersistentFlags().Duration("domain-verification-interval", time.Hour, "duration before next domain verification start for a verified domain")
 
 	startCmd.PersistentFlags().Bool("controller", true, "run controller server")
 	startCmd.PersistentFlags().Bool("cron", true, "run cron jobs")
@@ -117,6 +118,7 @@ type StartCronConfig struct {
 	KeepAfterExpired             time.Duration `mapstructure:"keep-after-expired" validate:"min=0"`
 	VerifyDomainOwnershipCrontab string        `mapstructure:"verify-domain-ownership-crontab" validate:"omitempty,cron"`
 	DomainVerificationEnabled    bool          `mapstructure:"domain-verification-enabled" validate:"omitempty"`
+	DomainVerificationInterval   time.Duration `mapstructure:"domain-verification-interval" validate:"min=1"`
 }
 
 type setup struct {
@@ -267,7 +269,7 @@ func (s *setup) cron(conf StartCronConfig) error {
 				MaxConsumeActiveDomainCount:  10,
 				MaxConsumePendingDomainCount: 10,
 				Resolver:                     net.DefaultResolver,
-				RevalidatePeriod:             time.Hour,
+				VerificationInterval:         conf.DomainVerificationInterval,
 			},
 		)
 	}

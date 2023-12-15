@@ -21,7 +21,7 @@ type VerifyDomainOwnership struct {
 	DB                           db.DB
 	MaxConsumeActiveDomainCount  uint
 	MaxConsumePendingDomainCount uint
-	RevalidatePeriod             time.Duration
+	VerificationInterval         time.Duration
 	Resolver                     DNSResolver
 }
 
@@ -104,7 +104,7 @@ func (v *VerifyDomainOwnership) Run(ctx context.Context, logger *zap.Logger) err
 						))
 					}
 				}
-				err = c.LabelDomainVerificationAsVerified(ctx, domainVerification.ID, now, now.Add(v.RevalidatePeriod))
+				err = c.LabelDomainVerificationAsVerified(ctx, domainVerification.ID, now, now.Add(v.VerificationInterval))
 				if err != nil {
 					return err
 				}
