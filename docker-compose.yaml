@@ -21,6 +21,8 @@ services:
     image: postgres:11.5
     volumes:
       - data:/data
+    ports:
+      - "5432:5432"
 
   controller:
     image: ghcr.io/oursky/pageship-controller

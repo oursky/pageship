@@ -27,7 +27,8 @@ type APIDeployment struct {
 }
 
 type APIDomain struct {
-	*models.Domain
+	Domain             *models.Domain             `json:"domain"`
+	DomainVerification *models.DomainVerification `json:"domainVerification"`
 }
 
 type APIUser struct {

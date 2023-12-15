@@ -139,8 +139,11 @@ func (c *Controller) middlewareAuthn(next http.Handler) http.Handler {
 			loggers.Logger = loggers.Logger.With(zap.String("user", authn.Subject))
 			loggers.authn = loggers.Logger
 
-			entry := middleware.GetLogEntry(r).(*httputil.LogEntry)
-			entry.Logger = entry.Logger.With(zap.String("user", authn.Subject))
+			entry := middleware.GetLogEntry(r)
+			if entry != nil {
+				e := entry.(*httputil.LogEntry)
+				e.Logger = e.Logger.With(zap.String("user", authn.Subject))
+			}
 		}
 
 		next.ServeHTTP(w, r)

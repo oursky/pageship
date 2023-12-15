@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE TABLE user_app (
-    user_id             TEXT NOT NULL REFERENCES user(id),
+    user_id             TEXT NOT NULL REFERENCES "user"(id),
     app_id              TEXT NOT NULL REFERENCES app(id),
     PRIMARY KEY (user_id, app_id)
 );

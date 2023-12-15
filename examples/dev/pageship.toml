@@ -10,7 +10,7 @@ name = "main"
 name = "dev"
 
 [[app.domains]]
-domain="example.com:8001"
+domain="example.com"
 site="dev"
 
 [site]

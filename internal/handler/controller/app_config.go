@@ -58,6 +58,22 @@ func (c *Controller) handleAppConfigSet(w http.ResponseWriter, r *http.Request) 
 
 			log(r).Info("deleting domain", zap.String("domain", d.Domain))
 		}
+		domainVerifications, err := tx.ListDomainVerifications(r.Context(), app.ID)
+		if err != nil {
+			return nil, err
+		}
+		for _, d := range domainVerifications {
+			if _, exists := app.Config.ResolveDomain(d.Domain); exists && c.Config.DomainVerificationEnabled {
+				continue
+			}
+
+			err = tx.DeleteDomainVerification(r.Context(), d.ID, now)
+			if err != nil {
+				return nil, fmt.Errorf("failed to deactivate domain: %w", err)
+			}
+
+			log(r).Info("deleting domain verification", zap.String("domain", d.Domain))
+		}
 
 		return app.Config, nil
 	}))

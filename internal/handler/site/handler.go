@@ -136,8 +136,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.logger.Debug("resolved site", zap.String("site", handler.ID()))
-	entry := middleware.GetLogEntry(r).(*httputil.LogEntry)
-	entry.Logger = entry.Logger.With(zap.String("site", handler.ID()))
+	entry := middleware.GetLogEntry(r)
+	e := entry.(*httputil.LogEntry)
+	e.Logger = e.Logger.With(zap.String("site", handler.ID()))
 
 	if err := h.checkAuthz(r, handler); err != nil {
 		http.NotFound(w, r)

@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -64,6 +65,9 @@ func init() {
 
 	startCmd.PersistentFlags().String("cleanup-expired-crontab", "", "cleanup expired schedule")
 	startCmd.PersistentFlags().Duration("keep-after-expired", time.Hour*24, "keep-after-expired")
+	startCmd.PersistentFlags().String("verify-domain-ownership-crontab", "", "verify domain ownership schedule")
+	startCmd.PersistentFlags().Bool("domain-verification-enabled", false, "enable/disable domain verification")
+	startCmd.PersistentFlags().Duration("domain-verification-interval", time.Hour, "duration before next domain verification start for a verified domain")
 
 	startCmd.PersistentFlags().Bool("controller", true, "run controller server")
 	startCmd.PersistentFlags().Bool("cron", true, "run cron jobs")
@@ -105,12 +109,16 @@ type StartControllerConfig struct {
 	ReservedApps      []string `mapstructure:"reserved-apps"`
 	APIACLFile        string   `mapstructure:"api-acl" validate:"omitempty,filepath"`
 
-	CustomDomainMessage string `mapstructure:"custom-domain-message"`
+	CustomDomainMessage       string `mapstructure:"custom-domain-message"`
+	DomainVerificationEnabled bool   `mapstructure:"domain-verification-enabled" validate:"omitempty"`
 }
 
 type StartCronConfig struct {
-	CleanupExpiredCrontab string        `mapstructure:"cleanup-expired-crontab" validate:"omitempty,cron"`
-	KeepAfterExpired      time.Duration `mapstructure:"keep-after-expired" validate:"min=0"`
+	CleanupExpiredCrontab        string        `mapstructure:"cleanup-expired-crontab" validate:"omitempty,cron"`
+	KeepAfterExpired             time.Duration `mapstructure:"keep-after-expired" validate:"min=0"`
+	VerifyDomainOwnershipCrontab string        `mapstructure:"verify-domain-ownership-crontab" validate:"omitempty,cron"`
+	DomainVerificationEnabled    bool          `mapstructure:"domain-verification-enabled" validate:"omitempty"`
+	DomainVerificationInterval   time.Duration `mapstructure:"domain-verification-interval" validate:"min=1"`
 }
 
 type setup struct {
@@ -176,15 +184,16 @@ func (s *setup) controller(domain string, conf StartControllerConfig, sitesConf 
 	}
 
 	controllerConf := controller.Config{
-		MaxDeploymentSize:   int64(maxDeploymentSize),
-		StorageKeyPrefix:    conf.StorageKeyPrefix,
-		HostIDScheme:        sitesConf.HostIDScheme,
-		HostPattern:         config.NewHostPattern(sitesConf.HostPattern),
-		ReservedApps:        reservedApps,
-		TokenSigningKey:     []byte(tokenSigningKey),
-		TokenAuthority:      conf.TokenAuthority,
-		ServerVersion:       versioninfo.Short(),
-		CustomDomainMessage: conf.CustomDomainMessage,
+		MaxDeploymentSize:         int64(maxDeploymentSize),
+		StorageKeyPrefix:          conf.StorageKeyPrefix,
+		HostIDScheme:              sitesConf.HostIDScheme,
+		HostPattern:               config.NewHostPattern(sitesConf.HostPattern),
+		ReservedApps:              reservedApps,
+		TokenSigningKey:           []byte(tokenSigningKey),
+		TokenAuthority:            conf.TokenAuthority,
+		ServerVersion:             versioninfo.Short(),
+		CustomDomainMessage:       conf.CustomDomainMessage,
+		DomainVerificationEnabled: conf.DomainVerificationEnabled,
 	}
 
 	if conf.APIACLFile != "" {
@@ -245,15 +254,28 @@ func (s *setup) controller(domain string, conf StartControllerConfig, sitesConf 
 }
 
 func (s *setup) cron(conf StartCronConfig) error {
+	cronjobs := []command.CronJob{
+		&cron.CleanupExpired{
+			Schedule:         conf.CleanupExpiredCrontab,
+			KeepAfterExpired: conf.KeepAfterExpired,
+			DB:               s.database,
+		},
+	}
+	if conf.DomainVerificationEnabled {
+		cronjobs = append(cronjobs,
+			&cron.VerifyDomainOwnership{
+				Schedule:                     conf.VerifyDomainOwnershipCrontab,
+				DB:                           s.database,
+				MaxConsumeActiveDomainCount:  10,
+				MaxConsumePendingDomainCount: 10,
+				Resolver:                     net.DefaultResolver,
+				VerificationInterval:         conf.DomainVerificationInterval,
+			},
+		)
+	}
 	cronr := command.CronRunner{
 		Logger: logger.Named("cron"),
-		Jobs: []command.CronJob{
-			&cron.CleanupExpired{
-				Schedule:         conf.CleanupExpiredCrontab,
-				KeepAfterExpired: conf.KeepAfterExpired,
-				DB:               s.database,
-			},
-		},
+		Jobs:   cronjobs,
 	}
 
 	s.works = append(s.works, cronr.Run)

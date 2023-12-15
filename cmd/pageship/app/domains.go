@@ -46,16 +46,18 @@ var domainsCmd = &cobra.Command{
 		}
 
 		type domainEntry struct {
-			name  string
-			site  string
-			model *api.APIDomain
+			name         string
+			site         string
+			model        *models.Domain
+			verification *models.DomainVerification
 		}
 		domains := map[string]domainEntry{}
 		for _, dconf := range app.Config.Domains {
 			domains[dconf.Domain] = domainEntry{
-				name:  dconf.Domain,
-				site:  dconf.Site,
-				model: nil,
+				name:         dconf.Domain,
+				site:         dconf.Site,
+				model:        nil,
+				verification: nil,
 			}
 		}
 
@@ -66,23 +68,42 @@ var domainsCmd = &cobra.Command{
 
 		for _, d := range apiDomains {
 			dd := d
-			domains[d.Domain.Domain] = domainEntry{
-				name:  d.Domain.Domain,
-				site:  d.Domain.SiteName,
-				model: &dd,
+			domain := dd.Domain
+			verification := dd.DomainVerification
+			if domain != nil {
+				domains[domain.Domain] = domainEntry{
+					name:         domain.Domain,
+					site:         domain.SiteName,
+					model:        domain,
+					verification: verification,
+				}
+			} else if verification != nil {
+				if record, ok := domains[verification.Domain]; ok {
+					domains[verification.Domain] = domainEntry{
+						name:         verification.Domain,
+						site:         record.site,
+						model:        nil,
+						verification: verification,
+					}
+				}
 			}
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 1, 4, 4, ' ', 0)
-		fmt.Fprintln(w, "NAME\tSITE\tCREATED AT\tSTATUS")
+		fmt.Fprintln(w, "NAME\tSITE\tCREATED AT\tSTATUS\tLAST CHECKED AT\tNOTE")
 		for _, domain := range domains {
 			createdAt := "-"
+			lastCheckedAt := "-"
 			site := "-"
+			note := "-"
 			if domain.model != nil {
 				createdAt = domain.model.CreatedAt.Local().Format(time.DateTime)
 				site = fmt.Sprintf("%s/%s", domain.model.AppID, domain.model.SiteName)
 			} else {
 				site = fmt.Sprintf("%s/%s", app.ID, domain.site)
+			}
+			if domain.verification != nil && domain.verification.LastCheckedAt != nil {
+				lastCheckedAt = domain.verification.LastCheckedAt.Local().Format(time.DateTime)
 			}
 
 			var status string
@@ -91,11 +112,19 @@ var domainsCmd = &cobra.Command{
 				status = "IN_USE"
 			case domain.model != nil && domain.model.AppID == app.ID:
 				status = "ACTIVE"
+			case domain.verification != nil:
+				if domain.verification.WillCheckAt == nil {
+					status = "INACTIVE"
+				} else {
+					status = "PENDING"
+				}
+				key, value := domain.verification.GetTxtRecord()
+				note = fmt.Sprintf("Add TXT record with domain \"%s\" and value \"%s\" to your DNS server", key, value)
 			default:
 				status = "INACTIVE"
 			}
 
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", domain.name, site, createdAt, status)
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", domain.name, site, createdAt, status, lastCheckedAt, note)
 		}
 		w.Flush()
 
@@ -116,8 +145,8 @@ func promptDomainReplaceApp(ctx context.Context, appID string, domainName string
 
 	appID = ""
 	for _, d := range domains {
-		if d.Domain.Domain == domainName {
-			appID = d.AppID
+		if d.Domain != nil && d.Domain.Domain == domainName {
+			appID = d.Domain.AppID
 		}
 	}
 
@@ -160,21 +189,38 @@ var domainsActivateCmd = &cobra.Command{
 			return fmt.Errorf("undefined domain")
 		}
 
-		_, err = API().CreateDomain(cmd.Context(), appID, domainName, "")
+		var result *api.APIDomain = nil
+		result, err = API().CreateDomain(cmd.Context(), appID, domainName, "")
 		if code, ok := api.ErrorStatusCode(err); ok && code == http.StatusConflict {
 			var replaceApp string
 			replaceApp, err = promptDomainReplaceApp(cmd.Context(), appID, domainName)
 			if err != nil {
 				return err
 			}
-			_, err = API().CreateDomain(cmd.Context(), appID, domainName, replaceApp)
+			result, err = API().CreateDomain(cmd.Context(), appID, domainName, replaceApp)
 		}
 
 		if err != nil {
 			return fmt.Errorf("failed to create domain: %w", err)
 		}
 
-		Info("Domain %q activated.", domainName)
+		if result != nil {
+			if result.Domain != nil {
+				Info("Domain %q activated.", domainName)
+				return nil
+			}
+			domainVerification := result.DomainVerification
+			if domainVerification != nil {
+				Info("To activate the domain, please add a TXT record into your DNS server:")
+
+				w := tabwriter.NewWriter(os.Stdout, 1, 4, 4, ' ', 0)
+				fmt.Fprintln(w, "DOMAIN\tVALUE")
+				domain, value := domainVerification.GetTxtRecord()
+				fmt.Fprintf(w, "%s\t%s\n\n", domain, value)
+				fmt.Fprintf(w, "The activation may take few minutes, run \"pageship domains\" to check latest activation status.")
+				w.Flush()
+			}
+		}
 		return nil
 	},
 }
