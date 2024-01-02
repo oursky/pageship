@@ -49,6 +49,7 @@ func (h *SiteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		h.next.ServeHTTP(w, r)
 
+    w.Header().Set("Cache-Control", "public, max-age=31536000, no-cache")
 	case http.MethodOptions:
 		w.Header().Set("Allow", options)
 
@@ -71,6 +72,7 @@ func (h *SiteHandler) serveFile(w http.ResponseWriter, r *http.Request) {
 	if info.ContentType != "" {
 		w.Header().Set("Content-Type", info.ContentType)
 	}
+    w.Header().Set("Cache-Control", "public, max-age=31536000, no-cache")
 	if info.Hash != "" {
 		w.Header().Set("ETag", fmt.Sprintf(`"%s"`, info.Hash))
 	}
