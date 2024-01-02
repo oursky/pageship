@@ -73,6 +73,7 @@ func (h *SiteHandler) serveFile(w http.ResponseWriter, r *http.Request) {
 	}
 	if info.Hash != "" {
 		w.Header().Set("ETag", fmt.Sprintf(`"%s"`, info.Hash))
+		w.Header().Set("Cache-Control", "public, max-age=31536000, no-cache")
 	}
 
 	reader := &lazyReader{
