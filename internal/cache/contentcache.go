@@ -8,11 +8,11 @@ import (
 )
 
 const (
-	contentCacheSize uint64    		= 1000000000
+	contentCacheSize uint64 = 1000000000
 )
 
 type ContentCache[T io.WriteCloser] struct {
-	m     sync.Mutex
+	m     map[string]sync.Mutex
 	cache *ristretto.Cache
 	load  func(id string) (T, error)
 }
