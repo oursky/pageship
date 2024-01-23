@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"io"
 	"bytes"
 	"sync"
 
@@ -14,7 +15,6 @@ const (
 type ContentCache struct {
 	m     map[string]*sync.Mutex
 	cache *ristretto.Cache
-	load  func(id string) (*bytes.Buffer, error)
 }
 
 type contentCacheCell struct {
@@ -22,7 +22,7 @@ type contentCacheCell struct {
 	data	*bytes.Buffer
 }
 
-func NewContentCache(load func(id string) (*bytes.Buffer, error)) (*ContentCache, error) {
+func NewContentCache() (*ContentCache, error) {
 	m := make(map[string]*sync.Mutex)
 	cache, err := ristretto.NewCache(&ristretto.Config{
 		NumCounters: 1e7,
@@ -37,10 +37,10 @@ func NewContentCache(load func(id string) (*bytes.Buffer, error)) (*ContentCache
 		return nil, err
 	}
 
-	return &ContentCache{m: m, cache: cache, load: load}, nil
+	return &ContentCache{m: m, cache: cache}, nil
 }
 
-func (c *ContentCache) getContent(id string) (*bytes.Buffer, error) {
+func (c *ContentCache) getContent(id string, r io.Reader) (*bytes.Buffer, error) {
 	(*c).m[id].Lock()
 	defer c.m[id].Unlock()
 
@@ -49,10 +49,11 @@ func (c *ContentCache) getContent(id string) (*bytes.Buffer, error) {
 	if found {
 		return ce.data, nil
 	}
-
-	temp, err := c.load(id)
-	data := temp.(*bytes.Buffer)
-	if err != nil {
+	
+	b := make([]byte, contentCacheSize)
+	_, err := r.Read(b)
+	data := bytes.NewBuffer(b)
+	if err != io.EOF {
 		return data, err
 	}
 
