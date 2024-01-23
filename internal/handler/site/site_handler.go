@@ -1,6 +1,7 @@
 package site
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/oursky/pageship/internal/cache"
 	"github.com/oursky/pageship/internal/httputil"
 	"github.com/oursky/pageship/internal/site"
 )
@@ -18,6 +20,7 @@ type SiteHandler struct {
 	desc     *site.Descriptor
 	publicFS site.FS
 	next     http.Handler
+	cc       cache.ContentCache
 }
 
 func NewSiteHandler(desc *site.Descriptor, middlewares []Middleware) *SiteHandler {
@@ -83,8 +86,20 @@ func (h *SiteHandler) serveFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer reader.Close()
 
-	writer := httputil.NewTimeoutResponseWriter(w, 10*time.Second)
-	http.ServeContent(writer, r, path.Base(r.URL.Path), info.ModTime, reader)
+	if info.Hash != "" {
+		data, err := h.cc.GetContent(info.Hash, reader)
+		if err != nil {
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		} else {
+			cacheReader := bytes.NewReader(data.Bytes())
+			writer := httputil.NewTimeoutResponseWriter(w, 10*time.Second)
+			http.ServeContent(writer, r, path.Base(r.URL.Path), info.ModTime, cacheReader)
+		}
+	} else {
+		writer := httputil.NewTimeoutResponseWriter(w, 10*time.Second)
+		http.ServeContent(writer, r, path.Base(r.URL.Path), info.ModTime, reader)
+	}
 }
 
 type lazyReader struct {

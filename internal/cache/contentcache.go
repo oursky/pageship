@@ -1,8 +1,8 @@
 package cache
 
 import (
-	"io"
 	"bytes"
+	"io"
 	"sync"
 
 	"github.com/dgraph-io/ristretto"
@@ -18,8 +18,8 @@ type ContentCache struct {
 }
 
 type contentCacheCell struct {
-	hash	string
-	data	*bytes.Buffer
+	hash string
+	data *bytes.Buffer
 }
 
 func NewContentCache() (*ContentCache, error) {
@@ -40,7 +40,7 @@ func NewContentCache() (*ContentCache, error) {
 	return &ContentCache{m: m, cache: cache}, nil
 }
 
-func (c *ContentCache) getContent(id string, r io.Reader) (*bytes.Buffer, error) {
+func (c *ContentCache) GetContent(id string, r io.Reader) (*bytes.Buffer, error) {
 	(*c).m[id].Lock()
 	defer c.m[id].Unlock()
 
@@ -49,7 +49,7 @@ func (c *ContentCache) getContent(id string, r io.Reader) (*bytes.Buffer, error)
 	if found {
 		return ce.data, nil
 	}
-	
+
 	b := make([]byte, contentCacheSize)
 	_, err := r.Read(b)
 	data := bytes.NewBuffer(b)
@@ -57,7 +57,7 @@ func (c *ContentCache) getContent(id string, r io.Reader) (*bytes.Buffer, error)
 		return data, err
 	}
 
-	ce = contentCacheCell {
+	ce = contentCacheCell{
 		hash: id,
 		data: data,
 	}
