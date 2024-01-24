@@ -79,12 +79,13 @@ func (h *SiteHandler) serveFile(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "public, max-age=31536000, no-cache")
 	}
 
-	reader := &lazyReader{
+	lReader := &lazyReader{
 		fs:   h.publicFS,
 		path: r.URL.Path,
 		ctx:  r.Context(),
 	}
-	defer reader.Close()
+	defer lReader.Close()
+	var reader = io.ReadSeeker(lReader)
 
 	if info.Hash != "" {
 		data, err := h.cc.GetContent(info.Hash, reader)
@@ -92,14 +93,11 @@ func (h *SiteHandler) serveFile(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		} else {
-			cacheReader := bytes.NewReader(data.Bytes())
-			writer := httputil.NewTimeoutResponseWriter(w, 10*time.Second)
-			http.ServeContent(writer, r, path.Base(r.URL.Path), info.ModTime, cacheReader)
+			reader = bytes.NewReader(data.Bytes())
 		}
-	} else {
-		writer := httputil.NewTimeoutResponseWriter(w, 10*time.Second)
-		http.ServeContent(writer, r, path.Base(r.URL.Path), info.ModTime, reader)
 	}
+	writer := httputil.NewTimeoutResponseWriter(w, 10*time.Second)
+	http.ServeContent(writer, r, path.Base(r.URL.Path), info.ModTime, reader)
 }
 
 type lazyReader struct {
