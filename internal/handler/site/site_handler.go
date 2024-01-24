@@ -2,6 +2,7 @@ package site
 
 import (
 	"bytes"
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/oursky/pageship/internal/cache"
+	"github.com/oursky/pageship/internal/cache"
 	"github.com/oursky/pageship/internal/httputil"
 	"github.com/oursky/pageship/internal/site"
 )
@@ -21,10 +23,11 @@ type SiteHandler struct {
 	publicFS site.FS
 	next     http.Handler
 	cc       *cache.ContentCache
+	cc       *cache.ContentCache
 }
 
 func NewSiteHandler(desc *site.Descriptor, middlewares []Middleware) *SiteHandler {
-	cc, err := cache.NewContentCache(1 << 24) //16 MiB
+	cc, err := cache.NewContentCache(1 << 24, false) //16 MiB
 	if err != nil {
 		cc = nil
 	}
@@ -32,6 +35,7 @@ func NewSiteHandler(desc *site.Descriptor, middlewares []Middleware) *SiteHandle
 	h := &SiteHandler{
 		desc:     desc,
 		publicFS: site.SubFS(desc.FS, path.Clean("/"+desc.Config.Public)),
+		cc:       cc,
 		cc:       cc,
 	}
 
@@ -86,9 +90,22 @@ func (h *SiteHandler) serveFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	lReader := &lazyReader{
+	lReader := &lazyReader{
 		fs:   h.publicFS,
 		path: r.URL.Path,
 		ctx:  r.Context(),
+	}
+	defer lReader.Close()
+	var reader = io.ReadSeeker(lReader)
+
+	if info.Hash != "" {
+		cell, err := h.cc.GetContent(info.Hash, reader)
+		if err != nil {
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		} else {
+			reader = bytes.NewReader(cell.Data.Bytes())
+		}
 	}
 	defer lReader.Close()
 	var reader = io.ReadSeeker(lReader)

@@ -2,6 +2,7 @@ package cache
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"sync"
 
@@ -16,25 +17,27 @@ type ContentCache struct {
 }
 
 type ContentCacheCell struct {
-	hash string
+	id   string
 	Data *bytes.Buffer
 }
 
-func NewContentCache(contentCacheSize int64) (*ContentCache, error) {
+func NewContentCache(contentCacheSize int64, metrics bool) (*ContentCache, error) {
 	mm := new(sync.Mutex)
 	m := make(map[string]*sync.Mutex)
 	size := contentCacheSize
 	cache, err := ristretto.NewCache(&ristretto.Config{
 		//NumCounters is 10 times estimated max number of items in cache, as suggested in https://pkg.go.dev/github.com/dgraph-io/ristretto@v0.1.1#Config
-		NumCounters: 1e7,
+		NumCounters: 16000, //16 MB limit / 10 KB small files = 1600 max number of items
 		MaxCost:     size,
 		BufferItems: 64,
+		Metrics:     metrics,
 		OnExit: func(item interface{}) {
 			mm.Lock()
 			defer mm.Unlock()
 			cell := item.(ContentCacheCell)
-			delete(m, cell.hash)
+			delete(m, cell.id)
 		},
+		IgnoreInternalCost: true,
 	})
 	if err != nil {
 		return nil, err
@@ -43,32 +46,41 @@ func NewContentCache(contentCacheSize int64) (*ContentCache, error) {
 	return &ContentCache{mm: mm, m: m, size: size, cache: cache}, nil
 }
 
-func (c *ContentCache) GetContent(id string, r io.Reader) (ContentCacheCell, error) {
+func (c *ContentCache) GetContent(id string, r io.ReadSeeker) (ContentCacheCell, error) {
 	c.mm.Lock()
-	c.m[id].Lock()
+	if m, ok := c.m[id]; ok {
+		m.Lock()
+	} else {
+		c.m[id] = new(sync.Mutex)
+		c.m[id].Lock()
+	}
 	c.mm.Unlock()
 	defer func() {
 		c.mm.Lock()
-		c.m[id].Unlock()
+		if m, ok := c.m[id]; ok {
+			m.Unlock()
+		} else {
+			c.m[id] = new(sync.Mutex)
+			c.m[id].Unlock()
+		}
 		c.mm.Unlock()
 	}()
 
 	temp, found := c.cache.Get(id)
-	ce := temp.(ContentCacheCell)
 	if found {
+		ce := temp.(ContentCacheCell)
 		return ce, nil
 	}
 
 	b := make([]byte, c.size)
 	_, err := r.Read(b)
-	data := bytes.NewBuffer(b)
-	if err != io.EOF {
-		return ContentCacheCell{hash: "", Data: new(bytes.Buffer)}, err
+	if err != nil {
+		return ContentCacheCell{id: "", Data: new(bytes.Buffer)}, err
 	}
 
-	ce = ContentCacheCell{
-		hash: id,
-		Data: data,
+	ce := ContentCacheCell{
+		id:   id,
+		Data: bytes.NewBuffer(bytes.Trim(b, string([]byte{0x0}))),
 	}
 	c.cache.Set(id, ce, int64(ce.Data.Len()))
 	return ce, nil
