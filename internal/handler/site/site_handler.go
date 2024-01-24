@@ -20,13 +20,19 @@ type SiteHandler struct {
 	desc     *site.Descriptor
 	publicFS site.FS
 	next     http.Handler
-	cc       cache.ContentCache
+	cc       *cache.ContentCache
 }
 
 func NewSiteHandler(desc *site.Descriptor, middlewares []Middleware) *SiteHandler {
+	cc, err := cache.NewContentCache(1 << 24) //16 MiB
+	if err != nil {
+		cc = nil
+	}
+
 	h := &SiteHandler{
 		desc:     desc,
 		publicFS: site.SubFS(desc.FS, path.Clean("/"+desc.Config.Public)),
+		cc:       cc,
 	}
 
 	publicDesc := *desc
@@ -88,12 +94,12 @@ func (h *SiteHandler) serveFile(w http.ResponseWriter, r *http.Request) {
 	var reader = io.ReadSeeker(lReader)
 
 	if info.Hash != "" {
-		data, err := h.cc.GetContent(info.Hash, reader)
+		cell, err := h.cc.GetContent(info.Hash, reader)
 		if err != nil {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		} else {
-			reader = bytes.NewReader(data.Bytes())
+			reader = bytes.NewReader(cell.Data.Bytes())
 		}
 	}
 	writer := httputil.NewTimeoutResponseWriter(w, 10*time.Second)

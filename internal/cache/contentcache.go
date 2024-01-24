@@ -8,28 +8,31 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const (
-	contentCacheSize int64 = 1000000000
-)
-
 type ContentCache struct {
+	mm    *sync.Mutex
 	m     map[string]*sync.Mutex
+	size  int64
 	cache *ristretto.Cache
 }
 
-type contentCacheCell struct {
+type ContentCacheCell struct {
 	hash string
-	data *bytes.Buffer
+	Data *bytes.Buffer
 }
 
-func NewContentCache() (*ContentCache, error) {
+func NewContentCache(contentCacheSize int64) (*ContentCache, error) {
+	mm := new(sync.Mutex)
 	m := make(map[string]*sync.Mutex)
+	size := contentCacheSize
 	cache, err := ristretto.NewCache(&ristretto.Config{
+		//NumCounters is 10 times estimated max number of items in cache, as suggested in https://pkg.go.dev/github.com/dgraph-io/ristretto@v0.1.1#Config
 		NumCounters: 1e7,
-		MaxCost:     contentCacheSize,
+		MaxCost:     size,
 		BufferItems: 64,
 		OnExit: func(item interface{}) {
-			cell := item.(contentCacheCell)
+			mm.Lock()
+			defer mm.Unlock()
+			cell := item.(ContentCacheCell)
 			delete(m, cell.hash)
 		},
 	})
@@ -37,30 +40,36 @@ func NewContentCache() (*ContentCache, error) {
 		return nil, err
 	}
 
-	return &ContentCache{m: m, cache: cache}, nil
+	return &ContentCache{mm: mm, m: m, size: size, cache: cache}, nil
 }
 
-func (c *ContentCache) GetContent(id string, r io.Reader) (*bytes.Buffer, error) {
-	(*c).m[id].Lock()
-	defer c.m[id].Unlock()
+func (c *ContentCache) GetContent(id string, r io.Reader) (ContentCacheCell, error) {
+	c.mm.Lock()
+	c.m[id].Lock()
+	c.mm.Unlock()
+	defer func() {
+		c.mm.Lock()
+		c.m[id].Unlock()
+		c.mm.Unlock()
+	}()
 
 	temp, found := c.cache.Get(id)
-	ce := temp.(contentCacheCell)
+	ce := temp.(ContentCacheCell)
 	if found {
-		return ce.data, nil
+		return ce, nil
 	}
 
-	b := make([]byte, contentCacheSize)
+	b := make([]byte, c.size)
 	_, err := r.Read(b)
 	data := bytes.NewBuffer(b)
 	if err != io.EOF {
-		return data, err
+		return ContentCacheCell{hash: "", Data: new(bytes.Buffer)}, err
 	}
 
-	ce = contentCacheCell{
+	ce = ContentCacheCell{
 		hash: id,
-		data: data,
+		Data: data,
 	}
-	c.cache.Set(id, ce, int64(ce.data.Len()))
-	return ce.data, nil
+	c.cache.Set(id, ce, int64(ce.Data.Len()))
+	return ce, nil
 }
