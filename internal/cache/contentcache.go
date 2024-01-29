@@ -9,8 +9,7 @@ import (
 )
 
 type ContentCache struct {
-	mm    *sync.Mutex
-	m     map[string]*sync.Mutex
+	m     sync.Map
 	size  int64
 	cache *ristretto.Cache
 }
@@ -21,8 +20,7 @@ type ContentCacheCell struct {
 }
 
 func NewContentCache(contentCacheSize int64, metrics bool) (*ContentCache, error) {
-	mm := new(sync.Mutex)
-	m := make(map[string]*sync.Mutex)
+	var m sync.Map
 	size := contentCacheSize
 	cache, err := ristretto.NewCache(&ristretto.Config{
 		//NumCounters is 10 times estimated max number of items in cache, as suggested in https://pkg.go.dev/github.com/dgraph-io/ristretto@v0.1.1#Config
@@ -31,10 +29,8 @@ func NewContentCache(contentCacheSize int64, metrics bool) (*ContentCache, error
 		BufferItems: 64,
 		Metrics:     metrics,
 		OnExit: func(item interface{}) {
-			mm.Lock()
-			defer mm.Unlock()
 			cell := item.(ContentCacheCell)
-			delete(m, cell.id)
+			m.Delete(cell.id)
 		},
 		IgnoreInternalCost: true,
 	})
@@ -42,27 +38,17 @@ func NewContentCache(contentCacheSize int64, metrics bool) (*ContentCache, error
 		return nil, err
 	}
 
-	return &ContentCache{mm: mm, m: m, size: size, cache: cache}, nil
+	return &ContentCache{m: m, size: size, cache: cache}, nil
 }
 
 func (c *ContentCache) GetContent(id string, r io.ReadSeeker) (ContentCacheCell, error) {
-	c.mm.Lock()
-	if m, ok := c.m[id]; ok {
-		m.Lock()
-	} else {
-		c.m[id] = new(sync.Mutex)
-		c.m[id].Lock()
-	}
-	c.mm.Unlock()
+	m, _ := c.m.LoadOrStore(id, new(sync.Mutex))
+	mu := m.(*sync.Mutex)
+	mu.Lock()
 	defer func() {
-		c.mm.Lock()
-		if m, ok := c.m[id]; ok {
-			m.Unlock()
-		} else {
-			c.m[id] = new(sync.Mutex)
-			c.m[id].Unlock()
-		}
-		c.mm.Unlock()
+		m, _ := c.m.LoadOrStore(id, new(sync.Mutex))
+		mu := m.(*sync.Mutex)
+		mu.Unlock()
 	}()
 
 	temp, found := c.cache.Get(id)
