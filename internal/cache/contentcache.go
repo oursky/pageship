@@ -72,15 +72,14 @@ func (c *ContentCache) GetContent(id string, r io.ReadSeeker) (ContentCacheCell,
 		return ce, nil
 	}
 
-	b := make([]byte, c.size)
-	_, err := r.Read(b)
+	b, err := io.ReadAll(r)
 	if err != nil {
 		return ContentCacheCell{id: "", Data: new(bytes.Buffer)}, err
 	}
 
 	ce := ContentCacheCell{
 		id:   id,
-		Data: bytes.NewBuffer(bytes.Trim(b, string([]byte{0x0}))),
+		Data: bytes.NewBuffer(b),
 	}
 	c.cache.Set(id, ce, int64(ce.Data.Len()))
 	return ce, nil

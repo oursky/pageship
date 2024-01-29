@@ -30,14 +30,14 @@ func TestGetContent(t *testing.T) {
 	assert.Equal(t, "hit: 1 miss: 1 keys-added: 1 keys-updated: 0 keys-evicted: 0 cost-added: 1 cost-evicted: 0 sets-dropped: 0 sets-rejected: 0 gets-dropped: 0 gets-kept: 0 gets-total: 2 hit-ratio: 0.50", cc.cache.Metrics.String())
 
 	ccc, err = cc.GetContent("id2", bytes.NewReader([]byte("test")))
-	time.Sleep(100 * time.Millisecond)	
+	time.Sleep(100 * time.Millisecond)
 	assert.Empty(t, err)
 	assert.Equal(t, ContentCacheCell{id: "id2", Data: bytes.NewBuffer([]byte("test"))}, ccc)
 	assert.Equal(t, "hit: 1 miss: 2 keys-added: 2 keys-updated: 0 keys-evicted: 0 cost-added: 5 cost-evicted: 0 sets-dropped: 0 sets-rejected: 0 gets-dropped: 0 gets-kept: 0 gets-total: 3 hit-ratio: 0.33", cc.cache.Metrics.String())
 
-	//below should not happen as hash is used as id 
+	//below should not happen as hash is used as id
 	ccc, err = cc.GetContent("id2", bytes.NewReader([]byte("update")))
-	time.Sleep(100 * time.Millisecond)	
+	time.Sleep(100 * time.Millisecond)
 	assert.Empty(t, err)
 	assert.Equal(t, ContentCacheCell{id: "id2", Data: bytes.NewBuffer([]byte("test"))}, ccc)
 	assert.Equal(t, "hit: 2 miss: 2 keys-added: 2 keys-updated: 0 keys-evicted: 0 cost-added: 5 cost-evicted: 0 sets-dropped: 0 sets-rejected: 0 gets-dropped: 0 gets-kept: 0 gets-total: 4 hit-ratio: 0.50", cc.cache.Metrics.String())
