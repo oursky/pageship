@@ -3,12 +3,15 @@ package cache //white box testing
 import (
 	"bytes"
 	"testing"
+	"sync"
 	"time"
+	"fmt"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestGetContent(t *testing.T) {
+	fmt.Println("testing GetContent...")
 	cc, err := NewContentCache(8, true)
 	assert.Empty(t, err)
 	assert.Equal(t, uint64(0), cc.cache.Metrics.CostAdded())
@@ -52,6 +55,46 @@ func TestGetContent(t *testing.T) {
 	ccc, err = cc.GetContent("id4", bytes.NewReader([]byte("content too big")))
 	time.Sleep(100 * time.Millisecond)
 	assert.Empty(t, err)
-	assert.Equal(t, ContentCacheCell{id: "id4", Data: bytes.NewBuffer([]byte("content "))}, ccc)
-	assert.Equal(t, "hit: 2 miss: 4 keys-added: 4 keys-updated: 0 keys-evicted: 3 cost-added: 21 cost-evicted: 13 sets-dropped: 0 sets-rejected: 0 gets-dropped: 0 gets-kept: 0 gets-total: 6 hit-ratio: 0.33", cc.cache.Metrics.String())
+	assert.Equal(t, ContentCacheCell{id: "id4", Data: bytes.NewBuffer([]byte("content too big"))}, ccc)
+	assert.Equal(t, "hit: 2 miss: 4 keys-added: 3 keys-updated: 0 keys-evicted: 2 cost-added: 13 cost-evicted: 5 sets-dropped: 0 sets-rejected: 0 gets-dropped: 0 gets-kept: 0 gets-total: 6 hit-ratio: 0.33", cc.cache.Metrics.String())
+}
+
+func TestDataRace(t *testing.T) {
+	fmt.Println("testing data race...")
+	var wg sync.WaitGroup
+	cc, err := NewContentCache(8, true)
+	assert.Empty(t, err)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		_, err := cc.GetContent("id1", bytes.NewReader([]byte("data")))
+		assert.Empty(t, err)
+		_, err = cc.GetContent("id2", bytes.NewReader([]byte("race")))
+		assert.Empty(t, err)
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		_, err := cc.GetContent("id1", bytes.NewReader([]byte("race")))
+		assert.Empty(t, err)
+		_, err = cc.GetContent("id2", bytes.NewReader([]byte("data")))
+		assert.Empty(t, err)
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		_, err := cc.GetContent("id2", bytes.NewReader([]byte("data")))
+		assert.Empty(t, err)
+		_, err = cc.GetContent("id1", bytes.NewReader([]byte("race")))
+		assert.Empty(t, err)
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		_, err := cc.GetContent("id2", bytes.NewReader([]byte("race")))
+		assert.Empty(t, err)
+		_, err = cc.GetContent("id1", bytes.NewReader([]byte("data")))
+		assert.Empty(t, err)
+	}()
+	wg.Wait()
 }
