@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"io"
 	"sync"
-	"fmt"
 
 	"github.com/dgraph-io/ristretto"
 )
@@ -27,7 +26,7 @@ func NewContentCache(contentCacheSize int64, metrics bool) (*ContentCache, error
 	size := contentCacheSize
 	cache, err := ristretto.NewCache(&ristretto.Config{
 		//NumCounters is 10 times estimated max number of items in cache, as suggested in https://pkg.go.dev/github.com/dgraph-io/ristretto@v0.1.1#Config
-		NumCounters: 1e7,
+		NumCounters: 16000, //16 MB limit / 10 KB small files = 1600 max number of items
 		MaxCost:     size,
 		BufferItems: 64,
 		Metrics:     metrics,
@@ -37,6 +36,7 @@ func NewContentCache(contentCacheSize int64, metrics bool) (*ContentCache, error
 			cell := item.(ContentCacheCell)
 			delete(m, cell.id)
 		},
+		IgnoreInternalCost: true,
 	})
 	if err != nil {
 		return nil, err
@@ -45,7 +45,7 @@ func NewContentCache(contentCacheSize int64, metrics bool) (*ContentCache, error
 	return &ContentCache{mm: mm, m: m, size: size, cache: cache}, nil
 }
 
-func (c *ContentCache) GetContent(id string, r io.Reader) (ContentCacheCell, error) {
+func (c *ContentCache) GetContent(id string, r io.ReadSeeker) (ContentCacheCell, error) {
 	c.mm.Lock()
 	if m, ok := c.m[id]; ok {
 		m.Lock()
@@ -73,7 +73,7 @@ func (c *ContentCache) GetContent(id string, r io.Reader) (ContentCacheCell, err
 
 	b := make([]byte, c.size)
 	_, err := r.Read(b)
-	if err != nil { //io.EOF?
+	if err != nil {
 		return ContentCacheCell{id: "", Data: new(bytes.Buffer)}, err
 	}
 
@@ -81,8 +81,6 @@ func (c *ContentCache) GetContent(id string, r io.Reader) (ContentCacheCell, err
 		id:   id,
 		Data: bytes.NewBuffer(bytes.Trim(b, string([]byte{0x0}))),
 	}
-	fmt.Printf("setting... %d\n", ce.Data.Len())
 	c.cache.Set(id, ce, int64(ce.Data.Len()))
-	fmt.Printf("set\n")
 	return ce, nil
 }

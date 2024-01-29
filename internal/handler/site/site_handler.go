@@ -24,11 +24,7 @@ type SiteHandler struct {
 }
 
 func NewSiteHandler(desc *site.Descriptor, middlewares []Middleware) *SiteHandler {
-<<<<<<< HEAD
-	cc, err := cache.NewContentCache(1 << 24) //16 MiB
-=======
 	cc, err := cache.NewContentCache(1 << 24, false) //16 MiB
->>>>>>> test-contentcache
 	if err != nil {
 		cc = nil
 	}
