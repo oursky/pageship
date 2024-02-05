@@ -53,7 +53,7 @@ func (c *Controller) makeAPIDeployment(app *models.App, d db.DeploymentInfo) *ap
 }
 
 func (c *Controller) middlewareLoadDeployment() func(http.Handler) http.Handler {
-	return middlwareLoadValue(func(r *http.Request) (*models.Deployment, error) {
+	return middlewareLoadValue(func(r *http.Request) (*models.Deployment, error) {
 		app := get[*models.App](r)
 		name := chi.URLParam(r, "deployment-name")
 
