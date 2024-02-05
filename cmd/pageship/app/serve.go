@@ -91,7 +91,7 @@ func makeHandler(prefix string, defaultSite string, hostPattern string) (*handle
 		domainResolver, siteResolver,
 		handler.HandlerConfig{
 			HostPattern: hostPattern,
-			Middlewares: middleware.Default,
+			MiddlewaresFunc: middleware.Default,
 		})
 	if err != nil {
 		return nil, err

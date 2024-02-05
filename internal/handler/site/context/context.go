@@ -1,4 +1,4 @@
-package site
+package context
 
 import (
 	"context"
@@ -11,7 +11,7 @@ type contextValue struct {
 	Error error
 }
 
-func withSiteContext(ctx context.Context) context.Context {
+func WithSiteContext(ctx context.Context) context.Context {
 	return context.WithValue(ctx, contextKey{}, &contextValue{})
 }
 

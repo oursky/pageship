@@ -13,6 +13,7 @@ import (
 	"github.com/oursky/pageship/internal/httputil"
 	"github.com/oursky/pageship/internal/site"
 	"github.com/oursky/pageship/internal/handler/site/middleware"
+	siteContext "github.com/oursky/pageship/internal/handler/site/context"
 )
 
 type SiteHandler struct {
@@ -29,7 +30,7 @@ func NewSiteHandler(desc *site.Descriptor, middlewares []middleware.Middleware) 
 
 	publicDesc := *desc
 	publicDesc.FS = site.SubFS(desc.FS, path.Clean("/"+desc.Config.Public))
-	h.next = middleware.applyMiddleware(&publicDesc, middlewares, http.HandlerFunc(h.serveFile))
+	h.next = middleware.ApplyMiddleware(&publicDesc, middlewares, http.HandlerFunc(h.serveFile))
 	return h
 }
 
@@ -43,7 +44,7 @@ func (h *SiteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodGet, http.MethodHead:
-		r = r.WithContext(withSiteContext(r.Context()))
+		r = r.WithContext(siteContext.WithSiteContext(r.Context()))
 
 		if !strings.HasPrefix(r.URL.Path, "/") {
 			r.URL.Path = "/" + r.URL.Path
