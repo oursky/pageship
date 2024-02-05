@@ -15,10 +15,10 @@ func ApplyMiddleware(site *site.Descriptor, middlewares []Middleware, handler ht
 	return handler
 }
 
-func Default(cc ContentCacheType) []site.Middleware{
+func Default(cc ContentCacheType) []Middleware{
 	cacheContext := NewCacheContext(cc)
 
-	return []site.Middleware{
+	return []Middleware{
 		RedirectCustomDomain,
 		CanonicalizePath,
 		RouteSPA,
