@@ -17,6 +17,10 @@ func (crw CompressedResponseWriter) Write(b []byte) (int, error) {
 	return crw.compressor.Write(b)
 }
 
+func (crw CompressedResponseWriter) Unwrap() http.ResponseWriter {
+	return crw.ResponseWriter
+}
+
 func Compression(site *site.Descriptor, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		crw := CompressedResponseWriter{w, brotli.HTTPCompressor(w, r)} //chooses compression method based on Accept-Encoding header and
