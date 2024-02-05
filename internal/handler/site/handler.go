@@ -15,6 +15,7 @@ import (
 	"github.com/oursky/pageship/internal/httputil"
 	"github.com/oursky/pageship/internal/models"
 	"github.com/oursky/pageship/internal/site"
+	"github.com/oursky/pageship/internal/handler/site/middleware"
 	"go.uber.org/zap"
 )
 
@@ -25,7 +26,7 @@ const (
 
 type HandlerConfig struct {
 	HostPattern string
-	Middlewares []Middleware
+	MiddlewaresFunc func(middleware.ContentCacheType) []Middleware
 }
 
 type Handler struct {
