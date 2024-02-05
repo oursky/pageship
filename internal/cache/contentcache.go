@@ -36,11 +36,15 @@ func NewContentCache[K any, V any, R any](contentCacheSize int64, metrics bool, 
 	return &ContentCache[K, V, R]{m: m, size: size, cache: cache, load: load}, nil
 }
 
+func (c *ContentCache[K, V, R]) keyToString(key K) string {
+	return fmt.Sprintf("%v", key)
+}
+
 func (c *ContentCache[K, V, R]) GetContent(key K) (V, bool) {
 	l := c.m.RLock(key)
 	defer l.RUnlock()
 
-	v, b := c.cache.Get(key)
+	v, b := c.cache.Get(c.keyToString(key))
 	if v == nil {
 		var nv V
 		return nv, b
@@ -57,7 +61,7 @@ func (c *ContentCache[K, V, R]) SetContent(key K, r R) (V, error) {
 		return b, err
 	}
 
-	c.cache.Set(key, b, n)
+	c.cache.Set(c.keyToString(key), b, n)
 	return b, nil
 }
 
