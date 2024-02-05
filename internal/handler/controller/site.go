@@ -34,7 +34,7 @@ func (c *Controller) makeAPISite(app *models.App, site db.SiteInfo) *apiSite {
 }
 
 func (c *Controller) middlewareLoadSite() func(http.Handler) http.Handler {
-	return middlwareLoadValue(func(r *http.Request) (*models.Site, error) {
+	return middlewareLoadValue(func(r *http.Request) (*models.Site, error) {
 		app := get[*models.App](r)
 		name := chi.URLParam(r, "site-name")
 
