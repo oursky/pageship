@@ -7,6 +7,8 @@ import (
 	"net"
 	"net/http"
 	"time"
+	"io"
+	"bytes"
 
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/oursky/pageship/internal/cache"
@@ -37,6 +39,7 @@ type Handler struct {
 	hostPattern    *config.HostPattern
 	cache          *cache.Cache[*SiteHandler]
 	middlewares    []middleware.Middleware
+	contentCache   middleware.ContentCacheType
 }
 
 func NewHandler(ctx context.Context, logger *zap.Logger, domainResolver domain.Resolver, siteResolver site.Resolver, conf HandlerConfig) (*Handler, error) {
@@ -48,12 +51,27 @@ func NewHandler(ctx context.Context, logger *zap.Logger, domainResolver domain.R
 		hostPattern:    config.NewHostPattern(conf.HostPattern),
 	}
 
-	cache, err := cache.NewCache(cacheSize, cacheTTL, h.doResolveHandler)
+	c, err := cache.NewCache(cacheSize, cacheTTL, h.doResolveHandler)
 	if err != nil {
 		return nil, fmt.Errorf("setup cache: %w", err)
 	}
-	h.cache = cache
+	h.cache = c
 
+	load := func(r io.ReadSeeker) (*bytes.Buffer, int64, error) {
+		b, err := io.ReadAll(r)
+		nb := bytes.NewBuffer(b)
+		if err != nil {
+			return nb, 0, err
+		}
+		return nb, int64(nb.Len()), nil 
+	}
+	cc, err := cache.NewContentCache[middleware.ContentCacheKey](1<<24, true, load) //TODO: pass from config
+	if err != nil {
+		return nil, fmt.Errorf("setup content cache: %w", err)
+	}
+	h.contentCache = cc
+
+	h.middlewares = conf.MiddlewaresFunc(h.contentCache)
 	return h, nil
 }
 
