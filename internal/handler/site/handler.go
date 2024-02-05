@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-chi/chi/v5/middleware"
+	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/oursky/pageship/internal/cache"
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/domain"
@@ -26,7 +26,7 @@ const (
 
 type HandlerConfig struct {
 	HostPattern string
-	MiddlewaresFunc func(middleware.ContentCacheType) []Middleware
+	MiddlewaresFunc func(middleware.ContentCacheType) []middleware.Middleware
 }
 
 type Handler struct {
@@ -36,7 +36,7 @@ type Handler struct {
 	siteResolver   site.Resolver
 	hostPattern    *config.HostPattern
 	cache          *cache.Cache[*SiteHandler]
-	middlewares    []Middleware
+	middlewares    []middleware.Middleware
 }
 
 func NewHandler(ctx context.Context, logger *zap.Logger, domainResolver domain.Resolver, siteResolver site.Resolver, conf HandlerConfig) (*Handler, error) {
@@ -46,7 +46,6 @@ func NewHandler(ctx context.Context, logger *zap.Logger, domainResolver domain.R
 		domainResolver: domainResolver,
 		siteResolver:   siteResolver,
 		hostPattern:    config.NewHostPattern(conf.HostPattern),
-		middlewares:    conf.Middlewares,
 	}
 
 	cache, err := cache.NewCache(cacheSize, cacheTTL, h.doResolveHandler)
@@ -137,7 +136,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.logger.Debug("resolved site", zap.String("site", handler.ID()))
-	entry := middleware.GetLogEntry(r)
+	entry := chiMiddleware.GetLogEntry(r)
 	e := entry.(*httputil.LogEntry)
 	e.Logger = e.Logger.With(zap.String("site", handler.ID()))
 

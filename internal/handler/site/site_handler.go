@@ -12,6 +12,7 @@ import (
 
 	"github.com/oursky/pageship/internal/httputil"
 	"github.com/oursky/pageship/internal/site"
+	"github.com/oursky/pageship/internal/handler/site/middleware"
 )
 
 type SiteHandler struct {
@@ -20,7 +21,7 @@ type SiteHandler struct {
 	next     http.Handler
 }
 
-func NewSiteHandler(desc *site.Descriptor, middlewares []Middleware) *SiteHandler {
+func NewSiteHandler(desc *site.Descriptor, middlewares []middleware.Middleware) *SiteHandler {
 	h := &SiteHandler{
 		desc:     desc,
 		publicFS: site.SubFS(desc.FS, path.Clean("/"+desc.Config.Public)),
@@ -28,7 +29,7 @@ func NewSiteHandler(desc *site.Descriptor, middlewares []Middleware) *SiteHandle
 
 	publicDesc := *desc
 	publicDesc.FS = site.SubFS(desc.FS, path.Clean("/"+desc.Config.Public))
-	h.next = applyMiddleware(&publicDesc, middlewares, http.HandlerFunc(h.serveFile))
+	h.next = middleware.applyMiddleware(&publicDesc, middlewares, http.HandlerFunc(h.serveFile))
 	return h
 }
 
