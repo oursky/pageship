@@ -7,6 +7,7 @@ import (
 	"time"
 	"context"
 	"bytes"
+	"net/http/httptest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/oursky/pageship/internal/handler/site/middleware"
@@ -16,11 +17,11 @@ import (
 )
 
 type mockHandler struct {
-	executed bool
+	executeCount int
 }
 
 func (mh *mockHandler) serve(w http.ResponseWriter, r *http.Request) {
-	mh.executed = true
+	mh.executeCount++
 }
 
 type mockFS struct{}
@@ -49,7 +50,7 @@ func (m mockFS) Open(ctx context.Context, path string) (io.ReadSeekCloser, error
 
 func TestCache(t *testing.T) {
 	//Setup
-	mh := mockHandler{executed: false}
+	mh := mockHandler{}
 	load := func(r io.ReadSeeker) (*bytes.Buffer, int64, error) {
 		b, err := io.ReadAll(r)
 		nb := bytes.NewBuffer(b)
@@ -58,7 +59,7 @@ func TestCache(t *testing.T) {
 		}
 		return nb, int64(nb.Len()), nil 
 	}
-	contentCache, err := cache.NewContentCache[middleware.ContentCacheKey](1<<24, false, load)
+	contentCache, err := cache.NewContentCache[middleware.ContentCacheKey](1<<24, true, load)
 	assert.Empty(t, err)
 	cacheContext := middleware.NewCacheContext(contentCache)
 
@@ -71,7 +72,15 @@ func TestCache(t *testing.T) {
 	}
 	h := cacheContext.Cache(&mockSiteDescriptor, http.HandlerFunc(mh.serve))
 
-	//Act
-
-	//Assert
+	//Act Assert
+	req, err := http.NewRequest("GET", "endpoint", bytes.NewBuffer([]byte("body")))
+	assert.Empty(t, err)
+	rec := httptest.NewRecorder()
+	assert.Equal(t, 0, mh.executeCount)
+	h.ServeHTTP(rec, req)
+	assert.Equal(t, 1, mh.executeCount)
+	h.ServeHTTP(rec, req)
+	assert.Equal(t, 1, mh.executeCount)
+	h.ServeHTTP(rec, req)
+	assert.Equal(t, 1, mh.executeCount)
 }
