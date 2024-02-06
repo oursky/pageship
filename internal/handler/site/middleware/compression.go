@@ -4,29 +4,18 @@ import (
 	"net/http"
 	"io"
 
-	"github.com/andybalholm/brotli"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/oursky/pageship/internal/site"
 )
 
-type CompressedResponseWriter struct {
-	http.ResponseWriter
-	compressor io.WriteCloser
+type CompressionMiddleware struct {
+	compressor middleware.Compressor
 }
 
-func (crw CompressedResponseWriter) Write(b []byte) (int, error) {
-	return crw.compressor.Write(b)
+func NewCompressionMiddleware() CompressionMiddleware {
+	return compressionMiddleware{compressor: NewCompressor(5)}
 }
 
-func (crw CompressedResponseWriter) Unwrap() http.ResponseWriter {
-	return crw.ResponseWriter
+func (cm *compressionMiddleware) Compression(site *site.Descriptor, next http.Handler) http.Handler {
+	return cm.compressor.Handler(next)
 }
-
-func Compression(site *site.Descriptor, next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		crw := CompressedResponseWriter{w, brotli.HTTPCompressor(w, r)} //chooses compression method based on Accept-Encoding header and
-	                                                                    //also sets the Content-Encoding header
-		next.ServeHTTP(crw, r)
-		crw.compressor.Close()
-	})
-}
-
