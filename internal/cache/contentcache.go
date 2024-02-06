@@ -3,6 +3,7 @@ package cache
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/dgraph-io/ristretto"
 )
@@ -12,9 +13,10 @@ type ContentCache[K any, V any, R any] struct {
 	size  int64
 	cache *ristretto.Cache
 	load  func(r R) (V, int64, error)
+	debug bool
 }
 
-func NewContentCache[K any, V any, R any](contentCacheSize int64, metrics bool, load func(r R) (V, int64, error)) (*ContentCache[K, V, R], error) {
+func NewContentCache[K any, V any, R any](contentCacheSize int64, debug bool, load func(r R) (V, int64, error)) (*ContentCache[K, V, R], error) {
 	m := New()
 	size := contentCacheSize
 	nc := size / 1000
@@ -23,17 +25,17 @@ func NewContentCache[K any, V any, R any](contentCacheSize int64, metrics bool, 
 	}
 	cache, err := ristretto.NewCache(&ristretto.Config{
 		//NumCounters is 10 times estimated max number of items in cache, as suggested in https://pkg.go.dev/github.com/dgraph-io/ristretto@v0.1.1#Config
-		NumCounters: nc, //limit / 10 KB small files * 10
-		MaxCost:     size,
-		BufferItems: 64,
-		Metrics:     metrics,
+		NumCounters:        nc, //limit / 10 KB small files * 10
+		MaxCost:            size,
+		BufferItems:        64,
+		Metrics:            debug,
 		IgnoreInternalCost: true,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return &ContentCache[K, V, R]{m: m, size: size, cache: cache, load: load}, nil
+	return &ContentCache[K, V, R]{m: m, size: size, cache: cache, load: load, debug: debug}, nil
 }
 
 func (c *ContentCache[K, V, R]) keyToString(key K) string {
@@ -41,10 +43,14 @@ func (c *ContentCache[K, V, R]) keyToString(key K) string {
 }
 
 func (c *ContentCache[K, V, R]) GetContent(key K) (V, bool) {
+	//fmt.Printf("get %v\n", key)
 	l := c.m.RLock(key)
 	defer l.RUnlock()
 
 	v, b := c.cache.Get(c.keyToString(key))
+	if c.debug {
+		fmt.Println("getted: ", c.cache.Metrics.String())
+	}
 	if v == nil {
 		var nv V
 		return nv, b
@@ -53,6 +59,7 @@ func (c *ContentCache[K, V, R]) GetContent(key K) (V, bool) {
 }
 
 func (c *ContentCache[K, V, R]) SetContent(key K, r R) (V, error) {
+	//fmt.Printf("set %v\n", key)
 	l := c.m.Lock(key)
 	defer l.Unlock()
 
@@ -62,6 +69,10 @@ func (c *ContentCache[K, V, R]) SetContent(key K, r R) (V, error) {
 	}
 
 	c.cache.Set(c.keyToString(key), b, n)
+	if c.debug {
+		time.Sleep(100 * time.Millisecond)
+		fmt.Println("setted: ", c.cache.Metrics.String())
+	}
 	return b, nil
 }
 
