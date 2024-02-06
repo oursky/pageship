@@ -13,9 +13,9 @@ type CompressionMiddleware struct {
 }
 
 func NewCompressionMiddleware() CompressionMiddleware {
-	return compressionMiddleware{compressor: NewCompressor(5)}
+	return CompressionMiddleware{compressor: NewCompressor(5)}
 }
 
-func (cm *compressionMiddleware) Compression(site *site.Descriptor, next http.Handler) http.Handler {
+func (cm *CompressionMiddleware) Compression(site *site.Descriptor, next http.Handler) http.Handler {
 	return cm.compressor.Handler(next)
 }
