@@ -1,8 +1,8 @@
 package middleware
 
 import (
-	"net/http"
 	"io"
+	"net/http"
 
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/oursky/pageship/internal/site"
