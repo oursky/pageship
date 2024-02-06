@@ -65,7 +65,7 @@ func NewHandler(ctx context.Context, logger *zap.Logger, domainResolver domain.R
 		}
 		return nb, int64(nb.Len()), nil 
 	}
-	cc, err := cache.NewContentCache[middleware.ContentCacheKey](1<<24, true, load) //TODO: pass from config
+	cc, err := cache.NewContentCache[middleware.ContentCacheKey](1<<24, false, load) //TODO: pass from config
 	if err != nil {
 		return nil, fmt.Errorf("setup content cache: %w", err)
 	}
