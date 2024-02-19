@@ -34,6 +34,8 @@ func init() {
 
 	serveCmd.PersistentFlags().String("default-site", config.DefaultSite, "default site")
 	serveCmd.PersistentFlags().String("host-pattern", config.DefaultHostPattern, "host match pattern")
+
+	serveCmd.PersistentFlags().Int64("content-cache-max-size", int64(1)<<24, "maximum size of server-side content cache in bytes, default is 16MB")
 }
 
 func loadSitesConfig(fsys fs.FS) (*config.SitesConfig, error) {
@@ -47,7 +49,7 @@ func loadSitesConfig(fsys fs.FS) (*config.SitesConfig, error) {
 	return conf, nil
 }
 
-func makeHandler(prefix string, defaultSite string, hostPattern string) (*handler.Handler, error) {
+func makeHandler(prefix string, defaultSite string, hostPattern string, contentCacheMaxSize int64) (*handler.Handler, error) {
 	dir, err := filepath.Abs(prefix)
 	if err != nil {
 		return nil, err
@@ -90,8 +92,9 @@ func makeHandler(prefix string, defaultSite string, hostPattern string) (*handle
 	handler, err := handler.NewHandler(context.Background(), zapLogger,
 		domainResolver, siteResolver,
 		handler.HandlerConfig{
-			HostPattern:     hostPattern,
-			MiddlewaresFunc: middleware.Default,
+			HostPattern:         hostPattern,
+			MiddlewaresFunc:     middleware.Default,
+			ContentCacheMaxSize: contentCacheMaxSize,
 		})
 	if err != nil {
 		return nil, err
@@ -115,12 +118,14 @@ var serveCmd = &cobra.Command{
 		defaultSite := viper.GetString("default-site")
 		hostPattern := viper.GetString("host-pattern")
 
+		contentCacheMaxSize := viper.GetInt64("content-cache-max-size")
+
 		dir := "."
 		if len(args) > 0 {
 			dir = args[0]
 		}
 
-		handler, err := makeHandler(dir, defaultSite, hostPattern)
+		handler, err := makeHandler(dir, defaultSite, hostPattern, contentCacheMaxSize)
 		if err != nil {
 			return fmt.Errorf("failed to setup server: %w", err)
 		}
