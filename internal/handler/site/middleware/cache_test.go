@@ -1,19 +1,19 @@
 package middleware_test //black box testing
 
 import (
-	"net/http"
-	"testing"
-	"io"
-	"time"
-	"context"
 	"bytes"
+	"context"
+	"io"
+	"net/http"
 	"net/http/httptest"
+	"testing"
+	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/oursky/pageship/internal/handler/site/middleware"
 	"github.com/oursky/pageship/internal/cache"
-	"github.com/oursky/pageship/internal/site"
 	"github.com/oursky/pageship/internal/config"
+	"github.com/oursky/pageship/internal/handler/site/middleware"
+	"github.com/oursky/pageship/internal/site"
+	"github.com/stretchr/testify/assert"
 )
 
 type mockHandler struct {
@@ -27,16 +27,16 @@ func (mh *mockHandler) serve(w http.ResponseWriter, r *http.Request) {
 type mockFS struct{}
 
 func (m mockFS) Stat(path string) (*site.FileInfo, error) {
-	return &site.FileInfo {
-		IsDir: false,
-		ModTime: time.Now(),
-		Size: 0,
+	return &site.FileInfo{
+		IsDir:       false,
+		ModTime:     time.Now(),
+		Size:        0,
 		ContentType: "",
-		Hash: "",
+		Hash:        "",
 	}, nil
 }
 
-type mockRSCloser struct{
+type mockRSCloser struct {
 	io.ReadSeeker
 }
 
@@ -57,7 +57,7 @@ func TestCache(t *testing.T) {
 		if err != nil {
 			return nb, 0, err
 		}
-		return nb, int64(nb.Len()), nil 
+		return nb, int64(nb.Len()), nil
 	}
 	contentCache, err := cache.NewContentCache[middleware.ContentCacheKey](1<<24, true, load)
 	assert.Empty(t, err)
@@ -65,10 +65,10 @@ func TestCache(t *testing.T) {
 
 	sc := config.DefaultSiteConfig()
 	mockSiteDescriptor := site.Descriptor{
-		ID: "",
+		ID:     "",
 		Domain: "",
 		Config: &sc,
-		FS: mockFS{},
+		FS:     mockFS{},
 	}
 	h := cacheContext.Cache(&mockSiteDescriptor, http.HandlerFunc(mh.serve))
 
