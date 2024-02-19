@@ -2,17 +2,13 @@ package middleware
 
 import (
 	"bytes"
-	"io"
 	"net/http"
-	"net/http/httptest"
-	"path"
 	"time"
 	"fmt"
 
 	"github.com/oursky/pageship/internal/cache"
 	"github.com/oursky/pageship/internal/httputil"
 	"github.com/oursky/pageship/internal/site"
-	"github.com/dgraph-io/ristretto"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
@@ -23,14 +19,12 @@ type ContentCacheKey struct {
 	compression string
 }
 
-type ContentCacheType = *cache.ContentCache[ContentCacheKey, *bytes.Buffer, io.ReadSeeker]
-
 type CacheContext struct {
-	cc ContentCacheType
+	cc *cache.ContentCache
 }
 
-func NewCacheContext(cc ContentCacheType) CacheContext {
-	return CacheContext{cc: cc, vc: varyCache}
+func NewCacheContext(cc *cache.ContentCache) CacheContext {
+	return CacheContext{cc: cc}
 }
 
 func (ctx *CacheContext) Cache(site *site.Descriptor, next http.Handler) http.Handler {
@@ -41,7 +35,7 @@ func (ctx *CacheContext) Cache(site *site.Descriptor, next http.Handler) http.Ha
 			return
 		}
 		
-		keyString := fmt.sprintf("%v", ContentCacheKey{hash: info.Hash, compression: r.Header().Get("Accept-Encoding"))
+		keyString := fmt.Sprintf("%v", ContentCacheKey{hash: info.Hash, compression: r.Header.Get("Accept-Encoding")})
 		value, found := ctx.cc.Get(keyString)
 		if found {
 			for k, v := range(value.Header) {
@@ -59,7 +53,7 @@ func (ctx *CacheContext) Cache(site *site.Descriptor, next http.Handler) http.Ha
 
 		next.ServeHTTP(ww, r)
 
-		value := cache.Response { Header: ww.Header(), Body: b.Bytes(), StatusCode: ww.Status() }
-		ctx.cc.Set(keystring, value)
+		setValue := cache.Response { Header: ww.Header(), Body: b.Bytes(), StatusCode: ww.Status() }
+		ctx.cc.Set(keyString, &setValue)
 	})
 }

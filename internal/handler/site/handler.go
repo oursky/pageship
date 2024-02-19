@@ -1,11 +1,9 @@
 package site
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"time"
@@ -28,7 +26,7 @@ const (
 
 type HandlerConfig struct {
 	HostPattern         string
-	MiddlewaresFunc     func(middleware.ContentCacheType) []middleware.Middleware
+	MiddlewaresFunc     func(*cache.ContentCache) []middleware.Middleware
 	ContentCacheMaxSize int64
 }
 
@@ -40,7 +38,7 @@ type Handler struct {
 	hostPattern    *config.HostPattern
 	cache          *cache.Cache[*SiteHandler]
 	middlewares    []middleware.Middleware
-	contentCache   middleware.ContentCacheType
+	contentCache   *cache.ContentCache
 }
 
 func NewHandler(ctx context.Context, logger *zap.Logger, domainResolver domain.Resolver, siteResolver site.Resolver, conf HandlerConfig) (*Handler, error) {
@@ -58,15 +56,7 @@ func NewHandler(ctx context.Context, logger *zap.Logger, domainResolver domain.R
 	}
 	h.cache = c
 
-	load := func(r io.ReadSeeker) (*bytes.Buffer, int64, error) {
-		b, err := io.ReadAll(r)
-		nb := bytes.NewBuffer(b)
-		if err != nil {
-			return nb, 0, err
-		}
-		return nb, int64(nb.Len()), nil
-	}
-	cc, err := cache.NewContentCache[middleware.ContentCacheKey](conf.ContentCacheMaxSize, false, load) //TODO: pass from config
+	cc, err := cache.NewContentCache(conf.ContentCacheMaxSize, false)
 	if err != nil {
 		return nil, fmt.Errorf("setup content cache: %w", err)
 	}

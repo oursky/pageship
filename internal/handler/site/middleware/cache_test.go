@@ -17,11 +17,13 @@ import (
 )
 
 type mockHandler struct {
-	executeCount int
+	executeCount *int
 }
 
-func (mh *mockHandler) serve(w http.ResponseWriter, r *http.Request) {
-	mh.executeCount++
+func (mh mockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	(*mh.executeCount)++
+	w.WriteHeader(200)
+	w.Write([]byte("hello"))
 }
 
 type mockFS struct{}
@@ -50,16 +52,9 @@ func (m mockFS) Open(ctx context.Context, path string) (io.ReadSeekCloser, error
 
 func TestCache(t *testing.T) {
 	//Setup
-	mh := mockHandler{}
-	load := func(r io.ReadSeeker) (*bytes.Buffer, int64, error) {
-		b, err := io.ReadAll(r)
-		nb := bytes.NewBuffer(b)
-		if err != nil {
-			return nb, 0, err
-		}
-		return nb, int64(nb.Len()), nil
-	}
-	contentCache, err := cache.NewContentCache[middleware.ContentCacheKey](1<<24, true, load)
+	executeCount := 0
+	mh := mockHandler{executeCount: &executeCount}
+	contentCache, err := cache.NewContentCache(1<<24, true)
 	assert.Empty(t, err)
 	cacheContext := middleware.NewCacheContext(contentCache)
 
@@ -70,17 +65,17 @@ func TestCache(t *testing.T) {
 		Config: &sc,
 		FS:     mockFS{},
 	}
-	h := cacheContext.Cache(&mockSiteDescriptor, http.HandlerFunc(mh.serve))
+	h := cacheContext.Cache(&mockSiteDescriptor, mh)
 
 	//Act Assert
-	req, err := http.NewRequest("GET", "endpoint", bytes.NewBuffer([]byte("body")))
+	req, err := http.NewRequest("GET", "endpoint", nil)
 	assert.Empty(t, err)
 	rec := httptest.NewRecorder()
-	assert.Equal(t, 0, mh.executeCount)
+	assert.Equal(t, 0, executeCount)
 	h.ServeHTTP(rec, req)
-	assert.Equal(t, 1, mh.executeCount)
+	assert.Equal(t, 1, executeCount)
 	h.ServeHTTP(rec, req)
-	assert.Equal(t, 1, mh.executeCount)
+	assert.Equal(t, 1, executeCount)
 	h.ServeHTTP(rec, req)
-	assert.Equal(t, 1, mh.executeCount)
+	assert.Equal(t, 1, executeCount)
 }
