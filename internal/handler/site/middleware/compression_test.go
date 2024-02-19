@@ -8,11 +8,14 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+	"strings"
+	"compress/gzip"
 
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/handler/site/middleware"
 	"github.com/oursky/pageship/internal/site"
 	"github.com/stretchr/testify/assert"
+	"github.com/andybalholm/brotli"
 )
 
 type mockHandler struct {
@@ -67,7 +70,15 @@ func TestCache(t *testing.T) {
 	rec := httptest.NewRecorder()
 	rec.Header().Add("Content-Type", "text/plain")
 	h.ServeHTTP(rec, req)
-	assert.Equal(t, "gzip", rec.Result().Header.Get("Content-Encoding"))
+	resp := rec.Result()
+	assert.Equal(t, "gzip", resp.Header.Get("Content-Encoding"))
+	gzreader, err := gzip.NewReader(resp.Body)
+	defer gzreader.Close()
+	buf := new(strings.Builder)
+	n, err := io.Copy(buf, gzreader)
+	assert.Empty(t, err)
+	assert.Equal(t, int64(5), n)
+	assert.Equal(t, "hello", buf.String())
 
 	req, err = http.NewRequest("GET", "endpoint", bytes.NewBuffer([]byte("body")))
 	assert.Empty(t, err)
@@ -75,5 +86,12 @@ func TestCache(t *testing.T) {
 	rec = httptest.NewRecorder()
 	rec.Header().Add("Content-Type", "text/plain")
 	h.ServeHTTP(rec, req)
-	assert.Equal(t, "br", rec.Result().Header.Get("Content-Encoding"))
+	resp = rec.Result()
+	assert.Equal(t, "br", resp.Header.Get("Content-Encoding"))
+	brreader := brotli.NewReader(resp.Body)
+	buf = new(strings.Builder)
+	n, err = io.Copy(buf, brreader)
+	assert.Empty(t, err)
+	assert.Equal(t, int64(5), n)
+	assert.Equal(t, "hello", buf.String())
 }
