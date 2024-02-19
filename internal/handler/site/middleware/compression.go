@@ -9,10 +9,14 @@ import (
 	"github.com/oursky/pageship/internal/site"
 )
 
-func Compression(site *site.Descriptor, next http.Handler) http.Handler {
+func Compression(next http.Handler) http.Handler {
 	c := middleware.NewCompressor(5)
 	c.SetEncoder("br", func(w io.Writer, level int) io.Writer {
 		return brotli.NewWriterV2(w, level)
 	})
 	return c.Handler(next)
+}
+
+func compression(site *site.Descriptor, next http.Handler) http.Handler {
+	return Compression(next)
 }

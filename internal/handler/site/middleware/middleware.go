@@ -9,5 +9,5 @@ var Default = []site.Middleware{
 	CanonicalizePath,
 	RouteSPA,
 	IndexPage,
-	Compression,
+	compression,
 }
