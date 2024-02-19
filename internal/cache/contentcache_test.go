@@ -2,11 +2,11 @@ package cache //white box testing
 
 import (
 	"bytes"
-	"testing"
-	"sync"
-	"time"
 	"fmt"
 	"io"
+	"sync"
+	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -21,7 +21,7 @@ func TestGetContent(t *testing.T) {
 		if err != nil {
 			return nb, 0, err
 		}
-		return nb, int64(nb.Len()), nil 
+		return nb, int64(nb.Len()), nil
 	}
 	cc, err := NewContentCache[CacheKeyMock](8, true, load)
 	assert.Empty(t, err)
@@ -87,7 +87,7 @@ func TestDataRace(t *testing.T) {
 		if err != nil {
 			return nb, 0, err
 		}
-		return nb, int64(nb.Len()), nil 
+		return nb, int64(nb.Len()), nil
 	}
 	cc, err := NewContentCache[CacheKeyMock](16, true, load)
 	assert.Empty(t, err)
@@ -97,10 +97,10 @@ func TestDataRace(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		_, err := cc.SetContent(k1, bytes.NewReader([]byte("data")))
-		time.Sleep(100 * time.Millisecond) 
+		time.Sleep(100 * time.Millisecond)
 		assert.Empty(t, err)
 		_, err = cc.SetContent(k2, bytes.NewReader([]byte("race")))
-		time.Sleep(100 * time.Millisecond) 
+		time.Sleep(100 * time.Millisecond)
 		assert.Empty(t, err)
 		_, found := cc.GetContent(k1)
 		assert.Equal(t, true, found)
@@ -111,10 +111,10 @@ func TestDataRace(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		_, err := cc.SetContent(k1, bytes.NewReader([]byte("race")))
-		time.Sleep(100 * time.Millisecond) 
+		time.Sleep(100 * time.Millisecond)
 		assert.Empty(t, err)
 		_, err = cc.SetContent(k2, bytes.NewReader([]byte("data")))
-		time.Sleep(100 * time.Millisecond) 
+		time.Sleep(100 * time.Millisecond)
 		assert.Empty(t, err)
 		_, found := cc.GetContent(k1)
 		assert.Equal(t, true, found)
@@ -125,10 +125,10 @@ func TestDataRace(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		_, err := cc.SetContent(k2, bytes.NewReader([]byte("data")))
-		time.Sleep(100 * time.Millisecond) 
+		time.Sleep(100 * time.Millisecond)
 		assert.Empty(t, err)
 		_, err = cc.SetContent(k1, bytes.NewReader([]byte("race")))
-		time.Sleep(100 * time.Millisecond) 
+		time.Sleep(100 * time.Millisecond)
 		assert.Empty(t, err)
 		_, found := cc.GetContent(k1)
 		assert.Equal(t, true, found)
@@ -139,10 +139,10 @@ func TestDataRace(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		_, err := cc.SetContent(k2, bytes.NewReader([]byte("race")))
-		time.Sleep(100 * time.Millisecond) 
+		time.Sleep(100 * time.Millisecond)
 		assert.Empty(t, err)
 		_, err = cc.SetContent(k1, bytes.NewReader([]byte("data")))
-		time.Sleep(100 * time.Millisecond) 
+		time.Sleep(100 * time.Millisecond)
 		assert.Empty(t, err)
 		_, found := cc.GetContent(k1)
 		assert.Equal(t, true, found)

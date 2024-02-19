@@ -1,23 +1,23 @@
 package site
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"time"
-	"io"
-	"bytes"
 
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/oursky/pageship/internal/cache"
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/domain"
+	"github.com/oursky/pageship/internal/handler/site/middleware"
 	"github.com/oursky/pageship/internal/httputil"
 	"github.com/oursky/pageship/internal/models"
 	"github.com/oursky/pageship/internal/site"
-	"github.com/oursky/pageship/internal/handler/site/middleware"
 	"go.uber.org/zap"
 )
 
@@ -27,8 +27,9 @@ const (
 )
 
 type HandlerConfig struct {
-	HostPattern string
-	MiddlewaresFunc func(middleware.ContentCacheType) []middleware.Middleware
+	HostPattern         string
+	MiddlewaresFunc     func(middleware.ContentCacheType) []middleware.Middleware
+	ContentCacheMaxSize int64
 }
 
 type Handler struct {
@@ -63,9 +64,9 @@ func NewHandler(ctx context.Context, logger *zap.Logger, domainResolver domain.R
 		if err != nil {
 			return nb, 0, err
 		}
-		return nb, int64(nb.Len()), nil 
+		return nb, int64(nb.Len()), nil
 	}
-	cc, err := cache.NewContentCache[middleware.ContentCacheKey](1<<24, false, load) //TODO: pass from config
+	cc, err := cache.NewContentCache[middleware.ContentCacheKey](conf.ContentCacheMaxSize, false, load) //TODO: pass from config
 	if err != nil {
 		return nil, fmt.Errorf("setup content cache: %w", err)
 	}

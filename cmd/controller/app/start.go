@@ -73,6 +73,8 @@ func init() {
 	startCmd.PersistentFlags().Bool("cron", true, "run cron jobs")
 	startCmd.PersistentFlags().Bool("sites", true, "run sites server")
 	startCmd.PersistentFlags().String("controller-domain", "", "controller domain")
+
+	startCmd.PersistentFlags().Int64("content-cache-max-size", int64(1)<<24, "maximum size of server-side content cache in bytes, default is 16MB")
 }
 
 type StartConfig struct {
@@ -97,8 +99,9 @@ type StartConfig struct {
 }
 
 type StartSitesConfig struct {
-	HostPattern  string              `mapstructure:"host-pattern"`
-	HostIDScheme config.HostIDScheme `mapstructure:"host-id-scheme" validate:"hostidscheme"`
+	HostPattern         string              `mapstructure:"host-pattern"`
+	HostIDScheme        config.HostIDScheme `mapstructure:"host-id-scheme" validate:"hostidscheme"`
+	ContentCacheMaxSize int64               `mapstructure:"content-cache-max-size"`
 }
 
 type StartControllerConfig struct {
@@ -157,8 +160,9 @@ func (s *setup) sites(conf StartSitesConfig) error {
 		domainResolver,
 		siteResolver,
 		site.HandlerConfig{
-			HostPattern: conf.HostPattern,
-			Middlewares: middleware.Default,
+			HostPattern:         conf.HostPattern,
+			MiddlewaresFunc:     middleware.Default,
+			ContentCacheMaxSize: conf.ContentCacheMaxSize,
 		},
 	)
 	if err != nil {

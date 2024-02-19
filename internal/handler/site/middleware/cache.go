@@ -2,11 +2,11 @@ package middleware
 
 import (
 	"bytes"
+	"io"
 	"net/http"
+	"net/http/httptest"
 	"path"
 	"time"
-	"net/http/httptest"
-	"io"
 
 	"github.com/oursky/pageship/internal/cache"
 	"github.com/oursky/pageship/internal/httputil"
@@ -70,12 +70,12 @@ func deduceCompression(h http.Header, isRequest bool) string {
 	return compression
 }
 
-//https://stackoverflow.com/questions/10485743/contains-method-for-a-slice
+// https://stackoverflow.com/questions/10485743/contains-method-for-a-slice
 func contains(s []string, e string) bool {
-    for _, a := range s {
-        if a == e {
-            return true
-        }
-    }
-    return false
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }

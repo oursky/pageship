@@ -18,15 +18,15 @@ func NewContentCache[K any, V any, R any](contentCacheSize int64, metrics bool, 
 	m := New()
 	size := contentCacheSize
 	nc := size / 1000
-	if (nc < 100) { //mainly for testing
+	if nc < 100 { //mainly for testing
 		nc = 100
 	}
 	cache, err := ristretto.NewCache(&ristretto.Config{
 		//NumCounters is 10 times estimated max number of items in cache, as suggested in https://pkg.go.dev/github.com/dgraph-io/ristretto@v0.1.1#Config
-		NumCounters: nc, //limit / 10 KB small files * 10
-		MaxCost:     size,
-		BufferItems: 64,
-		Metrics:     metrics,
+		NumCounters:        nc, //limit / 10 KB small files * 10
+		MaxCost:            size,
+		BufferItems:        64,
+		Metrics:            metrics,
 		IgnoreInternalCost: true,
 	})
 	if err != nil {
@@ -65,94 +65,93 @@ func (c *ContentCache[K, V, R]) SetContent(key K, r R) (V, error) {
 	return b, nil
 }
 
-//modified from https://stackoverflow.com/questions/40931373/how-to-gc-a-map-of-mutexes-in-go
+// modified from https://stackoverflow.com/questions/40931373/how-to-gc-a-map-of-mutexes-in-go
 type mm struct {
-    ml sync.Mutex              
-    ma map[interface{}]*mentry 
+	ml sync.Mutex
+	ma map[interface{}]*mentry
 }
 
 type mentry struct {
-    m   *mm         
-    el  sync.RWMutex 
-    cnt int        
-    key interface{}
+	m   *mm
+	el  sync.RWMutex
+	cnt int
+	key interface{}
 }
 
 type Unlocker interface {
-    Unlock()
+	Unlock()
 }
 
 type RUnlocker interface {
-    RUnlock()
+	RUnlock()
 }
 
 func New() *mm {
-    return &mm{ma: make(map[interface{}]*mentry)}
+	return &mm{ma: make(map[interface{}]*mentry)}
 }
 
 func (m *mm) Lock(key interface{}) Unlocker {
-    m.ml.Lock()
-    e, ok := m.ma[key]
-    if !ok {
-        e = &mentry{m: m, key: key}
-        m.ma[key] = e
-    }
-    e.cnt++
-    m.ml.Unlock()
+	m.ml.Lock()
+	e, ok := m.ma[key]
+	if !ok {
+		e = &mentry{m: m, key: key}
+		m.ma[key] = e
+	}
+	e.cnt++
+	m.ml.Unlock()
 
-    e.el.Lock()
+	e.el.Lock()
 
-    return e
+	return e
 }
 
 func (me *mentry) Unlock() {
-    m := me.m
+	m := me.m
 
-    m.ml.Lock()
-    e, ok := m.ma[me.key]
-    if !ok {
-        m.ml.Unlock()
-        panic(fmt.Errorf("Unlock requested for key=%v but no entry found", me.key))
-    }
-    e.cnt--        
-    if e.cnt < 1 { 
-        delete(m.ma, me.key)
-    }
-    m.ml.Unlock()
+	m.ml.Lock()
+	e, ok := m.ma[me.key]
+	if !ok {
+		m.ml.Unlock()
+		panic(fmt.Errorf("Unlock requested for key=%v but no entry found", me.key))
+	}
+	e.cnt--
+	if e.cnt < 1 {
+		delete(m.ma, me.key)
+	}
+	m.ml.Unlock()
 
-    e.el.Unlock()
+	e.el.Unlock()
 }
 
-
 func (m *mm) RLock(key interface{}) RUnlocker {
-    m.ml.Lock()
-    e, ok := m.ma[key]
-    if !ok {
-        e = &mentry{m: m, key: key}
-        m.ma[key] = e
-    }
-    e.cnt++
-    m.ml.Unlock()
+	m.ml.Lock()
+	e, ok := m.ma[key]
+	if !ok {
+		e = &mentry{m: m, key: key}
+		m.ma[key] = e
+	}
+	e.cnt++
+	m.ml.Unlock()
 
-    e.el.RLock()
+	e.el.RLock()
 
-    return e
+	return e
 }
 
 func (me *mentry) RUnlock() {
-    m := me.m
+	m := me.m
 
-    m.ml.Lock()
-    e, ok := m.ma[me.key]
-    if !ok {
-        m.ml.Unlock()
-        panic(fmt.Errorf("Unlock requested for key=%v but no entry found", me.key))
-    }
-    e.cnt--        
-    if e.cnt < 1 { 
-        delete(m.ma, me.key)
-    }
-    m.ml.Unlock()
+	m.ml.Lock()
+	e, ok := m.ma[me.key]
+	if !ok {
+		m.ml.Unlock()
+		panic(fmt.Errorf("Unlock requested for key=%v but no entry found", me.key))
+	}
+	e.cnt--
+	if e.cnt < 1 {
+		delete(m.ma, me.key)
+	}
+	m.ml.Unlock()
 
-    e.el.RUnlock()
+	e.el.RUnlock()
 }
