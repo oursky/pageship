@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
-	"http"
+	"net/http"
 
 	"github.com/dgraph-io/ristretto"
 )
@@ -41,34 +41,29 @@ func NewContentCache(contentCacheSize int64, debug bool) (*ContentCache, error) 
 		return nil, err
 	}
 
-	return &ContentCache{m: m, size: size, cache: cache, load: load, debug: debug}, nil
+	return &ContentCache{m: m, size: size, cache: cache, debug: debug}, nil
 }
 
 func (c *ContentCache) Get(key string) (*Response, bool) {
 	l := c.m.RLock(key)
 	defer l.RUnlock()
 
-	v, b := c.cache.Get(c.keyToString(key))
+	v, b := c.cache.Get(key)
 	if c.debug {
 		fmt.Println("getted: ", c.cache.Metrics.String())
 	}
 	if v == nil {
-		var nv V
+		var nv *Response
 		return nv, b
 	}
-	return v.(V), b
+	return v.(*Response), b
 }
 
 func (c *ContentCache) Set(key string, value *Response) {
 	l := c.m.Lock(key)
 	defer l.Unlock()
 
-	b, n, err := c.load(r)
-	if err != nil {
-		return b, err
-	}
-
-	c.cache.Set(c.keyToString(key), b, n)
+	c.cache.Set(key, value, int64(len(value.Body)))
 	if c.debug {
 		time.Sleep(100 * time.Millisecond)
 		fmt.Println("setted: ", c.cache.Metrics.String())
