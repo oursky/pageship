@@ -15,7 +15,7 @@ func ApplyMiddleware(site *site.Descriptor, middlewares []Middleware, handler ht
 	return handler
 }
 
-func Default(cc ContentCacheType) []Middleware{
+func Default(cc ContentCacheType) []Middleware {
 	cacheContext := NewCacheContext(cc)
 
 	return []Middleware{

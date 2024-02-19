@@ -90,7 +90,7 @@ func makeHandler(prefix string, defaultSite string, hostPattern string) (*handle
 	handler, err := handler.NewHandler(context.Background(), zapLogger,
 		domainResolver, siteResolver,
 		handler.HandlerConfig{
-			HostPattern: hostPattern,
+			HostPattern:     hostPattern,
 			MiddlewaresFunc: middleware.Default,
 		})
 	if err != nil {
