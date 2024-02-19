@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/oursky/pageship/internal/site"
+	"github.com/oursky/pageship/internal/cache"
 )
 
 type Middleware func(*site.Descriptor, http.Handler) http.Handler
@@ -15,7 +16,7 @@ func ApplyMiddleware(site *site.Descriptor, middlewares []Middleware, handler ht
 	return handler
 }
 
-func Default(cc ContentCacheType) []Middleware {
+func Default(cc *cache.ContentCache) []Middleware {
 	cacheContext := NewCacheContext(cc)
 
 	return []Middleware{
