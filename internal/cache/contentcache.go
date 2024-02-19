@@ -4,19 +4,25 @@ import (
 	"fmt"
 	"sync"
 	"time"
+	"http"
 
 	"github.com/dgraph-io/ristretto"
 )
 
-type ContentCache[K any, V any, R any] struct {
+type ContentCache struct {
 	m     *mm
 	size  int64
 	cache *ristretto.Cache
-	load  func(r R) (V, int64, error)
 	debug bool
 }
 
-func NewContentCache[K any, V any, R any](contentCacheSize int64, debug bool, load func(r R) (V, int64, error)) (*ContentCache[K, V, R], error) {
+type Response struct {
+	Header     http.Header
+	Body       []byte
+	StatusCode int
+}
+
+func NewContentCache(contentCacheSize int64, debug bool) (*ContentCache, error) {
 	m := New()
 	size := contentCacheSize
 	nc := size / 1000
@@ -35,15 +41,10 @@ func NewContentCache[K any, V any, R any](contentCacheSize int64, debug bool, lo
 		return nil, err
 	}
 
-	return &ContentCache[K, V, R]{m: m, size: size, cache: cache, load: load, debug: debug}, nil
+	return &ContentCache{m: m, size: size, cache: cache, load: load, debug: debug}, nil
 }
 
-func (c *ContentCache[K, V, R]) keyToString(key K) string {
-	return fmt.Sprintf("%v", key)
-}
-
-func (c *ContentCache[K, V, R]) GetContent(key K) (V, bool) {
-	//fmt.Printf("get %v\n", key)
+func (c *ContentCache) Get(key string) (*Response, bool) {
 	l := c.m.RLock(key)
 	defer l.RUnlock()
 
@@ -58,8 +59,7 @@ func (c *ContentCache[K, V, R]) GetContent(key K) (V, bool) {
 	return v.(V), b
 }
 
-func (c *ContentCache[K, V, R]) SetContent(key K, r R) (V, error) {
-	//fmt.Printf("set %v\n", key)
+func (c *ContentCache) Set(key string, value *Response) {
 	l := c.m.Lock(key)
 	defer l.Unlock()
 
@@ -73,7 +73,6 @@ func (c *ContentCache[K, V, R]) SetContent(key K, r R) (V, error) {
 		time.Sleep(100 * time.Millisecond)
 		fmt.Println("setted: ", c.cache.Metrics.String())
 	}
-	return b, nil
 }
 
 // modified from https://stackoverflow.com/questions/40931373/how-to-gc-a-map-of-mutexes-in-go
