@@ -2,17 +2,15 @@ package middleware
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"time"
-	"fmt"
 
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/oursky/pageship/internal/cache"
 	"github.com/oursky/pageship/internal/httputil"
 	"github.com/oursky/pageship/internal/site"
-	"github.com/go-chi/chi/v5/middleware"
 )
-
-
 
 type ContentCacheKey struct {
 	hash        string
@@ -34,11 +32,12 @@ func (ctx *CacheContext) Cache(site *site.Descriptor, next http.Handler) http.Ha
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
-		
-		keyString := fmt.Sprintf("%v", ContentCacheKey{hash: info.Hash, compression: r.Header.Get("Accept-Encoding")})
+
+		key := ContentCacheKey{hash: info.Hash, compression: r.Header.Get("Accept-Encoding")}
+		keyString := fmt.Sprintf("%s,%s", key.hash, key.compression)
 		value, found := ctx.cc.Get(keyString)
 		if found {
-			for k, v := range(value.Header) {
+			for k, v := range value.Header {
 				w.Header()[k] = v
 			}
 			w.WriteHeader(value.StatusCode)
@@ -53,7 +52,7 @@ func (ctx *CacheContext) Cache(site *site.Descriptor, next http.Handler) http.Ha
 
 		next.ServeHTTP(ww, r)
 
-		setValue := cache.Response { Header: ww.Header(), Body: b.Bytes(), StatusCode: ww.Status() }
+		setValue := cache.Response{Header: ww.Header(), Body: b.Bytes(), StatusCode: ww.Status()}
 		ctx.cc.Set(keyString, &setValue)
 	})
 }

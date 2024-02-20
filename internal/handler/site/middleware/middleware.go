@@ -3,8 +3,8 @@ package middleware
 import (
 	"net/http"
 
-	"github.com/oursky/pageship/internal/site"
 	"github.com/oursky/pageship/internal/cache"
+	"github.com/oursky/pageship/internal/site"
 )
 
 type Middleware func(*site.Descriptor, http.Handler) http.Handler
