@@ -8,10 +8,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-chi/chi/v5/middleware"
+	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/oursky/pageship/internal/cache"
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/domain"
+	"github.com/oursky/pageship/internal/handler/site/middleware"
 	"github.com/oursky/pageship/internal/httputil"
 	"github.com/oursky/pageship/internal/models"
 	"github.com/oursky/pageship/internal/site"
@@ -24,8 +25,9 @@ const (
 )
 
 type HandlerConfig struct {
-	HostPattern string
-	Middlewares []Middleware
+	HostPattern         string
+	MiddlewaresFunc     func(*cache.ContentCache) []middleware.Middleware
+	ContentCacheMaxSize int64
 }
 
 type Handler struct {
@@ -35,7 +37,8 @@ type Handler struct {
 	siteResolver   site.Resolver
 	hostPattern    *config.HostPattern
 	cache          *cache.Cache[*SiteHandler]
-	middlewares    []Middleware
+	middlewares    []middleware.Middleware
+	contentCache   *cache.ContentCache
 }
 
 func NewHandler(ctx context.Context, logger *zap.Logger, domainResolver domain.Resolver, siteResolver site.Resolver, conf HandlerConfig) (*Handler, error) {
@@ -45,15 +48,21 @@ func NewHandler(ctx context.Context, logger *zap.Logger, domainResolver domain.R
 		domainResolver: domainResolver,
 		siteResolver:   siteResolver,
 		hostPattern:    config.NewHostPattern(conf.HostPattern),
-		middlewares:    conf.Middlewares,
 	}
 
-	cache, err := cache.NewCache(cacheSize, cacheTTL, h.doResolveHandler)
+	c, err := cache.NewCache(cacheSize, cacheTTL, h.doResolveHandler)
 	if err != nil {
 		return nil, fmt.Errorf("setup cache: %w", err)
 	}
-	h.cache = cache
+	h.cache = c
 
+	cc, err := cache.NewContentCache(conf.ContentCacheMaxSize, false)
+	if err != nil {
+		return nil, fmt.Errorf("setup content cache: %w", err)
+	}
+	h.contentCache = cc
+
+	h.middlewares = conf.MiddlewaresFunc(h.contentCache)
 	return h, nil
 }
 
@@ -136,7 +145,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.logger.Debug("resolved site", zap.String("site", handler.ID()))
-	entry := middleware.GetLogEntry(r)
+	entry := chiMiddleware.GetLogEntry(r)
 	e := entry.(*httputil.LogEntry)
 	e.Logger = e.Logger.With(zap.String("site", handler.ID()))
 

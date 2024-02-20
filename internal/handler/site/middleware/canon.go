@@ -6,7 +6,7 @@ import (
 	"path"
 	"strings"
 
-	handler "github.com/oursky/pageship/internal/handler/site"
+	"github.com/oursky/pageship/internal/handler/site/context"
 	"github.com/oursky/pageship/internal/site"
 )
 
@@ -14,7 +14,7 @@ func CanonicalizePath(site *site.Descriptor, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		urlpath, err := canonicalizePath(site.FS, r.URL.Path)
 		if err != nil {
-			handler.Error(w, r, err)
+			context.Error(w, r, err)
 			return
 		} else if r.URL.Path != urlpath {
 			http.Redirect(w, r, urlpath, http.StatusMovedPermanently)

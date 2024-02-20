@@ -25,7 +25,7 @@ func (c *Controller) makeAPIApp(app *models.App) *apiApp {
 }
 
 func (c *Controller) middlewareLoadApp() func(http.Handler) http.Handler {
-	return middlwareLoadValue(func(r *http.Request) (*models.App, error) {
+	return middlewareLoadValue(func(r *http.Request) (*models.App, error) {
 		id := chi.URLParam(r, "app-id")
 
 		app, err := c.DB.GetApp(r.Context(), id)
