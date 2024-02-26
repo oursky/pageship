@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	siteContext "github.com/oursky/pageship/internal/handler/site/context"
-	"github.com/oursky/pageship/internal/handler/site/middleware"
 	"github.com/oursky/pageship/internal/httputil"
 	"github.com/oursky/pageship/internal/site"
 )
@@ -22,7 +20,7 @@ type SiteHandler struct {
 	next     http.Handler
 }
 
-func NewSiteHandler(desc *site.Descriptor, middlewares []middleware.Middleware) *SiteHandler {
+func NewSiteHandler(desc *site.Descriptor, middlewares []Middleware) *SiteHandler {
 	h := &SiteHandler{
 		desc:     desc,
 		publicFS: site.SubFS(desc.FS, path.Clean("/"+desc.Config.Public)),
@@ -30,7 +28,7 @@ func NewSiteHandler(desc *site.Descriptor, middlewares []middleware.Middleware) 
 
 	publicDesc := *desc
 	publicDesc.FS = site.SubFS(desc.FS, path.Clean("/"+desc.Config.Public))
-	h.next = middleware.ApplyMiddleware(&publicDesc, middlewares, http.HandlerFunc(h.serveFile))
+	h.next = ApplyMiddleware(&publicDesc, middlewares, http.HandlerFunc(h.serveFile))
 	return h
 }
 
@@ -44,7 +42,7 @@ func (h *SiteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodGet, http.MethodHead:
-		r = r.WithContext(siteContext.WithSiteContext(r.Context()))
+		r = r.WithContext(WithSiteContext(r.Context()))
 
 		if !strings.HasPrefix(r.URL.Path, "/") {
 			r.URL.Path = "/" + r.URL.Path

@@ -12,7 +12,6 @@ import (
 	"github.com/oursky/pageship/internal/cache"
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/domain"
-	"github.com/oursky/pageship/internal/handler/site/middleware"
 	"github.com/oursky/pageship/internal/httputil"
 	"github.com/oursky/pageship/internal/models"
 	"github.com/oursky/pageship/internal/site"
@@ -26,7 +25,7 @@ const (
 
 type HandlerConfig struct {
 	HostPattern         string
-	MiddlewaresFunc     func(*cache.ContentCache) []middleware.Middleware
+	MiddlewaresFunc     func(*cache.ContentCache) []Middleware
 	ContentCacheMaxSize int64
 }
 
@@ -37,7 +36,7 @@ type Handler struct {
 	siteResolver   site.Resolver
 	hostPattern    *config.HostPattern
 	cache          *cache.Cache[*SiteHandler]
-	middlewares    []middleware.Middleware
+	middlewares    []Middleware
 	contentCache   *cache.ContentCache
 }
 
