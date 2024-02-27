@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"embed"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -15,13 +16,17 @@ import (
 	"github.com/oursky/pageship/internal/config"
 	"github.com/oursky/pageship/internal/handler/site/middleware"
 	"github.com/oursky/pageship/internal/site"
+	"github.com/stretchr/testify/assert"
 )
 
 type mockHandler struct {
 	publicFS site.FS
+	bruh     string
 }
 
 func (mh mockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	mh.bruh = r.URL.Path
+	fmt.Println("AAAAAAAAAAAAAAA")
 	rsc, _ := mh.publicFS.Open(r.Context(), r.URL.Path)
 	http.ServeContent(w, r, path.Base(r.URL.Path), time.Now(), rsc)
 }
@@ -39,41 +44,82 @@ type FSAdapter struct {
 }
 
 func (fa FSAdapter) Open(c context.Context, s string) (io.ReadSeekCloser, error) {
-	b := []byte{}
+	b := make([]byte, 1000)
 	f, _ := fa.FS.Open(s)
 	f.Read(b)
 	return RSCAdapter{bytes.NewReader(b)}, nil
 }
 
-func (fa FSAdapter) Stat(string) (*site.FileInfo, error) {
+func (fa FSAdapter) Stat(s string) (*site.FileInfo, error) {
+	f, err := fa.FS.Open(s)
+	if err != nil {
+		return nil, err
+	}
+	st, err := f.Stat()
 	return &site.FileInfo{
-		IsDir:       false,
-		ModTime:     time.Now(),
-		Size:        0,
+		IsDir:       st.IsDir(),
+		ModTime:     st.ModTime(),
+		Size:        st.Size(),
 		ContentType: "",
 		Hash:        "",
-	}, nil
+	}, err
 }
 
 //go:embed testdata/testrootwith404
-var mockFS embed.FS
+var testrootwith404FS embed.FS
 
 func TestRootWith404(t *testing.T) {
-	mh := mockHandler{}
+	mh := mockHandler{FSAdapter{testrootwith404FS}, ""}
 	sc := config.DefaultSiteConfig()
 	mockSiteDescriptor := site.Descriptor{
 		ID:     "",
 		Domain: "",
 		Config: &sc,
-		FS:     FSAdapter{mockFS},
+		FS:     FSAdapter{testrootwith404FS},
 	}
 	h := middleware.NotFound(&mockSiteDescriptor, mh)
-
 	rec := httptest.NewRecorder()
+
 	h.ServeHTTP(rec, &http.Request{
 		URL: &url.URL{
-			Path: "/",
+			Path: "/index.html",
 		},
 	})
+	res := rec.Result()
+	assert.Equal(t, 404, res.StatusCode)
+	bo, _ := io.ReadAll(res.Body)
+	assert.Equal(t, "rootwith404_404", string(bo))
+	assert.Equal(t, "help", mh.bruh)
 
+	h.ServeHTTP(rec, &http.Request{
+		URL: &url.URL{
+			Path: "/404.html",
+		},
+	})
+	res = rec.Result()
+	assert.Equal(t, 200, res.StatusCode)
+	bo, _ = io.ReadAll(res.Body)
+	assert.Equal(t, "rootwith404_404", string(bo))
+	assert.Equal(t, "help", mh.bruh)
+
+	h.ServeHTTP(rec, &http.Request{
+		URL: &url.URL{
+			Path: "/nonexistant.html",
+		},
+	})
+	res = rec.Result()
+	assert.Equal(t, 404, res.StatusCode)
+	bo, _ = io.ReadAll(res.Body)
+	assert.Equal(t, "rootwith404_404", string(bo))
+	assert.Equal(t, "help", mh.bruh)
+
+	h.ServeHTTP(rec, &http.Request{
+		URL: &url.URL{
+			Path: "/nonexistant/index.html",
+		},
+	})
+	res = rec.Result()
+	assert.Equal(t, 404, res.StatusCode)
+	bo, _ = io.ReadAll(res.Body)
+	assert.Equal(t, "rootwith404_404", string(bo))
 }

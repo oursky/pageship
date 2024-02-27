@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"path"
@@ -14,10 +15,11 @@ func NotFound(site *site.Descriptor, next http.Handler) http.Handler {
 		notFound := false
 
 		for {
+			fmt.Println(" ", r.URL.Path)
 			_, err := site.FS.Stat(r.URL.Path)
 			if os.IsNotExist(err) {
 				notFound = true
-				if path.Dir(r.URL.Path) == "/" {
+				if path.Dir(r.URL.Path) == "/" && path.Base(r.URL.Path) == NotFoundPage {
 					http.NotFound(w, r)
 					return
 				}
