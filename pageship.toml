@@ -1,0 +1,22 @@
+[app]
+id = "test-id"
+
+team = []
+
+[app.deployments]
+# ttl = "24h"
+# access = []
+
+[[app.sites]]
+name = "main"
+
+# [[app.sites]]
+# name = "dev"
+
+# [[app.sites]]
+# name = "staging"
+
+[site]
+public = "dist"
+
+# access = []

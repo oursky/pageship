@@ -1,15 +1,15 @@
 package middleware_test
 
 import (
+	"compress/gzip"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"compress/gzip"
 
+	"github.com/andybalholm/brotli"
 	"github.com/oursky/pageship/internal/handler/site/middleware"
 	"github.com/stretchr/testify/assert"
-	"github.com/andybalholm/brotli"
 )
 
 type mockHandler struct {
@@ -37,7 +37,7 @@ func TestCacheGzip(t *testing.T) {
 	resp := rec.Result()
 	assert.Equal(t, "gzip", resp.Header.Get("Content-Encoding"))
 
-	gzreader, err := gzip.NewReader(resp.Body)
+	gzreader, _ := gzip.NewReader(resp.Body)
 	defer gzreader.Close()
 	b, err := io.ReadAll(gzreader)
 
