@@ -19,11 +19,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type mockHandler struct {
+type notFoundMockHandler struct {
 	publicFS site.FS
 }
 
-func (mh mockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (mh notFoundMockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rsc, _ := mh.publicFS.Open(r.Context(), r.URL.Path)
 	http.ServeContent(w, r, path.Base(r.URL.Path), time.Now(), rsc)
 }
@@ -79,7 +79,7 @@ func AssertResponse(t *testing.T, h http.Handler, p string, sc int, cont string)
 }
 
 func TestRootWith404(t *testing.T) {
-	mh := mockHandler{FSAdapter{testrootwith404FS, "testdata/testrootwith404"}}
+	mh := notFoundMockHandler{FSAdapter{testrootwith404FS, "testdata/testrootwith404"}}
 	sc := config.DefaultSiteConfig()
 	mockSiteDescriptor := site.Descriptor{
 		ID:     "",
@@ -99,7 +99,7 @@ func TestRootWith404(t *testing.T) {
 var testrootno404FS embed.FS
 
 func TestRootno404(t *testing.T) {
-	mh := mockHandler{FSAdapter{testrootno404FS, "testdata/testrootno404"}}
+	mh := notFoundMockHandler{FSAdapter{testrootno404FS, "testdata/testrootno404"}}
 	sc := config.DefaultSiteConfig()
 	mockSiteDescriptor := site.Descriptor{
 		ID:     "",
@@ -119,7 +119,7 @@ func TestRootno404(t *testing.T) {
 var testsubdirno404FS embed.FS
 
 func TestSubdirNo404(t *testing.T) {
-	mh := mockHandler{FSAdapter{testsubdirno404FS, "testdata/testsubdirno404"}}
+	mh := notFoundMockHandler{FSAdapter{testsubdirno404FS, "testdata/testsubdirno404"}}
 	sc := config.DefaultSiteConfig()
 	mockSiteDescriptor := site.Descriptor{
 		ID:     "",
@@ -139,7 +139,7 @@ func TestSubdirNo404(t *testing.T) {
 var testsubdirwith404FS embed.FS
 
 func TestSubdirWith404(t *testing.T) {
-	mh := mockHandler{FSAdapter{testsubdirwith404FS, "testdata/testsubdirwith404"}}
+	mh := notFoundMockHandler{FSAdapter{testsubdirwith404FS, "testdata/testsubdirwith404"}}
 	sc := config.DefaultSiteConfig()
 	mockSiteDescriptor := site.Descriptor{
 		ID:     "",
