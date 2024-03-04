@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"embed"
-	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -21,12 +21,9 @@ import (
 
 type mockHandler struct {
 	publicFS site.FS
-	bruh     string
 }
 
 func (mh mockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	mh.bruh = r.URL.Path
-	fmt.Println("AAAAAAAAAAAAAAA")
 	rsc, _ := mh.publicFS.Open(r.Context(), r.URL.Path)
 	http.ServeContent(w, r, path.Base(r.URL.Path), time.Now(), rsc)
 }
@@ -41,21 +38,20 @@ func (rsca RSCAdapter) Close() error {
 
 type FSAdapter struct {
 	embed.FS
+	subdir string
 }
 
 func (fa FSAdapter) Open(c context.Context, s string) (io.ReadSeekCloser, error) {
-	b := make([]byte, 1000)
-	f, _ := fa.FS.Open(s)
-	f.Read(b)
+	f, _ := fa.FS.Open(path.Join(fa.subdir, s))
+	b, _ := io.ReadAll(f)
 	return RSCAdapter{bytes.NewReader(b)}, nil
 }
 
 func (fa FSAdapter) Stat(s string) (*site.FileInfo, error) {
-	f, err := fa.FS.Open(s)
+	st, err := fs.Stat(fa.FS, path.Join(fa.subdir, s))
 	if err != nil {
 		return nil, err
 	}
-	st, err := f.Stat()
 	return &site.FileInfo{
 		IsDir:       st.IsDir(),
 		ModTime:     st.ModTime(),
@@ -67,59 +63,94 @@ func (fa FSAdapter) Stat(s string) (*site.FileInfo, error) {
 
 //go:embed testdata/testrootwith404
 var testrootwith404FS embed.FS
+var default404 = "404 page not found\n"
+
+func AssertResponse(t *testing.T, h http.Handler, p string, sc int, cont string) {
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, &http.Request{
+		URL: &url.URL{
+			Path: p,
+		},
+	})
+	res := rec.Result()
+	assert.Equal(t, sc, res.StatusCode)
+	bo, _ := io.ReadAll(res.Body)
+	assert.Equal(t, cont, string(bo))
+}
 
 func TestRootWith404(t *testing.T) {
-	mh := mockHandler{FSAdapter{testrootwith404FS}, ""}
+	mh := mockHandler{FSAdapter{testrootwith404FS, "testdata/testrootwith404"}}
 	sc := config.DefaultSiteConfig()
 	mockSiteDescriptor := site.Descriptor{
 		ID:     "",
 		Domain: "",
 		Config: &sc,
-		FS:     FSAdapter{testrootwith404FS},
+		FS:     FSAdapter{testrootwith404FS, "testdata/testrootwith404"},
 	}
 	h := middleware.NotFound(&mockSiteDescriptor, mh)
-	rec := httptest.NewRecorder()
 
-	h.ServeHTTP(rec, &http.Request{
-		URL: &url.URL{
-			Path: "/index.html",
-		},
-	})
-	res := rec.Result()
-	assert.Equal(t, 404, res.StatusCode)
-	bo, _ := io.ReadAll(res.Body)
-	assert.Equal(t, "rootwith404_404", string(bo))
-	assert.Equal(t, "help", mh.bruh)
+	AssertResponse(t, h, "/index.html", 404, "testrootwith404_404")
+	AssertResponse(t, h, "/404.html", 200, "testrootwith404_404")
+	AssertResponse(t, h, "/nonexistant.html", 404, "testrootwith404_404")
+	AssertResponse(t, h, "/nonexistant/index.html", 404, "testrootwith404_404")
+}
 
-	h.ServeHTTP(rec, &http.Request{
-		URL: &url.URL{
-			Path: "/404.html",
-		},
-	})
-	res = rec.Result()
-	assert.Equal(t, 200, res.StatusCode)
-	bo, _ = io.ReadAll(res.Body)
-	assert.Equal(t, "rootwith404_404", string(bo))
-	assert.Equal(t, "help", mh.bruh)
+//go:embed testdata/testrootno404
+var testrootno404FS embed.FS
 
-	h.ServeHTTP(rec, &http.Request{
-		URL: &url.URL{
-			Path: "/nonexistant.html",
-		},
-	})
-	res = rec.Result()
-	assert.Equal(t, 404, res.StatusCode)
-	bo, _ = io.ReadAll(res.Body)
-	assert.Equal(t, "rootwith404_404", string(bo))
-	assert.Equal(t, "help", mh.bruh)
+func TestRootno404(t *testing.T) {
+	mh := mockHandler{FSAdapter{testrootno404FS, "testdata/testrootno404"}}
+	sc := config.DefaultSiteConfig()
+	mockSiteDescriptor := site.Descriptor{
+		ID:     "",
+		Domain: "",
+		Config: &sc,
+		FS:     FSAdapter{testrootno404FS, "testdata/testrootno404"},
+	}
+	h := middleware.NotFound(&mockSiteDescriptor, mh)
 
-	h.ServeHTTP(rec, &http.Request{
-		URL: &url.URL{
-			Path: "/nonexistant/index.html",
-		},
-	})
-	res = rec.Result()
-	assert.Equal(t, 404, res.StatusCode)
-	bo, _ = io.ReadAll(res.Body)
-	assert.Equal(t, "rootwith404_404", string(bo))
+	AssertResponse(t, h, "/index.html", 200, "testrootno404_index")
+	AssertResponse(t, h, "/404.html", 404, default404)
+	AssertResponse(t, h, "/nonexistant.html", 404, default404)
+	AssertResponse(t, h, "/nonexistant/index.html", 404, default404)
+}
+
+//go:embed testdata/testsubdirno404
+var testsubdirno404FS embed.FS
+
+func TestSubdirNo404(t *testing.T) {
+	mh := mockHandler{FSAdapter{testsubdirno404FS, "testdata/testsubdirno404"}}
+	sc := config.DefaultSiteConfig()
+	mockSiteDescriptor := site.Descriptor{
+		ID:     "",
+		Domain: "",
+		Config: &sc,
+		FS:     FSAdapter{testsubdirno404FS, "testdata/testsubdirno404"},
+	}
+	h := middleware.NotFound(&mockSiteDescriptor, mh)
+
+	AssertResponse(t, h, "/subdir/index.html", 200, "testsubdirno404_index")
+	AssertResponse(t, h, "/subdir/404.html", 404, default404)
+	AssertResponse(t, h, "/subdir/nonexistant.html", 404, default404)
+	AssertResponse(t, h, "/subdir/nonexistant/index.html", 404, default404)
+}
+
+//go:embed testdata/testsubdirwith404
+var testsubdirwith404FS embed.FS
+
+func TestSubdirWith404(t *testing.T) {
+	mh := mockHandler{FSAdapter{testsubdirwith404FS, "testdata/testsubdirwith404"}}
+	sc := config.DefaultSiteConfig()
+	mockSiteDescriptor := site.Descriptor{
+		ID:     "",
+		Domain: "",
+		Config: &sc,
+		FS:     FSAdapter{testsubdirwith404FS, "testdata/testsubdirwith404"},
+	}
+	h := middleware.NotFound(&mockSiteDescriptor, mh)
+
+	AssertResponse(t, h, "/subdir/index.html", 404, "testsubdirwith404_404")
+	AssertResponse(t, h, "/404.html", 200, "testsubdirwith404_404")
+	AssertResponse(t, h, "/subdir/nonexistant.html", 404, "testsubdirwith404_404")
+	AssertResponse(t, h, "/subdir/nonexistant/index.html", 404, "testsubdirwith404_404")
 }
