@@ -1,22 +1,22 @@
 package middleware_test
 
 import (
+	"compress/gzip"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"compress/gzip"
 
+	"github.com/andybalholm/brotli"
 	"github.com/oursky/pageship/internal/handler/site/middleware"
 	"github.com/stretchr/testify/assert"
-	"github.com/andybalholm/brotli"
 )
 
-type mockHandler struct {
+type compressMockHandler struct {
 	executeCount int
 }
 
-func (mh *mockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (mh *compressMockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	mh.executeCount++
 	w.Header().Add("Content-Type", "text/plain")
 	w.Write([]byte("hello"))
@@ -24,7 +24,7 @@ func (mh *mockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func TestCacheGzip(t *testing.T) {
 	//Setup
-	h := middleware.Compression(new(mockHandler))
+	h := middleware.Compression(new(compressMockHandler))
 
 	//Act Assert
 	req, err := http.NewRequest("GET", "endpoint", nil)
@@ -47,7 +47,7 @@ func TestCacheGzip(t *testing.T) {
 
 func TestCacheBrotli(t *testing.T) {
 	//Setup
-	h := middleware.Compression(new(mockHandler))
+	h := middleware.Compression(new(compressMockHandler))
 
 	//Act Assert
 	req, err := http.NewRequest("GET", "endpoint", nil)

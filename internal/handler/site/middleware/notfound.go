@@ -1,8 +1,9 @@
 package middleware
 
 import (
+	"errors"
+	"io/fs"
 	"net/http"
-	"os"
 	"path"
 
 	"github.com/oursky/pageship/internal/site"
@@ -15,9 +16,9 @@ func NotFound(site *site.Descriptor, next http.Handler) http.Handler {
 
 		for {
 			_, err := site.FS.Stat(r.URL.Path)
-			if os.IsNotExist(err) {
+			if errors.Is(err, fs.ErrNotExist) {
 				notFound = true
-				if path.Dir(r.URL.Path) == "/" {
+				if path.Dir(r.URL.Path) == "/" && path.Base(r.URL.Path) == NotFoundPage {
 					http.NotFound(w, r)
 					return
 				}
