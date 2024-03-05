@@ -2,6 +2,7 @@ package app
 
 import (
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -35,8 +36,13 @@ var dockerfileInstructions = `
 #      docker build -t IMAGETAG .
 # 5. run the container:
 #      docker run -d --name CONTAINERNAME -p PORT:8000 IMAGETAG
-# 6. visit in browser:
+# 6. visit in browser (URL):
 #      localhost:PORT`
+
+func generateContent() string {
+	dockerfileFromVersion := dockerfileFrom + Version
+	return strings.Join([]string{dockerfileFromVersion, dockerfileExpose, dockerfileCopy, dockerfileInstructions}, "\n")
+}
 
 var generateDockerfileCmd = &cobra.Command{
 	Use:   "dockerfile",
@@ -49,19 +55,7 @@ var generateDockerfileCmd = &cobra.Command{
 		defer f.Close()
 
 		Info("generating dockerfile...")
-		_, err = f.Write([]byte(dockerfileFrom + Version + "\n"))
-		if err != nil {
-			return err
-		}
-		_, err = f.Write([]byte(dockerfileExpose + "\n"))
-		if err != nil {
-			return err
-		}
-		_, err = f.Write([]byte(dockerfileCopy + "\n"))
-		if err != nil {
-			return err
-		}
-		_, err = f.Write([]byte(dockerfileInstructions + "\n"))
+		_, err = f.Write([]byte(generateContent()))
 		if err != nil {
 			return err
 		}
