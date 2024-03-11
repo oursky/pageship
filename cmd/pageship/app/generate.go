@@ -43,7 +43,7 @@ COPY %s /var/pageship
 #      localhost:PORT`
 
 func generateContent(myfs fs.FS) (string, error) {
-	pageshiptoml, err := fs.ReadFile(myfs, "./pageship.toml")
+	pageshiptoml, err := fs.ReadFile(myfs, "pageship.toml")
 	if err != nil {
 		return "", err
 	}
