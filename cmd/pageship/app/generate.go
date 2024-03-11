@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 
 	"github.com/oursky/pageship/internal/config"
@@ -41,8 +42,8 @@ COPY %s /var/pageship
 # 6. visit in browser (URL):
 #      localhost:PORT`
 
-func generateContent() (string, error) {
-	pageshiptoml, err := os.ReadFile("./pageship.toml")
+func generateContent(myfs fs.FS) (string, error) {
+	pageshiptoml, err := fs.ReadFile(myfs, "./pageship.toml")
 	if err != nil {
 		return "", err
 	}
@@ -67,7 +68,7 @@ var generateDockerfileCmd = &cobra.Command{
 		defer f.Close()
 
 		Info("generating dockerfile...")
-		s, err := generateContent()
+		s, err := generateContent(os.DirFS("."))
 		if err != nil {
 			return err
 		}
