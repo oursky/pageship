@@ -1,12 +1,10 @@
 package app
 
 import (
-	"fmt"
-	"io/fs"
+	"bytes"
 	"os"
+	"text/template"
 
-	"github.com/oursky/pageship/internal/config"
-	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -25,10 +23,17 @@ var generateCmd = &cobra.Command{
 	},
 }
 
-var Version = "dev"
-var dockerfileTemplate = `FROM ghcr.io/oursky/pageship:v%s
+var Version = ""
+
+type dockerfileTemplate struct {
+	Version    string
+	PublicPath string
+}
+
+var dockerfileTemplateString = `FROM ghcr.io/oursky/pageship:{{if .Version}}v{{.Version}}{{else}}dev{{end}}
 EXPOSE 8000
-COPY %s /var/pageship
+COPY ./pageship.toml /var/pageship
+COPY ./{{.PublicPath}} /var/pageship/{{.PublicPath}}
 
 # INSTRUCTIONS:
 # 1. install docker (if it is not installed yet)
@@ -42,33 +47,43 @@ COPY %s /var/pageship
 # 6. visit in browser (URL):
 #      localhost:PORT`
 
-func generateContent(myfs fs.FS) (string, error) {
-	pageshiptoml, err := fs.ReadFile(myfs, "pageship.toml")
+func generateContent() (string, error) {
+	cfg, err := loadConfig(".")
 	if err != nil {
 		return "", err
 	}
 
-	var cfg config.Config
-	err = toml.Unmarshal([]byte(pageshiptoml), &cfg)
+	df := dockerfileTemplate{Version, cfg.Site.Public}
+
+	tmpl, err := template.New("Dockerfile").Parse(dockerfileTemplateString)
 	if err != nil {
 		return "", err
 	}
 
-	return fmt.Sprintf(dockerfileTemplate, Version, cfg.Site.Public), nil
+	var b bytes.Buffer
+	err = tmpl.Execute(&b, df)
+	if err != nil {
+		return "", err
+	}
+	return b.String(), nil
 }
 
 var generateDockerfileCmd = &cobra.Command{
 	Use:   "dockerfile",
-	Short: "Generate dockerfile",
+	Short: "Generate Dockerfile",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		f, err := os.Create("dockerfile")
+		if Version == "dev" {
+			Version = ""
+		}
+
+		f, err := os.Create("Dockerfile")
 		if err != nil {
 			return err
 		}
 		defer f.Close()
 
-		Info("generating dockerfile...")
-		s, err := generateContent(os.DirFS("."))
+		Info("generating Dockerfile...")
+		s, err := generateContent()
 		if err != nil {
 			return err
 		}
