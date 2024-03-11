@@ -1,45 +1,46 @@
 package app
 
 import (
-	"embed"
-	"fmt"
-	"io/fs"
-	"path"
 	"testing"
+	"testing/fstest"
 
 	"github.com/stretchr/testify/assert"
 )
 
-//go:embed testdata
-var testfs embed.FS
-
-type FSAdapter struct {
-	embed.FS
-	subdir string
-}
-
-func (fa FSAdapter) Open(s string) (fs.File, error) {
-	return fa.FS.Open(path.Join(fa.subdir, s))
-}
-
-func (fa FSAdapter) ReadFile(s string) ([]byte, error) {
-	return fa.FS.ReadFile(path.Join(fa.subdir, s))
-}
-
 func TestGenerate(t *testing.T) {
 	Version = "1.2.3"
-	fsa := FSAdapter{testfs, "testdata"}
 
-	fs.WalkDir(fsa, ".", func(path string, d fs.DirEntry, err error) error {
-		fmt.Println(path)
-		return nil
-	})
+	var testFiles fstest.MapFS = make(map[string]*fstest.MapFile)
+	testFiles["pageship.toml"] = &fstest.MapFile{Data: []byte(`[app]
+id = "pageship-test"
 
-	s, err := generateContent(fsa)
+team = []
+
+[app.deployments]
+# ttl = "24h"
+# access = []
+
+[[app.sites]]
+name = "main"
+
+# [[app.sites]]
+# name = "dev"
+
+# [[app.sites]]
+# name = "staging"
+
+[site]
+public = "dist"
+
+# access = []
+`)}
+
+	s, err := generateContent(testFiles)
 	assert.Empty(t, err)
 	assert.Equal(t, `FROM ghcr.io/oursky/pageship:v1.2.3
 EXPOSE 8000
-COPY dist /var/pageship
+COPY ./pageship.toml /var/pageship
+COPY ./dist /var/pageship/dist
 
 # INSTRUCTIONS:
 # 1. install docker (if it is not installed yet)

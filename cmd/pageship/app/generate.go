@@ -2,9 +2,11 @@ package app
 
 import (
 	"bytes"
+	"io/fs"
 	"os"
 	"text/template"
 
+	"github.com/oursky/pageship/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -25,7 +27,7 @@ var generateCmd = &cobra.Command{
 
 var Version = ""
 
-type dockerfileTemplate struct {
+type DockerfileTemplate struct {
 	Version    string
 	PublicPath string
 }
@@ -47,13 +49,26 @@ COPY ./{{.PublicPath}} /var/pageship/{{.PublicPath}}
 # 6. visit in browser (URL):
 #      localhost:PORT`
 
-func generateContent() (string, error) {
-	cfg, err := loadConfig(".")
-	if err != nil {
-		return "", err
+func generateContent(testfs ...fs.FS) (string, error) {
+	var cfg config.Config
+	if len(testfs) > 0 { //for testing, copied from utils.go
+		loader := config.NewLoader(config.SiteConfigName)
+
+		cfg = config.DefaultConfig()
+		if err := loader.Load(testfs[0], &cfg); err != nil {
+			return "", err
+		}
+
+		cfg.SetDefaults()
+	} else {
+		config, err := loadConfig(".")
+		cfg = *config
+		if err != nil {
+			return "", err
+		}
 	}
 
-	df := dockerfileTemplate{Version, cfg.Site.Public}
+	df := DockerfileTemplate{Version: Version, PublicPath: cfg.Site.Public}
 
 	tmpl, err := template.New("Dockerfile").Parse(dockerfileTemplateString)
 	if err != nil {
