@@ -1,9 +1,11 @@
 package app
 
 import (
+	"fmt"
 	"os"
-	"strings"
 
+	"github.com/oursky/pageship/internal/config"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -23,13 +25,13 @@ var generateCmd = &cobra.Command{
 }
 
 var Version = "dev"
-var dockerfileFrom = "FROM ghcr.io/oursky/pageship:v"
-var dockerfileExpose = "EXPOSE 8000"
-var dockerfileCopy = "COPY . /var/pageship"
-var dockerfileInstructions = `
+var dockerfileTemplate = `FROM ghcr.io/oursky/pageship:v%s
+EXPOSE 8000
+COPY %s /var/pageship
+
 # INSTRUCTIONS:
 # 1. install docker (if it is not installed yet)
-# 2. open a terminal and navigate to your static page folder
+# 2. open a terminal and navigate to folder containing pageship.toml
 # 3. run in terminal:
 #      pageship generate dockerfile
 # 4. build the image:
@@ -39,9 +41,19 @@ var dockerfileInstructions = `
 # 6. visit in browser (URL):
 #      localhost:PORT`
 
-func generateContent() string {
-	dockerfileFromVersion := dockerfileFrom + Version
-	return strings.Join([]string{dockerfileFromVersion, dockerfileExpose, dockerfileCopy, dockerfileInstructions}, "\n")
+func generateContent() (string, error) {
+	pageshiptoml, err := os.ReadFile("./pageship.toml")
+	if err != nil {
+		return "", err
+	}
+
+	var cfg config.Config
+	err = toml.Unmarshal([]byte(pageshiptoml), &cfg)
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf(dockerfileTemplate, Version, cfg.Site.Public), nil
 }
 
 var generateDockerfileCmd = &cobra.Command{
@@ -55,7 +67,11 @@ var generateDockerfileCmd = &cobra.Command{
 		defer f.Close()
 
 		Info("generating dockerfile...")
-		_, err = f.Write([]byte(generateContent()))
+		s, err := generateContent()
+		if err != nil {
+			return err
+		}
+		_, err = f.Write([]byte(s))
 		if err != nil {
 			return err
 		}
