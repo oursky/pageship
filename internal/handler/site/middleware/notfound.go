@@ -40,8 +40,7 @@ func NotFound(site *site.Descriptor, next http.Handler) http.Handler {
 			w.WriteHeader(404)
 			writer := internalhttputil.NewTimeoutResponseWriter(w, 10*time.Second)
 			rsc, _ := site.FS.Open(r.Context(), r.URL.Path)
-			b, _ := io.ReadAll(rsc)
-			writer.Write(b)
+			io.Copy(writer, rsc)
 		} else {
 			next.ServeHTTP(w, r)
 		}

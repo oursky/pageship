@@ -61,7 +61,6 @@ func (h *SiteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (h *SiteHandler) serveFile(w http.ResponseWriter, r *http.Request) {
 	info, err := h.publicFS.Stat(r.URL.Path)
 	if os.IsNotExist(err) {
-		fmt.Println("angy ", r.URL.Path)
 		http.NotFound(w, r)
 		return
 	} else if err != nil {
