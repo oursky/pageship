@@ -2,16 +2,20 @@ package middleware
 
 import (
 	"errors"
+	"io"
 	"io/fs"
 	"net/http"
 	"path"
+	"time"
 
+	internalhttputil "github.com/oursky/pageship/internal/httputil"
 	"github.com/oursky/pageship/internal/site"
 )
 
+const NotFoundPage = "404.html"
+
 func NotFound(site *site.Descriptor, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		const NotFoundPage = "404.html"
 		notFound := false
 
 		for {
@@ -34,7 +38,12 @@ func NotFound(site *site.Descriptor, next http.Handler) http.Handler {
 
 		if notFound {
 			w.WriteHeader(404)
+			writer := internalhttputil.NewTimeoutResponseWriter(w, 10*time.Second)
+			rsc, _ := site.FS.Open(r.Context(), r.URL.Path)
+			b, _ := io.ReadAll(rsc)
+			writer.Write(b)
+		} else {
+			next.ServeHTTP(w, r)
 		}
-		next.ServeHTTP(w, r)
 	})
 }
