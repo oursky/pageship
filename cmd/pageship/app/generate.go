@@ -49,13 +49,13 @@ COPY ./{{.PublicPath}} /var/pageship/{{.PublicPath}}
 # 6. visit in browser (URL):
 #      localhost:PORT`
 
-func generateContent(testfs ...fs.FS) (string, error) {
+func generateContent(testfs fs.FS) (string, error) {
 	var cfg config.Config
-	if len(testfs) > 0 { //for testing, copied from utils.go
+	if testfs != nil { //for testing, copied from utils.go
 		loader := config.NewLoader(config.SiteConfigName)
 
 		cfg = config.DefaultConfig()
-		if err := loader.Load(testfs[0], &cfg); err != nil {
+		if err := loader.Load(testfs, &cfg); err != nil {
 			return "", err
 		}
 
@@ -98,7 +98,7 @@ var generateDockerfileCmd = &cobra.Command{
 		defer f.Close()
 
 		Info("generating Dockerfile...")
-		s, err := generateContent()
+		s, err := generateContent(nil)
 		if err != nil {
 			return err
 		}
